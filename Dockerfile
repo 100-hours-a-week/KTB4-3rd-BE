@@ -5,7 +5,7 @@ ARG JRE_IMAGE=eclipse-temurin:21-jre-jammy
 
 FROM ${JDK_IMAGE} AS build
 WORKDIR /workspace
-COPY gradlew settings.gradle* build.gradle* gradle.properties* ./
+COPY gradlew settings.gradle* build.gradle* ./
 COPY gradle ./gradle
 RUN chmod +x gradlew && ./gradlew --no-daemon dependencies >/dev/null
 COPY src ./src
