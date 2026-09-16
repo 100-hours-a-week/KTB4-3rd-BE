@@ -40,9 +40,9 @@ class GlobalExceptionHandlerTest {
     void businessException() throws Exception {
         mockMvc.perform(get("/test/business"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CAPACITY_FULL"))
+                .andExpect(jsonPath("$.error.code").value("CAPACITY_FULL"))
                 .andExpect(jsonPath("$.message").value("정원이 가득 찼습니다."))
-                .andExpect(jsonPath("$.details").doesNotExist());
+                .andExpect(jsonPath("$.error.details").doesNotExist());
     }
 
     @Test
@@ -52,8 +52,8 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"\",\"termsAgreed\":false}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.length()").value(3));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details.length()").value(3));
     }
 
     @Test
@@ -63,8 +63,8 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"valid\",\"termsAgreed\":false}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.details[0].field").value("terms_agreed"))
-                .andExpect(jsonPath("$.details[0].reason").value("REQUIRED"));
+                .andExpect(jsonPath("$.error.details[0].field").value("terms_agreed"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
     }
 
     @Test
@@ -74,15 +74,15 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"닉네임이아주아주아주길어요\",\"termsAgreed\":true}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.details[0].field").value("nickname"))
-                .andExpect(jsonPath("$.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+                .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
 
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"a\",\"termsAgreed\":true}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.details[0].field").value("nickname"))
-                .andExpect(jsonPath("$.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+                .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
     }
 
     @RepeatedTest(5)
@@ -91,15 +91,16 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"\",\"termsAgreed\":false,\"bankName\":\"없는은행\"}"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.details.length()").value(4))
-                .andExpect(jsonPath("$.details[0].field").value("nickname"))
-                .andExpect(jsonPath("$.details[0].reason").value("REQUIRED"))
-                .andExpect(jsonPath("$.details[1].field").value("nickname"))
-                .andExpect(jsonPath("$.details[1].reason").value("LENGTH_OUT_OF_RANGE"))
-                .andExpect(jsonPath("$.details[2].field").value("terms_agreed"))
-                .andExpect(jsonPath("$.details[3].field").value("bank_name"))
-                .andExpect(jsonPath("$.details[3].reason").value("INVALID_ENUM"));
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.details.length()").value(4))
+                .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"))
+                .andExpect(jsonPath("$.error.details[1].field").value("nickname"))
+                .andExpect(jsonPath("$.error.details[1].reason").value("LENGTH_OUT_OF_RANGE"))
+                .andExpect(jsonPath("$.error.details[2].field").value("terms_agreed"))
+                .andExpect(jsonPath("$.error.details[3].field").value("bank_name"))
+                .andExpect(jsonPath("$.error.details[3].reason").value("INVALID_ENUM"))
+                .andExpect(jsonPath("$.error.field").value("nickname"));
     }
 
     @Test
@@ -108,9 +109,9 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"valid\",\"termsAgreed\":true,\"bankName\":\"없는은행\"}"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.details[0].field").value("bank_name"))
-                .andExpect(jsonPath("$.details[0].reason").value("INVALID_ENUM"));
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.details[0].field").value("bank_name"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));
     }
 
     @Test
@@ -120,7 +121,7 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\": "))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+                .andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
     }
 
     @Test
@@ -128,8 +129,8 @@ class GlobalExceptionHandlerTest {
     void typeMismatch() throws Exception {
         mockMvc.perform(get("/test/param").param("size", "not-a-number"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"))
-                .andExpect(jsonPath("$.details[0].field").value("size"));
+                .andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"))
+                .andExpect(jsonPath("$.error.details[0].field").value("size"));
     }
 
     @Test
@@ -137,8 +138,8 @@ class GlobalExceptionHandlerTest {
     void missingParameter() throws Exception {
         mockMvc.perform(get("/test/param"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details[0].reason").value("REQUIRED"));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
     }
 
     @Test
@@ -146,7 +147,7 @@ class GlobalExceptionHandlerTest {
     void methodNotAllowed() throws Exception {
         mockMvc.perform(post("/test/business"))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+                .andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"));
     }
 
     @Test
@@ -154,7 +155,7 @@ class GlobalExceptionHandlerTest {
     void unexpectedException() throws Exception {
         mockMvc.perform(get("/test/boom"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.message").value("서버 내부 오류가 발생했습니다."));
     }
 
@@ -163,7 +164,7 @@ class GlobalExceptionHandlerTest {
     void endpointNotFound() throws Exception {
         mockMvc.perform(get("/test/no-such-endpoint"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("ENDPOINT_NOT_FOUND"));
+                .andExpect(jsonPath("$.error.code").value("ENDPOINT_NOT_FOUND"));
     }
 
     @RestController
