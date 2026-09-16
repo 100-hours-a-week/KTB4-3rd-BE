@@ -5,6 +5,9 @@ import com.ktb.moyeota.global.common.ErrorResponse;
 import com.ktb.moyeota.global.common.FieldErrorDetail;
 import com.ktb.moyeota.global.common.SnakeCaseConverter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import java.lang.reflect.RecordComponent;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -52,6 +55,18 @@ public class GlobalExceptionHandler {
                         .map(error -> detailOf(
                                 fieldNameOf(error, result.getMethodParameter().getParameterName()),
                                 ValidationReason.from(lastCodeOf(error.getCodes()), error.getDefaultMessage()))))
+                .toList();
+        return validationFailed(details);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(
+            ConstraintViolationException e) {
+
+        List<FieldErrorDetail> details = e.getConstraintViolations().stream()
+                .map(violation -> detailOf(
+                        lastNodeOf(violation.getPropertyPath()),
+                        ValidationReason.from(annotationNameOf(violation), violation.getMessage())))
                 .toList();
         return validationFailed(details);
     }
@@ -153,6 +168,18 @@ public class GlobalExceptionHandler {
 
     private static FieldErrorDetail detailOf(String field, ValidationReason reason) {
         return FieldErrorDetail.of(SnakeCaseConverter.convert(field), reason.name());
+    }
+
+    private static String lastNodeOf(Path propertyPath) {
+        String last = null;
+        for (Path.Node node : propertyPath) {
+            last = node.getName();
+        }
+        return last;
+    }
+
+    private static String annotationNameOf(ConstraintViolation<?> violation) {
+        return violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName();
     }
 
     private static String fieldNameOf(MessageSourceResolvable error, String fallback) {
