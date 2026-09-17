@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: moyeota
+  jackson:
+    time-zone: Asia/Seoul
+  datasource:
+    url: jdbc:h2:mem:moyeota-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+
+moyeota:
+  auth:
+    jwt:
+      secret: test-only-moyeota-access-token-secret-0123456789
+      issuer: moyeota
+      access-token-ttl: 30m
