@@ -16,3 +16,6 @@ moyeota:
     jwt:
       issuer: moyeota
       access-token-ttl: 30m
+  cors:
+    allowed-origins:
+      - http://localhost:3000

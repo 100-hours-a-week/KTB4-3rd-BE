@@ -18,3 +18,6 @@ moyeota:
       secret: test-only-moyeota-access-token-secret-0123456789
       issuer: moyeota
       access-token-ttl: 30m
+  cors:
+    allowed-origins:
+      - http://localhost:3000

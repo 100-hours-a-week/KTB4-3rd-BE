@@ -18,3 +18,6 @@ moyeota:
   auth:
     jwt:
       secret: ${JWT_SECRET}
+  cors:
+    allowed-origins:
+      - ${FRONT_URL}
