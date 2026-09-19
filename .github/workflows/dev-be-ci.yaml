@@ -1,15 +1,21 @@
 name: BE CI
 
 on:
+  # PR 은 검증만 수행하고 ECR push 와 배포는 하지 않는다.
+  # hotfix/* 는 main 으로 PR 을 보내므로 아래 main 대상 PR 에 포함된다.
   pull_request:
     branches:
       - develop
       - main
       - 'release/**'
+
+  # develop, release/* 로의 직접 push 는 branch protection 으로 차단되므로
+  # 이 이벤트는 사실상 "PR 이 병합되어 ref 가 전진했을 때"의 push를 의미한다.
   push:
     branches:
       - develop
       - 'release/**'
+      
   workflow_dispatch:
 
 permissions:
@@ -44,14 +50,11 @@ jobs:
       - name: Grant Gradle permission
         run: chmod +x ./gradlew
 
-      - name: Unit test
+      - name: Install dependencies and run unit tests
         run: ./gradlew --no-daemon test
 
       - name: Build executable jar
         run: ./gradlew --no-daemon bootJar
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Resolve image tag
         id: meta
@@ -67,6 +70,10 @@ jobs:
             [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
             image_tag="rc-${version}-${GITHUB_SHA:0:7}"
             push_image=true
+          elif [[ "$GITHUB_REF_NAME" == hotfix/* ]]; then
+            image_tag="hf-${GITHUB_SHA:0:7}"
+            release_version=""
+            push_image=false
           else
             image_tag="pr-${GITHUB_SHA:0:7}"
             push_image=false
@@ -80,14 +87,10 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
-        env:
-          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
-          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
-          BUILD_DATE: ${{ steps.meta.outputs.build_date }}
         run: |
           set -Eeuo pipefail
 
-          docker buildx build \
+          DOCKER_BUILDKIT=1 docker build \
             --file Dockerfile \
             --tag "moyeota-be:${IMAGE_TAG}" \
             --build-arg "BUILD_SHA=${GITHUB_SHA}" \
@@ -105,38 +108,20 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: be-ci-${{ github.run_id }}
+          role-session-name: fe-ci-${{ github.run_id }}
 
       - name: Login to ECR
         if: steps.meta.outputs.push_image == 'true'
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Push image and capture digest
+      - name: Push image
         if: steps.meta.outputs.push_image == 'true'
         env:
           IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
-        shell: bash
         run: |
           set -Eeuo pipefail
 
           remote_image="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
-          docker tag "moyeota-be:${IMAGE_TAG}" "$remote_image"
+          docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "$remote_image"
           docker push "$remote_image"
-
-          digest="$(docker buildx imagetools inspect "$remote_image" --format '{{.Manifest.Digest}}')"
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-
-          {
-            echo "IMAGE=${ECR_REGISTRY}/${ECR_REPOSITORY}@${digest}"
-            echo "TAG=${IMAGE_TAG}"
-            echo "SOURCE_SHA=${GITHUB_SHA}"
-          } > image.env
-
-      - name: Upload image metadata
-        if: steps.meta.outputs.push_image == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: be-image-${{ github.sha }}
-          path: image.env
-          retention-days: 7
