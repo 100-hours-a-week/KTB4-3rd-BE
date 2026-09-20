@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,6 +42,15 @@ public class AuthTokenController {
         };
     }
 
+    @DeleteMapping("/auth/sessions")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = AuthCookies.REFRESH_TOKEN, required = false) String refreshToken) {
+
+        authSessionService.revokeSession(refreshToken);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, authCookies.expiredRefreshToken().toString())
+                .build();
+    }
 
     private BusinessException rejected(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE, authCookies.expiredRefreshToken().toString());

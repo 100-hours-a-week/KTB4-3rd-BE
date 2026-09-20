@@ -53,7 +53,14 @@ public class AuthSessionService {
         return rotate(view, now);
     }
 
-
+    @Transactional
+    public void revokeSession(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+        sessionStore.findToken(refreshTokenFactory.hash(refreshToken))
+                .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
+    }
 
     private ReissueResult rotate(SessionTokenView view, LocalDateTime now) {
         String rotated = refreshTokenFactory.generate();

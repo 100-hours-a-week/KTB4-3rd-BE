@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.auth.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -50,6 +51,27 @@ class AuthTokenControllerTest {
 
     @MockitoBean
     private AuthSessionService authSessionService;
+
+    @Test
+    @DisplayName("로그아웃은 204와 함께 쿠키를 지운다")
+    void logoutClearsCookie() throws Exception {
+        mockMvc.perform(delete("/auth/sessions").cookie(new Cookie(REFRESH_TOKEN, "any-value")))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(REFRESH_TOKEN, 0))
+                .andExpect(cookie().path(REFRESH_TOKEN, "/auth"));
+
+        verify(authSessionService).revokeSession("any-value");
+    }
+
+    @Test
+    @DisplayName("쿠키 없이 로그아웃해도 204다")
+    void logoutIsIdempotent() throws Exception {
+        mockMvc.perform(delete("/auth/sessions"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(REFRESH_TOKEN, 0));
+
+        verify(authSessionService).revokeSession(null);
+    }
 
     @Test
     @DisplayName("회전하면 새 리프레시 토큰이 쿠키로 내려간다")
