@@ -18,6 +18,7 @@ import java.lang.annotation.Target;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(controllers = {ValidationPathTest.TestController.class, ValidationPathTest.AopValidatedController.class})
 @Import({GlobalExceptionHandler.class, ValidationPathTest.TestController.class,
         ValidationPathTest.AopValidatedController.class})

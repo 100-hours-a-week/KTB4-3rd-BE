@@ -13,3 +13,11 @@ spring:
   h2:
     console:
       enabled: false
+
+moyeota:
+  auth:
+    jwt:
+      secret: ${JWT_SECRET}
+  cors:
+    allowed-origins:
+      - ${FRONT_URL}
