@@ -1,32 +1,45 @@
 package com.ktb.moyeota.global.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
 import com.ktb.moyeota.global.config.CorsProperties;
+import com.ktb.moyeota.global.exception.GlobalExceptionHandler;
+import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
+import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
+import com.ktb.moyeota.global.security.resolver.AuthUser;
+import jakarta.servlet.DispatcherType;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultMatcher;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@WebMvcTest(controllers = SecurityConfigTest.ProbeController.class)
-@Import({SecurityConfig.class, CorsConfig.class, JwtConfig.class, ClockConfig.class, AccessTokenProvider.class,
-        SecurityConfigTest.ProbeController.class})
+@WebMvcTest(controllers = SecurityConfigTest.MatrixController.class)
+@Import({SecurityConfig.class, CorsConfig.class, JwtConfig.class, ClockConfig.class,
+        AccessTokenProvider.class, ApiAuthenticationEntryPoint.class, ApiAccessDeniedHandler.class,
+        GlobalExceptionHandler.class, SecurityConfigTest.MatrixController.class})
 @EnableConfigurationProperties({AuthProperties.class, CorsProperties.class})
 class SecurityConfigTest {
 
@@ -36,51 +49,182 @@ class SecurityConfigTest {
     @Autowired
     private AccessTokenProvider accessTokenProvider;
 
-    @Test
-    @DisplayName("Boot 기본 체인이 아니라 우리 체인이 적용되어 토큰 없이도 요청이 통과한다")
-    void permitsRequestWithoutToken() throws Exception {
-        mockMvc.perform(get("/probe/me"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("anonymous"));
-    }
+    @Nested
+    @DisplayName("비로그인으로 열린 경로")
+    class PublicPaths {
 
-    @Test
-    @DisplayName("유효한 액세스 토큰은 검증되어 sub가 인증 주체로 올라온다")
-    void authenticatesValidToken() throws Exception {
-        String token = accessTokenProvider.issue(42L).value();
-
-        mockMvc.perform(get("/probe/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(content().string("42"));
-    }
-
-    @Test
-    @DisplayName("위조된 토큰은 401로 거부된다")
-    void rejectsForgedToken() throws Exception {
-        mockMvc.perform(get("/probe/me").header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    @DisplayName("CSRF가 꺼져 있어 토큰 없는 POST도 403이 아니다")
-    void csrfIsDisabled() throws Exception {
-        mockMvc.perform(post("/probe/write"))
-                .andExpect(status().isOk());
-    }
-
-
-
-    @RestController
-    static class ProbeController {
-
-        @GetMapping("/probe/me")
-        String me(@AuthenticationPrincipal Jwt jwt) {
-            return jwt == null ? "anonymous" : jwt.getSubject();
+        @Test
+        @DisplayName("카카오 로그인 진입과 콜백은 토큰 없이 통과한다")
+        void oauthLoginPathsArePublic() throws Exception {
+            mockMvc.perform(get("/auth/kakao/login")).andExpect(status().isOk());
+            mockMvc.perform(get("/auth/kakao/callback")).andExpect(status().isOk());
         }
 
-        @PostMapping("/probe/write")
-        String write() {
+        @Test
+        @DisplayName("재발급과 로그아웃은 토큰 없이 통과한다")
+        void authTokenPathsArePublic() throws Exception {
+            mockMvc.perform(post("/auth/tokens")).andExpect(status().isOk());
+            mockMvc.perform(delete("/auth/sessions")).andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("회원가입 세션 전용 경로")
+    class SignupPaths {
+
+        @Test
+        @DisplayName("SIGNUP 권한은 회원가입을 호출할 수 있다")
+        void signupAuthorityCanRegister() throws Exception {
+            mockMvc.perform(post("/users").with(signup())).andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("USER 권한은 회원가입을 호출할 수 없다")
+        void userAuthorityCannotRegister() throws Exception {
+            mockMvc.perform(post("/users").with(user()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("토큰 없이 회원가입을 호출하면 401이다")
+        void anonymousCannotRegister() throws Exception {
+            mockMvc.perform(post("/users"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
+
+        @Test
+        @DisplayName("닉네임 중복 확인은 SIGNUP과 USER 양쪽이 호출할 수 있다")
+        void nicknameAvailabilityAllowsBoth() throws Exception {
+            mockMvc.perform(get("/users/nickname-availability").with(signup()))
+                    .andExpect(status().isOk());
+            mockMvc.perform(get("/users/nickname-availability").with(user()))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("그 외 모든 경로")
+    class ProtectedPaths {
+
+        @Test
+        @DisplayName("USER 권한이면 통과한다")
+        void userAuthorityPasses() throws Exception {
+            mockMvc.perform(get("/probe/me").with(user()))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("42"));
+        }
+
+        @Test
+        @DisplayName("SIGNUP 권한으로는 접근할 수 없다")
+        void signupAuthorityIsForbidden() throws Exception {
+            mockMvc.perform(get("/probe/me").with(signup()))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("토큰이 없으면 401이다")
+        void anonymousIsUnauthorized() throws Exception {
+            mockMvc.perform(get("/probe/me"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                    .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+        }
+    }
+
+    @Nested
+    @DisplayName("에러 디스패치 경로")
+    class ErrorPath {
+
+        @Test
+        @DisplayName("ERROR 디스패치로 들어온 /error는 인증 없이도 인가에 막히지 않는다")
+        void errorDispatchIsNotBlocked() throws Exception {
+            mockMvc.perform(get("/error").with(request -> {
+                        request.setDispatcherType(DispatcherType.ERROR);
+                        return request;
+                    }))
+                    .andExpect(notBlockedByAuthorization());
+        }
+
+        @Test
+        @DisplayName("일반 요청으로 들어온 /error도 인가에 막히지 않는다")
+        void errorPathIsNotBlocked() throws Exception {
+            mockMvc.perform(get("/error"))
+                    .andExpect(notBlockedByAuthorization());
+        }
+    }
+
+    @Nested
+    @DisplayName("토큰 검증 실패")
+    class InvalidToken {
+
+        @Test
+        @DisplayName("JWT 형식이 아닌 토큰은 401이다")
+        void malformedTokenIsUnauthorized() throws Exception {
+            mockMvc.perform(get("/probe/me").header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        }
+
+        @Test
+        @DisplayName("실제 발급한 토큰은 통과한다")
+        void issuedTokenPasses() throws Exception {
+            String token = accessTokenProvider.issue(7L).value();
+
+            mockMvc.perform(get("/probe/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("7"));
+        }
+    }
+
+    private static ResultMatcher notBlockedByAuthorization() {
+        return result -> assertThat(result.getResponse().getStatus())
+                .isNotIn(HttpStatus.UNAUTHORIZED.value(), HttpStatus.FORBIDDEN.value());
+    }
+
+    private static RequestPostProcessor user() {
+        return jwt().jwt(builder -> builder.subject("42"))
+                .authorities(Authority.USER);
+    }
+
+    private static RequestPostProcessor signup() {
+        return jwt().jwt(builder -> builder.subject("42"))
+                .authorities(Authority.SIGNUP);
+    }
+
+    @RestController
+    static class MatrixController {
+
+        @GetMapping({"/auth/kakao/login", "/auth/kakao/callback"})
+        String publicAuth() {
             return "ok";
+        }
+
+        @PostMapping("/auth/tokens")
+        String reissue() {
+            return "ok";
+        }
+
+        @DeleteMapping("/auth/sessions")
+        String logout() {
+            return "ok";
+        }
+
+        @PostMapping("/users")
+        String signUp() {
+            return "ok";
+        }
+
+        @GetMapping("/users/nickname-availability")
+        String checkNickname() {
+            return "ok";
+        }
+
+        @GetMapping("/probe/me")
+        String me(@AuthUser Long userId) {
+            return String.valueOf(userId);
         }
     }
 }
