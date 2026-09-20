@@ -27,6 +27,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  IMAGE_NAME: moyeota-be
 
 
 jobs:
@@ -62,6 +63,8 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          release_version=""
+
           if [[ "$GITHUB_REF_NAME" == develop ]]; then
             image_tag="dev-${GITHUB_SHA:0:7}"
             push_image=true
@@ -69,10 +72,10 @@ jobs:
             version="${GITHUB_REF_NAME#release/}"
             [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
             image_tag="rc-${version}-${GITHUB_SHA:0:7}"
+            release_version="$version"
             push_image=true
           elif [[ "$GITHUB_REF_NAME" == hotfix/* ]]; then
             image_tag="hf-${GITHUB_SHA:0:7}"
-            release_version=""
             push_image=false
           else
             image_tag="pr-${GITHUB_SHA:0:7}"
@@ -82,17 +85,21 @@ jobs:
           {
             echo "image_tag=$image_tag"
             echo "push_image=$push_image"
-            echo "release_version=${GITHUB_REF_NAME#release/}"
+            echo "release_version=$release_version"
             echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+          BUILD_DATE: ${{ steps.meta.outputs.build_date }}
         run: |
           set -Eeuo pipefail
 
           DOCKER_BUILDKIT=1 docker build \
             --file Dockerfile \
-            --tag "moyeota-be:${IMAGE_TAG}" \
+            --tag "${IMAGE_NAME}:${IMAGE_TAG}" \
             --build-arg "BUILD_SHA=${GITHUB_SHA}" \
             --build-arg "RELEASE_VERSION=${RELEASE_VERSION}" \
             --build-arg "BUILD_DATE=${BUILD_DATE}" \
@@ -101,7 +108,10 @@ jobs:
             --cache-to "type=gha,mode=max,scope=be-${GITHUB_REF_NAME}" \
             --load \
             .
-
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        shell: bash
+        
       - name: Configure AWS credentials
         if: steps.meta.outputs.push_image == 'true'
         uses: aws-actions/configure-aws-credentials@v4
