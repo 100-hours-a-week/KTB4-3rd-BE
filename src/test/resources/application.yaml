@@ -1,29 +1,33 @@
 spring:
   application:
     name: moyeota
-  profiles:
-    default: local
   jackson:
     time-zone: Asia/Seoul
     property-naming-strategy: SNAKE_CASE
+  datasource:
+    url: jdbc:h2:mem:moyeota-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
   jpa:
     open-in-view: false
-
-server:
-  port: 8080
+    hibernate:
+      ddl-auto: create-drop
 
 moyeota:
   auth:
     jwt:
+      secret: test-only-moyeota-access-token-secret-0123456789
       issuer: moyeota
       access-token-ttl: 30m
     refresh:
       ttl: 7d
       grace: 10s
     cookie:
-      secure: true
+      secure: false
   oauth:
     kakao:
+      client-id: test-kakao-client-id
+      redirect-uri: http://localhost:8080/auth/kakao/callback
       authorize-uri: https://kauth.kakao.com/oauth/authorize
   cors:
     allowed-origins:

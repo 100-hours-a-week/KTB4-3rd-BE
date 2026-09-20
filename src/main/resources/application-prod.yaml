@@ -13,3 +13,15 @@ spring:
   h2:
     console:
       enabled: false
+
+moyeota:
+  auth:
+    jwt:
+      secret: ${JWT_SECRET}
+  oauth:
+    kakao:
+      client-id: ${KAKAO_CLIENT_ID}
+      redirect-uri: ${KAKAO_REDIRECT_URI}
+  cors:
+    allowed-origins:
+      - ${FRONT_URL}
