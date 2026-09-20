@@ -4,8 +4,8 @@ import com.ktb.moyeota.domain.auth.model.AuthorizeRedirect;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
 import com.ktb.moyeota.global.external.kakao.KakaoOAuthClient;
 import java.net.URI;
-import java.security.SecureRandom;
-import java.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,14 +13,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class OAuthLoginService {
 
-    private static final int STATE_BYTES = 32;
-
-    private final SecureRandom secureRandom = new SecureRandom();
+    private static final String ACCESS_DENIED = "access_denied";
 
     private final KakaoOAuthClient kakaoOAuthClient;
+    private final OpaqueTokenFactory opaqueTokenFactory;
 
     public AuthorizeRedirect buildAuthorizeRedirect(OAuthProvider provider) {
-        String state = generateState();
+        String state = opaqueTokenFactory.generate();
         URI location = switch (provider) {
             case KAKAO -> kakaoOAuthClient.buildAuthorizeUri(state);
         };

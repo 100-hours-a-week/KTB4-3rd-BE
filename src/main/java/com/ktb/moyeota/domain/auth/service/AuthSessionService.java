@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthSessionService {
 
     private final SessionStore sessionStore;
-    private final RefreshTokenFactory refreshTokenFactory;
+    private final OpaqueTokenFactory opaqueTokenFactory;
     private final AccessTokenProvider accessTokenProvider;
     private final AuthProperties authProperties;
     private final Clock clock;
@@ -32,7 +32,7 @@ public class AuthSessionService {
             return new ReissueResult.Rejected();
         }
 
-        Optional<SessionTokenView> found = sessionStore.findToken(refreshTokenFactory.hash(refreshToken));
+        Optional<SessionTokenView> found = sessionStore.findToken(opaqueTokenFactory.hash(refreshToken));
         if (found.isEmpty()) {
             return new ReissueResult.Rejected();
         }
@@ -58,13 +58,13 @@ public class AuthSessionService {
         if (refreshToken == null || refreshToken.isBlank()) {
             return;
         }
-        sessionStore.findToken(refreshTokenFactory.hash(refreshToken))
+        sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
                 .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
     }
 
     private ReissueResult rotate(SessionTokenView view, LocalDateTime now) {
-        String rotated = refreshTokenFactory.generate();
-        sessionStore.appendToken(view.sessionId(), refreshTokenFactory.hash(rotated));
+        String rotated = opaqueTokenFactory.generate();
+        sessionStore.appendToken(view.sessionId(), opaqueTokenFactory.hash(rotated));
         return new ReissueResult.Rotated(
                 accessTokenProvider.issue(view.userId()),
                 rotated,

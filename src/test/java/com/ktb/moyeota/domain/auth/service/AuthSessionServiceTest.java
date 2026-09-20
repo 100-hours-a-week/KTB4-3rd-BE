@@ -26,7 +26,7 @@ class AuthSessionServiceTest {
     private static final Duration REFRESH_TTL = Duration.ofDays(7);
 
     private final SessionStore sessionStore = new InMemorySessionStore();
-    private final RefreshTokenFactory refreshTokenFactory = new RefreshTokenFactory();
+    private final OpaqueTokenFactory opaqueTokenFactory = new OpaqueTokenFactory();
     private MutableClock clock;
     private AuthSessionService service;
 
@@ -43,18 +43,18 @@ class AuthSessionServiceTest {
         AccessTokenProvider accessTokenProvider = new AccessTokenProvider(
                 jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties)), properties, clock);
         service = new AuthSessionService(
-                sessionStore, refreshTokenFactory, accessTokenProvider, properties, clock);
+                sessionStore, opaqueTokenFactory, accessTokenProvider, properties, clock);
     }
 
     private LocalDateTime supersededAtOf(String refreshToken) {
-        return sessionStore.findToken(refreshTokenFactory.hash(refreshToken))
+        return sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
                 .orElseThrow()
                 .supersededAt();
     }
 
     private String openSession() {
-        String refreshToken = refreshTokenFactory.generate();
-        sessionStore.create(USER_ID, refreshTokenFactory.hash(refreshToken),
+        String refreshToken = opaqueTokenFactory.generate();
+        sessionStore.create(USER_ID, opaqueTokenFactory.hash(refreshToken),
                 LocalDateTime.now(clock).plus(REFRESH_TTL));
         return refreshToken;
     }
@@ -135,7 +135,7 @@ class AuthSessionServiceTest {
             clock.advance(REFRESH_TTL);
 
             assertThat(service.reissue(token)).isInstanceOf(ReissueResult.Rejected.class);
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(token))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(token))).isEmpty();
         }
 
         @Test
@@ -171,8 +171,8 @@ class AuthSessionServiceTest {
 
             service.revokeSession(first);
 
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(first))).isEmpty();
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(second))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(first))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(second))).isEmpty();
         }
 
         @Test
