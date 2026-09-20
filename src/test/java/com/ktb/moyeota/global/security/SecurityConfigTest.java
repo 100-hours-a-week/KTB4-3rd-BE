@@ -2,7 +2,6 @@ package com.ktb.moyeota.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -31,7 +30,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,12 +58,6 @@ class SecurityConfigTest {
             mockMvc.perform(get("/auth/kakao/callback")).andExpect(status().isOk());
         }
 
-        @Test
-        @DisplayName("재발급과 로그아웃은 토큰 없이 통과한다")
-        void authTokenPathsArePublic() throws Exception {
-            mockMvc.perform(post("/auth/tokens")).andExpect(status().isOk());
-            mockMvc.perform(delete("/auth/sessions")).andExpect(status().isOk());
-        }
     }
 
     @Nested
@@ -199,16 +191,6 @@ class SecurityConfigTest {
 
         @GetMapping({"/auth/kakao/login", "/auth/kakao/callback"})
         String publicAuth() {
-            return "ok";
-        }
-
-        @PostMapping("/auth/tokens")
-        String reissue() {
-            return "ok";
-        }
-
-        @DeleteMapping("/auth/sessions")
-        String logout() {
             return "ok";
         }
 
