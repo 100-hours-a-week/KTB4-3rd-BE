@@ -22,6 +22,9 @@ moyeota:
       grace: 10s
     cookie:
       secure: true
+  oauth:
+    kakao:
+      authorize-uri: https://kauth.kakao.com/oauth/authorize
   cors:
     allowed-origins:
       - http://localhost:3000

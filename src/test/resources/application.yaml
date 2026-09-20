@@ -24,6 +24,11 @@ moyeota:
       grace: 10s
     cookie:
       secure: false
+  oauth:
+    kakao:
+      client-id: test-kakao-client-id
+      redirect-uri: http://localhost:8080/auth/kakao/callback
+      authorize-uri: https://kauth.kakao.com/oauth/authorize
   cors:
     allowed-origins:
       - http://localhost:3000
