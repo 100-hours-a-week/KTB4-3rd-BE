@@ -5,7 +5,7 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "moyeota.auth")
-public record AuthProperties(Jwt jwt, Refresh refresh, Cookie cookie) {
+public record AuthProperties(Jwt jwt, Refresh refresh, Signup signup, Cookie cookie) {
 
     public AuthProperties {
         if (jwt == null) {
@@ -13,6 +13,9 @@ public record AuthProperties(Jwt jwt, Refresh refresh, Cookie cookie) {
         }
         if (refresh == null) {
             throw new IllegalStateException("moyeota.auth.refresh 설정이 필요합니다.");
+        }
+        if (signup == null) {
+            throw new IllegalStateException("moyeota.auth.signup 설정이 필요합니다.");
         }
         if (cookie == null) {
             throw new IllegalStateException("moyeota.auth.cookie 설정이 필요합니다.");
@@ -48,6 +51,15 @@ public record AuthProperties(Jwt jwt, Refresh refresh, Cookie cookie) {
             }
             if (grace.compareTo(ttl) >= 0) {
                 throw new IllegalStateException("moyeota.auth.refresh.grace는 ttl보다 짧아야 합니다.");
+            }
+        }
+    }
+
+    public record Signup(Duration ttl) {
+
+        public Signup {
+            if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+                throw new IllegalStateException("moyeota.auth.signup.ttl은 양수여야 합니다.");
             }
         }
     }

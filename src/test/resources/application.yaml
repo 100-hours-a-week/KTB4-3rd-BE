@@ -22,6 +22,8 @@ moyeota:
     refresh:
       ttl: 7d
       grace: 10s
+    signup:
+      ttl: 15m
     cookie:
       secure: false
   oauth:

@@ -35,6 +35,14 @@ class AuthPropertiesTest {
     }
 
     @Test
+    @DisplayName("회원가입 세션 수명이 0 이하이면 거부한다")
+    void rejectsNonPositiveSignupTtl() {
+        assertThatThrownBy(() -> new AuthProperties.Signup(Duration.ZERO))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("signup.ttl");
+    }
+
+    @Test
     @DisplayName("토큰 수명이 0 이하이면 거부한다")
     void rejectsNonPositiveTtl() {
         assertThatThrownBy(() -> new AuthProperties.Jwt(VALID_SECRET, "moyeota", Duration.ZERO))

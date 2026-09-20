@@ -38,6 +38,7 @@ class AuthSessionServiceTest {
                         "test-only-moyeota-access-token-secret-0123456789", "moyeota",
                         Duration.ofMinutes(30)),
                 new AuthProperties.Refresh(REFRESH_TTL, GRACE),
+                new AuthProperties.Signup(Duration.ofMinutes(15)),
                 new AuthProperties.Cookie(false));
         JwtConfig jwtConfig = new JwtConfig();
         AccessTokenProvider accessTokenProvider = new AccessTokenProvider(
