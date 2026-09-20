@@ -19,7 +19,7 @@ public record CommunityPostDetailResponse(
     public static CommunityPostDetailResponse from(CommunityPost post) {
         return new CommunityPostDetailResponse(
                 post.getId(),
-                post.getAuthorId(),
+                post.getAuthor().getId(),
                 post.getTitle(),
                 post.getContent(),
                 post.getLat(),

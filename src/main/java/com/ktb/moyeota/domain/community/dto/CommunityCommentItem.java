@@ -1,23 +1,22 @@
 package com.ktb.moyeota.domain.community.dto;
 
-import com.ktb.moyeota.domain.community.repository.CommunityCommentProjection;
+import com.ktb.moyeota.domain.community.entity.CommunityComment;
 import java.time.LocalDateTime;
 
+/**
+ * TODO: 댓글 작성자(author) 표시 필드는 별도 설계 예정 — 지금은 포함하지 않는다.
+ */
 public record CommunityCommentItem(
         Long id,
-        Long authorId,
-        String authorNickname,
         String content,
         LocalDateTime createdAt
 ) {
 
-    public static CommunityCommentItem from(CommunityCommentProjection projection) {
+    public static CommunityCommentItem from(CommunityComment comment) {
         return new CommunityCommentItem(
-                projection.getId(),
-                projection.getAuthorId(),
-                projection.getAuthorNickname(),
-                projection.getContent(),
-                projection.getCreatedAt()
+                comment.getId(),
+                comment.getContent(),
+                comment.getCreatedAt()
         );
     }
 }

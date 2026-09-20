@@ -1,12 +1,16 @@
 package com.ktb.moyeota.domain.companion.entity;
 
+import com.ktb.moyeota.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -27,11 +31,13 @@ public class Companion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "creator_id", nullable = false)
-    private Long creatorId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creator_id", nullable = false)
+    private User creator;
 
-    @Column(name = "host_id", nullable = false)
-    private Long hostId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "host_id", nullable = false)
+    private User host;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -53,10 +59,6 @@ public class Companion {
     @Column(name = "origin_lng", nullable = false, precision = 9, scale = 6)
     private BigDecimal originLng;
 
-    // origin_location은 origin_lat/origin_lng로부터 DB가 계산하는 생성 컬럼(STORED)이라
-    // 엔티티에 매핑하지 않는다. SPATIAL INDEX 조회가 필요한 곳(지도 핀 등)은
-    // Repository의 native query에서 컬럼명을 직접 참조한다.
-
     @Column(name = "dest_name", nullable = false, length = 100)
     private String destName;
 
@@ -65,8 +67,6 @@ public class Companion {
 
     @Column(name = "dest_lng", nullable = false, precision = 9, scale = 6)
     private BigDecimal destLng;
-
-    // dest_location도 동일한 이유로 매핑하지 않는다.
 
     @Column(name = "departure_at", nullable = false)
     private LocalDateTime departureAt;
@@ -90,15 +90,15 @@ public class Companion {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    private Companion(Long creatorId, Long hostId, CompanionKind kind, TransportType transportType,
+    private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
                        String destName, BigDecimal destLat, BigDecimal destLng,
                        LocalDateTime departureAt, Integer capacity) {
-        this.creatorId = creatorId;
-        this.hostId = hostId;
+        this.creator = creator;
+        this.host = host;
         this.kind = kind;
-        this.transportType = transportType;
-        this.content = content;
+        this.transportType = transportType; // 매칭팟에는 필요없음
+        this.content = content; // 매칭팟에는 필요없음
         this.originName = originName;
         this.originLat = originLat;
         this.originLng = originLng;
@@ -106,23 +106,21 @@ public class Companion {
         this.destLat = destLat;
         this.destLng = destLng;
         this.departureAt = departureAt;
-        this.capacity = capacity;
-        // [확인 필요] 방장(host)을 등록 시점부터 현재 인원 1명으로 카운트하는 것으로 가정했다.
-        // 처리 로직 문서에 currentCount 초기값이 명시돼 있지 않아 임의로 정한 값이니 팀 컨벤션 확인 필요.
+        this.capacity = capacity; // 매칭팟은 4명으로 고정
         this.currentCount = 1;
         this.status = CompanionStatus.RECRUITING;
     }
 
-    /**
-     * 동행모집 게시글(POST /companion-posts) 등록. kind = COMPANION 고정,
-     * creatorId = hostId = 등록한 사용자.
-     */
-    public static Companion createRecruiting(Long hostId, TransportType transportType, String content,
+    public static Companion createRecruiting(User host, TransportType transportType, String content,
                                               String originName, BigDecimal originLat, BigDecimal originLng,
                                               String destName, BigDecimal destLat, BigDecimal destLng,
                                               LocalDateTime departureAt, Integer capacity) {
-        return new Companion(hostId, hostId, CompanionKind.COMPANION, transportType, content,
+        return new Companion(host, host, CompanionKind.COMPANION, transportType, content,
                 originName, originLat, originLng, destName, destLat, destLng, departureAt, capacity);
+    }
+
+    public void transferHost(User newHost) {
+        this.host = newHost;
     }
 
     @PrePersist
