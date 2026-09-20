@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.SecurityConfig;
+import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
+import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = CorsConfigTest.ProbeController.class)
 @Import({CorsConfig.class, SecurityConfig.class, JwtConfig.class, ClockConfig.class,
+        ApiAuthenticationEntryPoint.class, ApiAccessDeniedHandler.class,
         CorsConfigTest.ProbeController.class})
 @EnableConfigurationProperties({CorsProperties.class, AuthProperties.class})
 class CorsConfigTest {
