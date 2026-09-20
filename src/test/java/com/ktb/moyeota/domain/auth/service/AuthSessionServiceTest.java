@@ -147,6 +147,57 @@ class AuthSessionServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("세션 폐기")
+    class Revoke {
+
+        @Test
+        @DisplayName("폐기하면 그 리프레시 토큰 체인 패밀리의 토큰이 모두 거부된다")
+        void revokeRejectsWholeChain() {
+            String first = openSession();
+            String second = ((ReissueResult.Rotated) service.reissue(first)).refreshToken();
+
+            service.revokeSession(second);
+
+            assertThat(service.reissue(second)).isInstanceOf(ReissueResult.Rejected.class);
+            assertThat(service.reissue(first)).isInstanceOf(ReissueResult.Rejected.class);
+        }
+
+        @Test
+        @DisplayName("옛 토큰으로 폐기해도 세션 전체가 사라진다")
+        void revokeBySupersededToken() {
+            String first = openSession();
+            String second = ((ReissueResult.Rotated) service.reissue(first)).refreshToken();
+
+            service.revokeSession(first);
+
+            assertThat(sessionStore.findToken(refreshTokenFactory.hash(first))).isEmpty();
+            assertThat(sessionStore.findToken(refreshTokenFactory.hash(second))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("다른 기기 세션은 살아 있다")
+        void revokeDoesNotAffectOtherSessions() {
+            String deviceA = openSession();
+            String deviceB = openSession();
+
+            service.revokeSession(deviceA);
+
+            assertThat(service.reissue(deviceB)).isInstanceOf(ReissueResult.Rotated.class);
+        }
+
+        @Test
+        @DisplayName("없는 토큰, 빈 값, 이미 폐기한 세션 모두 예외 없이 끝난다")
+        void revokeIsIdempotent() {
+            String token = openSession();
+
+            service.revokeSession(token);
+            service.revokeSession(token);
+            service.revokeSession(null);
+            service.revokeSession("  ");
+            service.revokeSession("never-issued");
+        }
+    }
 
     static class MutableClock extends Clock {
 
