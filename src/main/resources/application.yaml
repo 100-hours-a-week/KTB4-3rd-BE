@@ -5,6 +5,7 @@ spring:
     default: local
   jackson:
     time-zone: Asia/Seoul
+    property-naming-strategy: SNAKE_CASE
   jpa:
     open-in-view: false
 
@@ -16,6 +17,11 @@ moyeota:
     jwt:
       issuer: moyeota
       access-token-ttl: 30m
+    refresh:
+      ttl: 7d
+      grace: 10s
+    cookie:
+      secure: true
   cors:
     allowed-origins:
       - http://localhost:3000
