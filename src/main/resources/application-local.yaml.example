@@ -23,3 +23,7 @@ moyeota:
       secret: local-only-moyeota-access-token-secret-0123456789
     cookie:
       secure: false
+  oauth:
+    kakao:
+      client-id: REPLACE_WITH_KAKAO_REST_API_KEY
+      redirect-uri: http://localhost:8080/auth/kakao/callback
