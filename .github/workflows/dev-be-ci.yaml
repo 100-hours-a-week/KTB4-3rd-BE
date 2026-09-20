@@ -108,8 +108,6 @@ jobs:
             --cache-to "type=gha,mode=max,scope=be-${GITHUB_REF_NAME}" \
             --load \
             .
-        env:
-          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
         shell: bash
         
       - name: Configure AWS credentials
