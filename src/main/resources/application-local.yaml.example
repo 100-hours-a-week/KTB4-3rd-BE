@@ -21,3 +21,5 @@ moyeota:
     jwt:
       # 로컬 전용 값. 운영은 JWT_SECRET 환경변수로 주입한다. HS256이라 UTF-8 32바이트 이상 필요.
       secret: local-only-moyeota-access-token-secret-0123456789
+    cookie:
+      secure: false

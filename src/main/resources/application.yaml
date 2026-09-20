@@ -17,6 +17,11 @@ moyeota:
     jwt:
       issuer: moyeota
       access-token-ttl: 30m
+    refresh:
+      ttl: 7d
+      grace: 10s
+    cookie:
+      secure: true
   cors:
     allowed-origins:
       - http://localhost:3000

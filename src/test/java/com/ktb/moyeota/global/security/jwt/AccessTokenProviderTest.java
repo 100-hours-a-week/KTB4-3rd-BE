@@ -96,7 +96,10 @@ class AccessTokenProviderTest {
     }
 
     private AuthProperties properties(String secret, String issuer) {
-        return new AuthProperties(new AuthProperties.Jwt(secret, issuer, TTL));
+        return new AuthProperties(
+                new AuthProperties.Jwt(secret, issuer, TTL),
+                new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
+                new AuthProperties.Cookie(false));
     }
 
     private Clock fixedAt(Instant now) {
