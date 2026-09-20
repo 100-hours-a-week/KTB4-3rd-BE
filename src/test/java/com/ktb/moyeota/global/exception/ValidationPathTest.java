@@ -63,7 +63,7 @@ class ValidationPathTest {
     void classLevelConstraintWithoutPropertyNode() throws Exception {
         mockMvc.perform(post("/vp/plain")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankName\":\"국민\"}"))
+                        .content("{\"bank_name\":\"국민\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
@@ -74,7 +74,7 @@ class ValidationPathTest {
     void classLevelConstraintWithPropertyNode() throws Exception {
         mockMvc.perform(post("/vp/targeted")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankName\":\"국민\"}"))
+                        .content("{\"bank_name\":\"국민\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.field").value("bank_name"))
                 .andExpect(jsonPath("$.error.details[0].field").value("bank_name"))

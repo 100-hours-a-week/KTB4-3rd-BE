@@ -52,7 +52,7 @@ class GlobalExceptionHandlerTest {
     void validationError() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"\",\"termsAgreed\":false}"))
+                        .content("{\"nickname\":\"\",\"terms_agreed\":false}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.details.length()").value(3));
@@ -63,7 +63,7 @@ class GlobalExceptionHandlerTest {
     void fieldNameIsSnakeCase() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"valid\",\"termsAgreed\":false}"))
+                        .content("{\"nickname\":\"valid\",\"terms_agreed\":false}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.details[0].field").value("terms_agreed"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
@@ -74,14 +74,14 @@ class GlobalExceptionHandlerTest {
     void sizeViolationBecomesLengthOutOfRange() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"닉네임이아주아주아주길어요\",\"termsAgreed\":true}"))
+                        .content("{\"nickname\":\"닉네임이아주아주아주길어요\",\"terms_agreed\":true}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
 
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"a\",\"termsAgreed\":true}"))
+                        .content("{\"nickname\":\"a\",\"terms_agreed\":true}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
@@ -92,7 +92,7 @@ class GlobalExceptionHandlerTest {
     void detailsAreSortedByDeclarationOrder() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"\",\"termsAgreed\":false,\"bankName\":\"없는은행\"}"))
+                        .content("{\"nickname\":\"\",\"terms_agreed\":false,\"bank_name\":\"없는은행\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.details.length()").value(4))
                 .andExpect(jsonPath("$.error.details[0].field").value("nickname"))
@@ -110,7 +110,7 @@ class GlobalExceptionHandlerTest {
     void declaredMessageWinsOverAnnotationMapping() throws Exception {
         mockMvc.perform(post("/test/validate")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"valid\",\"termsAgreed\":true,\"bankName\":\"없는은행\"}"))
+                        .content("{\"nickname\":\"valid\",\"terms_agreed\":true,\"bank_name\":\"없는은행\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error.details[0].field").value("bank_name"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));

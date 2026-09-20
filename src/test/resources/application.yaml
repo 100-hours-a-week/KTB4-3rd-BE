@@ -3,6 +3,7 @@ spring:
     name: moyeota
   jackson:
     time-zone: Asia/Seoul
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: jdbc:h2:mem:moyeota-test;DB_CLOSE_DELAY=-1
     username: sa
