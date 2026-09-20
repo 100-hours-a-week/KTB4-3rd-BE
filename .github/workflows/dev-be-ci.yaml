@@ -9,11 +9,12 @@ on:
       - main
       - 'release/**'
 
-  # develop, release/* 로의 직접 push 는 branch protection 으로 차단되므로
+  # develop, main, release/* 로의 직접 push 는 branch protection 으로 차단되므로
   # 이 이벤트는 사실상 "PR 이 병합되어 ref 가 전진했을 때"의 push를 의미한다.
   push:
     branches:
       - develop
+      - main
       - 'release/**'
       
   workflow_dispatch:
@@ -116,7 +117,7 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: fe-ci-${{ github.run_id }}
+          role-session-name: be-ci-${{ github.run_id }}
 
       - name: Login to ECR
         if: steps.meta.outputs.push_image == 'true'
@@ -133,3 +134,47 @@ jobs:
 
           docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "$remote_image"
           docker push "$remote_image"
+
+      - name: Resolve image digest and create release manifest
+        if: steps.meta.outputs.push_image == 'true'
+        id: release
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+        run: |
+          set -Eeuo pipefail
+
+          image_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          [[ "$image_digest" == sha256:* ]]
+
+          mkdir -p release-manifest
+          jq -n \
+            --arg source_branch "$GITHUB_REF_NAME" \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg image_tag "$IMAGE_TAG" \
+            --arg image_digest "$image_digest" \
+            --arg release_version "$RELEASE_VERSION" \
+            --arg ecr_repository "$ECR_REPOSITORY" \
+            '{
+              source_branch: $source_branch,
+              source_sha: $source_sha,
+              image_tag: $image_tag,
+              image_digest: $image_digest,
+              release_version: $release_version,
+              ecr_repository: $ecr_repository
+            }' > release-manifest/release-manifest.json
+
+          echo "image_digest=$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release manifest
+        if: steps.meta.outputs.push_image == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest/release-manifest.json
+          retention-days: 14
