@@ -49,6 +49,10 @@ public class UserService {
         return new RegisteredUser(user.getId(), user.getProfileImageUrl(), user.getCreatedAt(), session);
     }
 
+    public boolean isNicknameAvailable(String nickname) {
+        return !userRepository.existsByNickname(nickname);
+    }
+
     private User createAccountInTransaction(SignupSessionView signupSession, SignupCommand command) {
         try {
             return transactionTemplate.execute(status -> createAccount(signupSession, command));
