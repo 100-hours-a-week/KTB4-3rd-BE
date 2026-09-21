@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.auth.service;
 
+import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.ReissueResult;
 import com.ktb.moyeota.domain.auth.model.SessionTokenView;
 import com.ktb.moyeota.domain.auth.store.SessionStore;
@@ -25,6 +26,13 @@ public class AuthSessionService {
     private final AuthProperties authProperties;
     private final Clock clock;
 
+    @Transactional
+    public IssuedSession issue(Long userId) {
+        String refreshToken = opaqueTokenFactory.generate();
+        Duration ttl = authProperties.refresh().ttl();
+        sessionStore.create(userId, opaqueTokenFactory.hash(refreshToken), LocalDateTime.now(clock).plus(ttl));
+        return new IssuedSession(accessTokenProvider.issue(userId), refreshToken, ttl);
+    }
 
     @Transactional
     public ReissueResult reissue(String refreshToken) {
