@@ -2,7 +2,9 @@ package com.ktb.moyeota.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.ReissueResult;
+import com.ktb.moyeota.domain.auth.model.SessionTokenView;
 import com.ktb.moyeota.domain.auth.store.SessionStore;
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
@@ -26,7 +28,7 @@ class AuthSessionServiceTest {
     private static final Duration REFRESH_TTL = Duration.ofDays(7);
 
     private final SessionStore sessionStore = new InMemorySessionStore();
-    private final RefreshTokenFactory refreshTokenFactory = new RefreshTokenFactory();
+    private final OpaqueTokenFactory opaqueTokenFactory = new OpaqueTokenFactory();
     private MutableClock clock;
     private AuthSessionService service;
 
@@ -38,25 +40,83 @@ class AuthSessionServiceTest {
                         "test-only-moyeota-access-token-secret-0123456789", "moyeota",
                         Duration.ofMinutes(30)),
                 new AuthProperties.Refresh(REFRESH_TTL, GRACE),
+                new AuthProperties.Signup(Duration.ofMinutes(15)),
                 new AuthProperties.Cookie(false));
         JwtConfig jwtConfig = new JwtConfig();
         AccessTokenProvider accessTokenProvider = new AccessTokenProvider(
                 jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties)), properties, clock);
         service = new AuthSessionService(
-                sessionStore, refreshTokenFactory, accessTokenProvider, properties, clock);
+                sessionStore, opaqueTokenFactory, accessTokenProvider, properties, clock);
     }
 
     private LocalDateTime supersededAtOf(String refreshToken) {
-        return sessionStore.findToken(refreshTokenFactory.hash(refreshToken))
+        return sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
                 .orElseThrow()
                 .supersededAt();
     }
 
     private String openSession() {
-        String refreshToken = refreshTokenFactory.generate();
-        sessionStore.create(USER_ID, refreshTokenFactory.hash(refreshToken),
+        String refreshToken = opaqueTokenFactory.generate();
+        sessionStore.create(USER_ID, opaqueTokenFactory.hash(refreshToken),
                 LocalDateTime.now(clock).plus(REFRESH_TTL));
         return refreshToken;
+    }
+
+    @Nested
+    @DisplayName("세션 발급")
+    class Issue {
+
+        @Test
+        @DisplayName("발급한 리프레시 토큰은 해시로 저장되고 7일 뒤 만료된다")
+        void storesHashedTokenWithAbsoluteExpiry() {
+            IssuedSession issued = service.issue(USER_ID);
+
+            SessionTokenView view = sessionStore
+                    .findToken(opaqueTokenFactory.hash(issued.refreshToken()))
+                    .orElseThrow();
+            assertThat(view.userId()).isEqualTo(USER_ID);
+            assertThat(view.supersededAt()).isNull();
+            assertThat(view.absoluteExpiresAt()).isEqualTo(LocalDateTime.now(clock).plus(REFRESH_TTL));
+            assertThat(sessionStore.findToken(issued.refreshToken())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("쿠키 수명은 리프레시 토큰 수명과 같다")
+        void cookieMaxAgeEqualsRefreshTtl() {
+            assertThat(service.issue(USER_ID).refreshTokenMaxAge()).isEqualTo(REFRESH_TTL);
+        }
+
+        @Test
+        @DisplayName("액세스 토큰도 함께 발급한다")
+        void issuesAccessToken() {
+            IssuedSession issued = service.issue(USER_ID);
+
+            assertThat(issued.accessToken().value()).isNotBlank();
+            assertThat(issued.accessToken().expiresIn()).isEqualTo(1800);
+        }
+
+        @Test
+        @DisplayName("발급한 리프레시 토큰으로 바로 재발급할 수 있다")
+        void issuedTokenCanBeReissued() {
+            IssuedSession issued = service.issue(USER_ID);
+
+            assertThat(service.reissue(issued.refreshToken())).isInstanceOf(ReissueResult.Rotated.class);
+        }
+
+        @Test
+        @DisplayName("로그인할 때마다 별개의 세션이 생긴다")
+        void eachIssueOpensSeparateSession() {
+            Long first = sessionIdOf(service.issue(USER_ID));
+            Long second = sessionIdOf(service.issue(USER_ID));
+
+            assertThat(first).isNotEqualTo(second);
+        }
+
+        private Long sessionIdOf(IssuedSession issued) {
+            return sessionStore.findToken(opaqueTokenFactory.hash(issued.refreshToken()))
+                    .orElseThrow()
+                    .sessionId();
+        }
     }
 
     @Nested
@@ -135,7 +195,7 @@ class AuthSessionServiceTest {
             clock.advance(REFRESH_TTL);
 
             assertThat(service.reissue(token)).isInstanceOf(ReissueResult.Rejected.class);
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(token))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(token))).isEmpty();
         }
 
         @Test
@@ -171,8 +231,8 @@ class AuthSessionServiceTest {
 
             service.revokeSession(first);
 
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(first))).isEmpty();
-            assertThat(sessionStore.findToken(refreshTokenFactory.hash(second))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(first))).isEmpty();
+            assertThat(sessionStore.findToken(opaqueTokenFactory.hash(second))).isEmpty();
         }
 
         @Test

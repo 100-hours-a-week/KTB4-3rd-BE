@@ -22,13 +22,18 @@ moyeota:
     refresh:
       ttl: 7d
       grace: 10s
+    signup:
+      ttl: 15m
     cookie:
       secure: false
   oauth:
     kakao:
       client-id: test-kakao-client-id
+      client-secret: test-kakao-client-secret
       redirect-uri: http://localhost:8080/auth/kakao/callback
       authorize-uri: https://kauth.kakao.com/oauth/authorize
+      token-uri: https://kauth.kakao.com/oauth/token
+      user-info-uri: https://kapi.kakao.com/v2/user/me
   cors:
     allowed-origins:
       - http://localhost:3000

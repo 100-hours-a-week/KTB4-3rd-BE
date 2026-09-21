@@ -9,7 +9,7 @@ import java.util.HexFormat;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RefreshTokenFactory {
+public class OpaqueTokenFactory {
 
     private static final int TOKEN_BYTES = 32;
     private static final String HASH_ALGORITHM = "SHA-256";
