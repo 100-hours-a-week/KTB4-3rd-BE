@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -106,6 +107,21 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("중첩 객체의 필드는 점으로 이은 snake_case 경로로 나가고 선언 순서를 따른다")
+    void nestedFieldsFollowDeclarationOrder() throws Exception {
+        mockMvc.perform(post("/test/validate-nested")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consents":{"first_consent":false,"second_consent":true},"title":""}
+                                """))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.field").value("consents.first_consent"))
+                .andExpect(jsonPath("$.error.details[0].field").value("consents.first_consent"))
+                .andExpect(jsonPath("$.error.details[1].field").value("consents.third_consent"))
+                .andExpect(jsonPath("$.error.details[2].field").value("title"));
+    }
+
+    @Test
     @DisplayName("제약에 선언한 message가 애노테이션 기본 매핑보다 우선한다")
     void declaredMessageWinsOverAnnotationMapping() throws Exception {
         mockMvc.perform(post("/test/validate")
@@ -181,6 +197,10 @@ class GlobalExceptionHandlerTest {
         void validate(@Valid @RequestBody TestRequest request) {
         }
 
+        @PostMapping("/test/validate-nested")
+        void validateNested(@Valid @RequestBody NestedRequest request) {
+        }
+
         @GetMapping("/test/param")
         void param(@RequestParam int size) {
         }
@@ -195,6 +215,15 @@ class GlobalExceptionHandlerTest {
             @NotBlank @Size(min = 2, max = 12) String nickname,
             @AssertTrue Boolean termsAgreed,
             @Pattern(regexp = "국민|신한|우리", message = "INVALID_ENUM") String bankName) {
+    }
+
+    record NestedRequest(@NotNull @Valid Consents consents, @NotBlank String title) {
+    }
+
+    record Consents(
+            @NotNull @AssertTrue Boolean firstConsent,
+            @NotNull Boolean secondConsent,
+            @NotNull Boolean thirdConsent) {
     }
 
     @Getter
