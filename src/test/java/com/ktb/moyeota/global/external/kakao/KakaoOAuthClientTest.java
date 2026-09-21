@@ -143,6 +143,42 @@ class KakaoOAuthClientTest {
         }
 
         @Test
+        @DisplayName("만료됐거나 이미 쓴 인가 코드는 INVALID_OAUTH_CODE다")
+        void invalidGrantIsInvalidCode() {
+            server.expect(requestTo(TOKEN_URI)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""
+                            {"error":"invalid_grant","error_description":"authorization code not found",
+                             "error_code":"KOE320"}
+                            """));
+
+            assertFailsWith(OAuthLoginError.INVALID_OAUTH_CODE);
+        }
+
+        @Test
+        @DisplayName("클라이언트 시크릿 오류는 사용자 탓이 아니므로 OAUTH_UNAVAILABLE이다")
+        void invalidClientIsUnavailable() {
+            server.expect(requestTo(TOKEN_URI)).andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""
+                            {"error":"invalid_client","error_description":"Bad client credentials",
+                             "error_code":"KOE010"}
+                            """));
+
+            assertFailsWith(OAuthLoginError.OAUTH_UNAVAILABLE);
+        }
+
+        @Test
+        @DisplayName("본문을 읽을 수 없는 4xx는 OAUTH_UNAVAILABLE이다")
+        void unreadableClientErrorIsUnavailable() {
+            server.expect(requestTo(TOKEN_URI)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body("<html>bad request</html>"));
+
+            assertFailsWith(OAuthLoginError.OAUTH_UNAVAILABLE);
+        }
+
+        @Test
         @DisplayName("토큰 교환 중 카카오 5xx는 OAUTH_UNAVAILABLE이다")
         void tokenServerErrorIsUnavailable() {
             server.expect(requestTo(TOKEN_URI)).andRespond(withStatus(HttpStatus.BAD_GATEWAY));
