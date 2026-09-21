@@ -48,17 +48,6 @@ class SecurityConfigTest {
     private AccessTokenProvider accessTokenProvider;
 
     @Nested
-    @DisplayName("비로그인으로 열린 경로")
-    class PublicPaths {
-
-        @Test
-        @DisplayName("카카오 로그인 콜백은 토큰 없이 통과한다")
-        void oauthCallbackPathIsPublic() throws Exception {
-            mockMvc.perform(get("/auth/kakao/callback")).andExpect(status().isOk());
-        }
-    }
-
-    @Nested
     @DisplayName("회원가입 세션 전용 경로")
     class SignupPaths {
 
@@ -186,11 +175,6 @@ class SecurityConfigTest {
 
     @RestController
     static class MatrixController {
-
-        @GetMapping("/auth/kakao/callback")
-        String publicAuth() {
-            return "ok";
-        }
 
         @PostMapping("/users")
         String signUp() {

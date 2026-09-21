@@ -24,6 +24,7 @@ moyeota:
     cookie:
       secure: false
   oauth:
+    front-callback-uri: http://localhost:3000/auth/callback
     kakao:
       client-id: REPLACE_WITH_KAKAO_REST_API_KEY
       client-secret: REPLACE_WITH_KAKAO_CLIENT_SECRET
