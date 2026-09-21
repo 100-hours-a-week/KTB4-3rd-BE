@@ -5,10 +5,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-/**
- * COMPANION(동행모집) 도메인 전용 에러 코드. {DOMAIN}_{TARGET}_{STATE} 네이밍
- * (기술 스택 섹션에 예시로 나온 COMPANION_POST_NOT_FOUND와 동일한 접두사 사용).
- */
 @Getter
 @RequiredArgsConstructor
 public enum CompanionPostErrorCode implements ErrorCode {

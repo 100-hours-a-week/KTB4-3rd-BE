@@ -8,40 +8,50 @@ import java.util.List;
 /**
  * GET /companion-posts/{companion_id} 응답. title은 "출발지 → 도착지" 형태로 DTO에서 조립한다
  * (스펙 문서 지시대로 — 프론트 조립도 가능하지만 문서 기준을 따름).
+ *
+ * participants, chatRoomId는 Chat(참여자) 도메인 범위라 지금은 항상 null로 내려준다.
  */
 public record CompanionPostDetailResponse(
         Long id,
         String title,
+        String content,
+        TransportType transportType,
         String originName,
         String destName,
         LocalDateTime departureAt,
-        TransportType transportType,
-        Integer capacity,
-        Integer currentCount,
-        List<Long> participantIds,
         boolean isExpired,
-        boolean joined,
-        String content
+        Integer currentCount,
+        Integer capacity,
+        boolean isFull,
+        Author author,
+        List<Object> participants,
+        Long chatRoomId,
+        boolean joined
 ) {
 
-    // [확인 필요] participants는 지금 사용자 id만 담았다. 닉네임/프로필 이미지 같은 상세 정보가
-    // 필요하면 User 도메인 데이터가 있어야 해서 지금 범위(Community 문서 점검) 밖이라 채우지 않았다.
+    public record Author(String nickname) {
+    }
+
     public static CompanionPostDetailResponse of(
-            Companion companion, List<Long> participantIds, boolean isExpired, boolean joined) {
+            Companion companion, boolean isExpired, boolean isFull, boolean joined, String authorNickname) {
         String title = companion.getOriginName() + " → " + companion.getDestName();
+
         return new CompanionPostDetailResponse(
                 companion.getId(),
                 title,
+                companion.getContent(),
+                companion.getTransportType(),
                 companion.getOriginName(),
                 companion.getDestName(),
                 companion.getDepartureAt(),
-                companion.getTransportType(),
-                companion.getCapacity(),
-                companion.getCurrentCount(),
-                participantIds,
                 isExpired,
-                joined,
-                companion.getContent()
+                companion.getCurrentCount(),
+                companion.getCapacity(),
+                isFull,
+                new Author(authorNickname),
+                null,
+                null,
+                joined
         );
     }
 }

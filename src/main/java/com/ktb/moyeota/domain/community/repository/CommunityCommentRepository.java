@@ -12,11 +12,12 @@ public interface CommunityCommentRepository extends JpaRepository<CommunityComme
     @Query("""
             SELECT c
             FROM CommunityComment c
+            JOIN FETCH c.author
             WHERE c.post.id = :postId
               AND (:cursor IS NULL OR c.id < :cursor)
             ORDER BY c.id DESC
             """)
-    List<CommunityComment> findByPostId(
+    List<CommunityComment> findByPostIdWithAuthor(
             @Param("postId") Long postId,
             @Param("cursor") Long cursor,
             Pageable pageable);

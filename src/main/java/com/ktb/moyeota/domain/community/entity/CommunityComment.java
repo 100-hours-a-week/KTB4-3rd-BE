@@ -31,9 +31,6 @@ public class CommunityComment {
     @JoinColumn(name = "post_id", nullable = false)
     private CommunityPost post;
 
-    // TODO: 작성자(author) 표시 방식(닉네임 노출 여부 등)은 별도 설계 예정.
-    // 연관관계 자체는 SQL의 FK(author_id -> users.id)를 그대로 반영해 지금 매핑해두고,
-    // 실제 조회/응답에 사용할지는 추후 결정한다.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;

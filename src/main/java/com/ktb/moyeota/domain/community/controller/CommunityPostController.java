@@ -5,11 +5,11 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostCreateResponse;
 import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.service.CommunityPostService;
 import com.ktb.moyeota.global.common.ApiResponse;
+import com.ktb.moyeota.global.security.resolver.AuthUser;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,7 +26,7 @@ public class CommunityPostController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CommunityPostCreateResponse>> create(
-            @AuthenticationPrincipal Long userId,
+            @AuthUser Long userId,
             @Valid @RequestBody CommunityPostCreateRequest request
     ) {
         CommunityPostCreateResponse response = communityPostService.create(userId, request);
@@ -40,6 +40,6 @@ public class CommunityPostController {
             @PathVariable("post_id") Long postId
     ) {
         CommunityPostDetailResponse response = communityPostService.find(postId);
-        return ResponseEntity.ok(ApiResponse.success(null, response));
+        return ResponseEntity.ok(ApiResponse.success("조회에 성공했습니다", response));
     }
 }

@@ -5,7 +5,17 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
-public record MapPinSearchRequest(
+public record NearbyPostSearchRequest(
+
+        @NotNull
+        @DecimalMin("-90")
+        @DecimalMax("90")
+        BigDecimal lat,
+
+        @NotNull
+        @DecimalMin("-180")
+        @DecimalMax("180")
+        BigDecimal lng,
 
         @NotNull
         @DecimalMin("-90")
@@ -25,6 +35,8 @@ public record MapPinSearchRequest(
         @NotNull
         @DecimalMin("-180")
         @DecimalMax("180")
-        BigDecimal neLng
+        BigDecimal neLng,
+
+        String cursor
 ) {
 }
