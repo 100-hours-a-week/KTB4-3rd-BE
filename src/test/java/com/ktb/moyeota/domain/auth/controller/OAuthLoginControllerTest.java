@@ -30,6 +30,7 @@ import com.ktb.moyeota.global.security.cookie.AuthCookies;
 import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
+import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.time.Duration;
@@ -61,6 +62,9 @@ class OAuthLoginControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private SignupSessionAuthenticator signupSessionAuthenticator;
 
     @MockitoBean
     private OAuthLoginService oAuthLoginService;

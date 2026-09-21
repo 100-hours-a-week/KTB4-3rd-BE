@@ -9,6 +9,7 @@ import com.ktb.moyeota.global.security.SecurityConfig;
 import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
+import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +31,9 @@ class CorsConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private SignupSessionAuthenticator signupSessionAuthenticator;
 
     @Test
     @DisplayName("허용 오리진의 프리플라이트는 자격 증명 허용과 함께 통과한다")

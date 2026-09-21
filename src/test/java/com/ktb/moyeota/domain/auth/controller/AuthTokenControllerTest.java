@@ -21,6 +21,7 @@ import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.AccessToken;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
+import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +49,9 @@ class AuthTokenControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private SignupSessionAuthenticator signupSessionAuthenticator;
 
     @MockitoBean
     private AuthSessionService authSessionService;
