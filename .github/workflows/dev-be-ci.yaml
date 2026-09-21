@@ -5,18 +5,18 @@ on:
   # hotfix/* 는 main 으로 PR 을 보내므로 아래 main 대상 PR 에 포함된다.
   pull_request:
     branches:
-      - develop
+      - dev
       - main
       - 'release/**'
 
-  # develop, main, release/* 로의 직접 push 는 branch protection 으로 차단되므로
+  # dev, main, release/* 로의 직접 push 는 branch protection 으로 차단되므로
   # 이 이벤트는 사실상 "PR 이 병합되어 ref 가 전진했을 때"의 push를 의미한다.
   push:
     branches:
-      - develop
+      - dev
       - main
       - 'release/**'
-      
+
   workflow_dispatch:
 
 permissions:
@@ -66,7 +66,7 @@ jobs:
 
           release_version=""
 
-          if [[ "$GITHUB_REF_NAME" == develop ]]; then
+          if [[ "$GITHUB_REF_NAME" == dev ]]; then
             image_tag="dev-${GITHUB_SHA:0:7}"
             push_image=true
           elif [[ "$GITHUB_REF_NAME" == release/* ]]; then
@@ -110,7 +110,7 @@ jobs:
             --load \
             .
         shell: bash
-        
+
       - name: Configure AWS credentials
         if: steps.meta.outputs.push_image == 'true'
         uses: aws-actions/configure-aws-credentials@v4

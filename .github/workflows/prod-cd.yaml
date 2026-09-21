@@ -83,7 +83,7 @@ jobs:
           set -Eeuo pipefail
 
           case "$SOURCE_BRANCH" in
-            develop)
+            dev)
               source_tag="dev-${SOURCE_SHA:0:7}"
               promote_tag="prod-${SOURCE_SHA:0:7}"
               ;;
