@@ -3,7 +3,6 @@ package com.ktb.moyeota.global.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,6 +16,7 @@ import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
+import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import jakarta.servlet.DispatcherType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -27,11 +27,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = SecurityConfigTest.MatrixController.class)
@@ -47,31 +47,12 @@ class SecurityConfigTest {
     @Autowired
     private AccessTokenProvider accessTokenProvider;
 
+    @MockitoBean
+    private SignupSessionAuthenticator signupSessionAuthenticator;
+
     @Nested
     @DisplayName("회원가입 세션 전용 경로")
     class SignupPaths {
-
-        @Test
-        @DisplayName("SIGNUP 권한은 회원가입을 호출할 수 있다")
-        void signupAuthorityCanRegister() throws Exception {
-            mockMvc.perform(post("/users").with(signup())).andExpect(status().isOk());
-        }
-
-        @Test
-        @DisplayName("USER 권한은 회원가입을 호출할 수 없다")
-        void userAuthorityCannotRegister() throws Exception {
-            mockMvc.perform(post("/users").with(user()))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-        }
-
-        @Test
-        @DisplayName("토큰 없이 회원가입을 호출하면 401이다")
-        void anonymousCannotRegister() throws Exception {
-            mockMvc.perform(post("/users"))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
-        }
 
         @Test
         @DisplayName("닉네임 중복 확인은 SIGNUP과 USER 양쪽이 호출할 수 있다")
@@ -175,11 +156,6 @@ class SecurityConfigTest {
 
     @RestController
     static class MatrixController {
-
-        @PostMapping("/users")
-        String signUp() {
-            return "ok";
-        }
 
         @GetMapping("/users/nickname-availability")
         String checkNickname() {

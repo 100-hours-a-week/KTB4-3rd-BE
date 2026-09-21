@@ -3,17 +3,22 @@ package com.ktb.moyeota.global.security;
 import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.UserIdJwtAuthenticationConverter;
+import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.authentication.AuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -26,7 +31,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             ApiAuthenticationEntryPoint authenticationEntryPoint,
-            ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
+            ApiAccessDeniedHandler accessDeniedHandler,
+            SignupSessionAuthenticator signupSessionAuthenticator) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
@@ -53,8 +59,24 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler));
+                        .accessDeniedHandler(accessDeniedHandler))
+                .addFilterBefore(
+                        signupSessionAuthenticationFilter(signupSessionAuthenticator),
+                        AuthorizationFilter.class);
         return http.build();
+    }
+
+    private AuthenticationFilter signupSessionAuthenticationFilter(
+            SignupSessionAuthenticator signupSessionAuthenticator) {
+
+        AuthenticationManager alreadyVerified = authentication -> authentication;
+        AuthenticationFilter filter = new AuthenticationFilter(
+                alreadyVerified, signupSessionAuthenticator::authenticate);
+        filter.setRequestMatcher(
+                PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/users"));
+        filter.setSuccessHandler((request, response, authentication) -> {
+        });
+        return filter;
     }
 
     @Bean
