@@ -24,7 +24,7 @@ class SignupSessionAuthenticatorTest {
 
     private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
     private static final LocalDateTime NOW_LOCAL = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
-    private static final OAuthUserProfile PROFILE = new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890");
+    private static final OAuthUserProfile PROFILE = new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "카카오닉네임");
 
     private final SignupSessionStore store = new InMemorySignupSessionStore();
     private final OpaqueTokenFactory opaqueTokenFactory = new OpaqueTokenFactory();

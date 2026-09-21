@@ -45,7 +45,11 @@ public class KakaoOAuthClient {
 
     public OAuthUserProfile fetchProfile(String code) {
         KakaoUserResponse user = fetchUser(exchangeToken(code));
-        return new OAuthUserProfile(OAuthProvider.KAKAO, String.valueOf(user.id()));
+        if (user.nickname() == null) {
+            log.error("[KAKAO_NICKNAME_MISSING] 닉네임 동의항목이 필수 동의로 설정됐는지 확인하세요.");
+            throw new OAuthLoginException(OAuthLoginError.OAUTH_UNAVAILABLE);
+        }
+        return new OAuthUserProfile(OAuthProvider.KAKAO, String.valueOf(user.id()), user.nickname());
     }
 
     private String exchangeToken(String code) {

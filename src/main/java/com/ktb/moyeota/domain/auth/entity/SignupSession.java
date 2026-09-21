@@ -34,6 +34,9 @@ public class SignupSession {
     @Column(name = "provider_user_id", nullable = false, length = 64)
     private String providerUserId;
 
+    @Column(name = "name", nullable = false, length = 30)
+    private String name;
+
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
@@ -45,6 +48,7 @@ public class SignupSession {
         this.tokenHash = tokenHash;
         this.provider = profile.provider();
         this.providerUserId = profile.providerUserId();
+        this.name = profile.name();
         this.expiresAt = expiresAt;
     }
 

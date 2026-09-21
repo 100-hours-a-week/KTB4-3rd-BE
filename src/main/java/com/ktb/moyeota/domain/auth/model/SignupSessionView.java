@@ -6,6 +6,7 @@ public record SignupSessionView(
         String tokenHash,
         OAuthProvider provider,
         String providerUserId,
+        String name,
         LocalDateTime expiresAt) {
 
     public boolean isExpiredAt(LocalDateTime now) {
