@@ -194,6 +194,30 @@ class UserServiceTest {
         verify(signupSessionStore, never()).delete(any());
     }
 
+    @Test
+    @DisplayName("아무도 쓰지 않는 닉네임은 사용할 수 있다")
+    void unusedNicknameIsAvailable() {
+        assertThat(service.isNicknameAvailable("길동이")).isTrue();
+    }
+
+    @Test
+    @DisplayName("이미 쓰이고 있는 닉네임은 사용할 수 없다")
+    void usedNicknameIsNotAvailable() {
+        userRepository.saveAndFlush(User.register("김철수", "길동이", Gender.MALE, null));
+
+        assertThat(service.isNicknameAvailable("길동이")).isFalse();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 사용자가 쓰던 닉네임은 다시 사용할 수 있다")
+    void withdrawnUsersNicknameIsAvailable() {
+        User user = userRepository.saveAndFlush(User.register("김철수", "길동이", Gender.MALE, null));
+        user.withdraw(NOW_LOCAL);
+        userRepository.saveAndFlush(user);
+
+        assertThat(service.isNicknameAvailable("길동이")).isTrue();
+    }
+
     private SignupSessionView signupSession(String kakaoName) {
         return new SignupSessionView(
                 "hash-a", OAuthProvider.KAKAO, "1234567890", kakaoName, LocalDateTime.of(2026, 1, 1, 9, 15));

@@ -5,6 +5,7 @@ import com.ktb.moyeota.domain.user.model.BankAccountCommand;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
 import com.ktb.moyeota.domain.user.validation.BankAccountFields;
 import com.ktb.moyeota.domain.user.validation.BankAccountPair;
+import com.ktb.moyeota.domain.user.validation.NicknameRules;
 import com.ktb.moyeota.domain.user.validation.SupportedBanks;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -15,8 +16,8 @@ import jakarta.validation.constraints.Size;
 @BankAccountPair
 public record SignupRequest(
         @NotBlank
-        @Size(min = 2, max = 12)
-        @Pattern(regexp = "^[가-힣A-Za-z0-9]+$")
+        @Size(min = NicknameRules.MIN_LENGTH, max = NicknameRules.MAX_LENGTH)
+        @Pattern(regexp = NicknameRules.PATTERN)
         String nickname,
 
         @NotBlank

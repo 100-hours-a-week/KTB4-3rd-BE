@@ -19,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.AuthenticationFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -72,8 +73,10 @@ public class SecurityConfig {
         AuthenticationManager alreadyVerified = authentication -> authentication;
         AuthenticationFilter filter = new AuthenticationFilter(
                 alreadyVerified, signupSessionAuthenticator::authenticate);
-        filter.setRequestMatcher(
-                PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/users"));
+        PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
+        filter.setRequestMatcher(new OrRequestMatcher(
+                paths.matcher(HttpMethod.POST, "/users"),
+                paths.matcher(HttpMethod.GET, "/users/nickname-availability")));
         filter.setSuccessHandler((request, response, authentication) -> {
         });
         return filter;
