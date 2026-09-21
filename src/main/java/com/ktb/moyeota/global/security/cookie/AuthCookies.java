@@ -42,6 +42,10 @@ public class AuthCookies {
         return builder(SIGNUP_TOKEN, value, SIGNUP_TOKEN_PATH).maxAge(maxAge).build();
     }
 
+    public ResponseCookie expiredSignupToken() {
+        return builder(SIGNUP_TOKEN, "", SIGNUP_TOKEN_PATH).maxAge(Duration.ZERO).build();
+    }
+
     private ResponseCookie.ResponseCookieBuilder builder(String name, String value, String path) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
