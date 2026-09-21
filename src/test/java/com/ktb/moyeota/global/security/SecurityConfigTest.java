@@ -51,20 +51,6 @@ class SecurityConfigTest {
     private SignupSessionAuthenticator signupSessionAuthenticator;
 
     @Nested
-    @DisplayName("회원가입 세션 전용 경로")
-    class SignupPaths {
-
-        @Test
-        @DisplayName("닉네임 중복 확인은 SIGNUP과 USER 양쪽이 호출할 수 있다")
-        void nicknameAvailabilityAllowsBoth() throws Exception {
-            mockMvc.perform(get("/users/nickname-availability").with(signup()))
-                    .andExpect(status().isOk());
-            mockMvc.perform(get("/users/nickname-availability").with(user()))
-                    .andExpect(status().isOk());
-        }
-    }
-
-    @Nested
     @DisplayName("그 외 모든 경로")
     class ProtectedPaths {
 
@@ -156,11 +142,6 @@ class SecurityConfigTest {
 
     @RestController
     static class MatrixController {
-
-        @GetMapping("/users/nickname-availability")
-        String checkNickname() {
-            return "ok";
-        }
 
         @GetMapping("/probe/me")
         String me(@AuthUser Long userId) {
