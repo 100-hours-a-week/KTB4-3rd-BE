@@ -11,7 +11,7 @@ public interface SignupSessionRepository extends JpaRepository<SignupSession, St
 
     @Query("""
             select new com.ktb.moyeota.domain.auth.model.SignupSessionView(
-                       s.tokenHash, s.provider, s.providerUserId, s.expiresAt)
+                       s.tokenHash, s.provider, s.providerUserId, s.name, s.expiresAt)
               from SignupSession s
              where s.tokenHash = :tokenHash
             """)

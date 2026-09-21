@@ -40,7 +40,7 @@ class OAuthLoginServiceTest {
     private static final String STATE = "state-value";
     private static final String CODE = "auth-code";
     private static final OAuthUserProfile PROFILE =
-            new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890");
+            new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "카카오닉네임");
 
     private final KakaoOAuthClient kakaoOAuthClient = mock(KakaoOAuthClient.class);
     private final OpaqueTokenFactory opaqueTokenFactory = new OpaqueTokenFactory();
@@ -147,13 +147,13 @@ class OAuthLoginServiceTest {
         }
 
         @Test
-        @DisplayName("카카오 클라이언트의 실패 사유를 그대로 전달한다")
+        @DisplayName("카카오 클라이언트가 실패하면 그 사유를 전달하고 회원 여부조차 조회하지 않는다")
         void propagatesClientFailure() {
             given(kakaoOAuthClient.fetchProfile(CODE))
                     .willThrow(new OAuthLoginException(OAuthLoginError.OAUTH_UNAVAILABLE));
 
             assertFailed(callback(CODE, STATE, null, STATE), OAuthLoginError.OAUTH_UNAVAILABLE);
-            verifyNoInteractions(authSessionService, signupSessionStore);
+            verifyNoInteractions(oAuthAccountRepository, authSessionService, signupSessionStore);
         }
     }
 

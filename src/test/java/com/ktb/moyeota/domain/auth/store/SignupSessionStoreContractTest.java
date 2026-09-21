@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 public abstract class SignupSessionStoreContractTest {
 
     private static final LocalDateTime EXPIRES = LocalDateTime.of(2026, 1, 1, 0, 15);
-    private static final OAuthUserProfile PROFILE = new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890");
+    private static final OAuthUserProfile PROFILE = new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "카카오닉네임");
 
     protected abstract SignupSessionStore store();
 
@@ -27,6 +27,7 @@ public abstract class SignupSessionStoreContractTest {
         assertThat(view.tokenHash()).isEqualTo("hash-a");
         assertThat(view.provider()).isEqualTo(OAuthProvider.KAKAO);
         assertThat(view.providerUserId()).isEqualTo("1234567890");
+        assertThat(view.name()).isEqualTo("카카오닉네임");
         assertThat(view.expiresAt()).isEqualTo(EXPIRES);
     }
 

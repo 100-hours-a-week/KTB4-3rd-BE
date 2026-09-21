@@ -109,7 +109,7 @@ class KakaoOAuthClientTest {
     class FetchProfile {
 
         @Test
-        @DisplayName("인가 코드를 토큰으로 바꾼 뒤 그 토큰으로 카카오 회원번호를 조회한다")
+        @DisplayName("인가 코드를 토큰으로 바꾼 뒤 그 토큰으로 카카오 회원번호와 닉네임을 조회한다")
         void exchangesCodeThenFetchesUser() {
             MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
             form.add("grant_type", "authorization_code");
@@ -129,17 +129,25 @@ class KakaoOAuthClientTest {
             OAuthUserProfile profile = client.fetchProfile("auth-code");
 
             server.verify();
-            assertThat(profile).isEqualTo(new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890"));
+            assertThat(profile).isEqualTo(new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "길동이"));
         }
 
         @Test
-        @DisplayName("동의항목이 하나도 없어 회원번호만 와도 프로필을 만든다")
-        void idOnlyResponse() {
+        @DisplayName("닉네임 동의항목이 없어 회원번호만 오면 OAUTH_UNAVAILABLE이다")
+        void idOnlyResponseIsUnavailable() {
             givenToken();
             givenUser("{\"id\":77}");
 
-            assertThat(client.fetchProfile("auth-code"))
-                    .isEqualTo(new OAuthUserProfile(OAuthProvider.KAKAO, "77"));
+            assertFailsWith(OAuthLoginError.OAUTH_UNAVAILABLE);
+        }
+
+        @Test
+        @DisplayName("빈 닉네임이 오면 OAUTH_UNAVAILABLE이다")
+        void blankNicknameIsUnavailable() {
+            givenToken();
+            givenUser("{\"id\":77,\"kakao_account\":{\"profile\":{\"nickname\":\"  \"}}}");
+
+            assertFailsWith(OAuthLoginError.OAUTH_UNAVAILABLE);
         }
 
         @Test

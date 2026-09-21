@@ -14,7 +14,7 @@ public class InMemorySignupSessionStore implements SignupSessionStore {
     @Override
     public void create(String tokenHash, OAuthUserProfile profile, LocalDateTime expiresAt) {
         sessions.put(tokenHash, new SignupSessionView(
-                tokenHash, profile.provider(), profile.providerUserId(), expiresAt));
+                tokenHash, profile.provider(), profile.providerUserId(), profile.name(), expiresAt));
     }
 
     @Override

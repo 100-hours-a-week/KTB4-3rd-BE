@@ -25,7 +25,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 class SignupPrincipalArgumentResolverTest {
 
     private static final SignupSessionView SESSION = new SignupSessionView(
-            "hash-a", OAuthProvider.KAKAO, "1234567890", LocalDateTime.of(2026, 1, 1, 0, 15));
+            "hash-a", OAuthProvider.KAKAO, "1234567890", "카카오닉네임", LocalDateTime.of(2026, 1, 1, 0, 15));
 
     private final SignupPrincipalArgumentResolver resolver = new SignupPrincipalArgumentResolver();
 

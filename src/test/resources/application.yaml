@@ -26,6 +26,8 @@ moyeota:
       ttl: 15m
     cookie:
       secure: false
+  crypto:
+    account-key: bG9jYWwtb25seS1tb3llb3RhLWFjY291bnQta2V5ISE=
   oauth:
     front-callback-uri: http://localhost:3000/auth/callback
     kakao:

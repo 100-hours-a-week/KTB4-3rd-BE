@@ -147,15 +147,22 @@ public class GlobalExceptionHandler {
     }
 
     private static Map<String, Integer> declarationOrder(Object target) {
-        if (target == null || !target.getClass().isRecord()) {
-            return Map.of();
-        }
-        RecordComponent[] components = target.getClass().getRecordComponents();
         Map<String, Integer> order = new HashMap<>();
-        for (int i = 0; i < components.length; i++) {
-            order.put(SnakeCaseConverter.convert(components[i].getName()), i);
+        if (target != null) {
+            collectDeclarationOrder(target.getClass(), "", order);
         }
         return order;
+    }
+
+    private static void collectDeclarationOrder(Class<?> type, String prefix, Map<String, Integer> order) {
+        if (!type.isRecord()) {
+            return;
+        }
+        for (RecordComponent component : type.getRecordComponents()) {
+            String path = prefix + SnakeCaseConverter.convert(component.getName());
+            order.put(path, order.size());
+            collectDeclarationOrder(component.getType(), path + ".", order);
+        }
     }
 
     private static FieldErrorDetail toDetail(ObjectError error) {

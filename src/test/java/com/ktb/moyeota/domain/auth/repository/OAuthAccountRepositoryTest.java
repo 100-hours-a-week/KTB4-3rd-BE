@@ -69,7 +69,7 @@ class OAuthAccountRepositoryTest {
 
     private User persistUser(String nickname) {
         return entityManager.persistAndFlush(
-                User.register("홍길동", nickname, Gender.MALE, true, null));
+                User.register("홍길동", nickname, Gender.MALE, null));
     }
 
     private void link(User user, String providerUserId) {

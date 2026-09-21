@@ -18,6 +18,8 @@ moyeota:
   auth:
     jwt:
       secret: ${JWT_SECRET}
+  crypto:
+    account-key: ${ACCOUNT_ENC_KEY}
   oauth:
     front-callback-uri: ${FRONT_CALLBACK_URI}
     kakao:

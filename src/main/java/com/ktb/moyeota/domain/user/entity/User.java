@@ -41,9 +41,6 @@ public class User {
     @Column(name = "gender", nullable = false)
     private Gender gender;
 
-    @Column(name = "terms_agreed", nullable = false)
-    private boolean termsAgreed;
-
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
@@ -64,17 +61,20 @@ public class User {
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
-    private User(String name, String nickname, Gender gender, boolean termsAgreed, String profileImageUrl) {
+    private User(String name, String nickname, Gender gender, String profileImageUrl) {
         this.name = name;
         this.nickname = nickname;
         this.gender = gender;
-        this.termsAgreed = termsAgreed;
         this.profileImageUrl = profileImageUrl;
     }
 
-    public static User register(
-            String name, String nickname, Gender gender, boolean termsAgreed, String profileImageUrl) {
-        return new User(name, nickname, gender, termsAgreed, profileImageUrl);
+    public static User register(String name, String nickname, Gender gender, String profileImageUrl) {
+        return new User(name, nickname, gender, profileImageUrl);
+    }
+
+    public void registerBankAccount(String bankName, byte[] encryptedAccountNo) {
+        this.bankName = bankName;
+        this.accountNo = encryptedAccountNo;
     }
 
     public void changeNickname(String nickname) {
