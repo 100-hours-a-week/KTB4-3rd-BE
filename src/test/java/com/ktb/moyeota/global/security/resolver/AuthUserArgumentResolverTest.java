@@ -12,7 +12,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,26 +49,35 @@ class AuthUserArgumentResolverTest {
     }
 
     @Test
-    @DisplayName("JWT 인증이 아니면 UNAUTHORIZED를 던진다")
-    void rejectsNonJwtAuthentication() throws Exception {
+    @DisplayName("인증은 됐지만 회원 토큰이 아니면 FORBIDDEN이다")
+    void rejectsNonJwtAuthenticationAsForbidden() throws Exception {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("someone", null, List.of()));
 
-        assertUnauthorized();
+        assertFails(CommonErrorCode.FORBIDDEN);
     }
 
     @Test
-    @DisplayName("인증이 없으면 UNAUTHORIZED를 던진다")
-    void rejectsMissingAuthentication() {
-        assertUnauthorized();
+    @DisplayName("익명 인증이면 UNAUTHORIZED다")
+    void rejectsAnonymousAuthentication() {
+        SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken(
+                "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
+
+        assertFails(CommonErrorCode.UNAUTHORIZED);
     }
 
-    private void assertUnauthorized() {
+    @Test
+    @DisplayName("인증이 없으면 UNAUTHORIZED다")
+    void rejectsMissingAuthentication() {
+        assertFails(CommonErrorCode.UNAUTHORIZED);
+    }
+
+    private void assertFails(CommonErrorCode expected) {
         assertThatThrownBy(() ->
                 resolver.resolveArgument(parameterOf("annotatedLong", Long.class), null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(CommonErrorCode.UNAUTHORIZED);
+                .isEqualTo(expected);
     }
 
     private void authenticateWithJwt(String subject) {
