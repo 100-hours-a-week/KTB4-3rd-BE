@@ -26,4 +26,5 @@ moyeota:
   oauth:
     kakao:
       client-id: REPLACE_WITH_KAKAO_REST_API_KEY
+      client-secret: REPLACE_WITH_KAKAO_CLIENT_SECRET
       redirect-uri: http://localhost:8080/auth/kakao/callback
