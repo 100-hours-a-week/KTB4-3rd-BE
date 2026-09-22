@@ -37,6 +37,11 @@ moyeota:
       authorize-uri: https://kauth.kakao.com/oauth/authorize
       token-uri: https://kauth.kakao.com/oauth/token
       user-info-uri: https://kapi.kakao.com/v2/user/me
+  storage:
+    s3:
+      bucket: moyeota-test-images
+      region: ap-northeast-2
+      presign-ttl: 5m
   cors:
     allowed-origins:
       - http://localhost:3000
