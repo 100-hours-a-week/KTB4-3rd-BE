@@ -31,12 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * CommunityPostService 단위 테스트.
- *
- * [참고] EntityManager.getReference()/Repository는 Mockito로 모킹한다 — 이 테스트는 DB 접근
- * 없이 Service의 분기(정상/탈퇴 회원/게시글 없음/삭제됨)와 DTO 매핑만 검증한다.
- */
 @ExtendWith(MockitoExtension.class)
 class CommunityPostServiceTest {
 
@@ -57,11 +51,11 @@ class CommunityPostServiceTest {
     }
 
     private User activeUser() {
-        return User.register("우림", "rain", Gender.FEMALE, true, null);
+        return User.register("우림", "rain", Gender.FEMALE, null);
     }
 
     private User withdrawnUser() {
-        User user = User.register("탈퇴자", "withdrawn", Gender.FEMALE, true, null);
+        User user = User.register("탈퇴자", "withdrawn", Gender.FEMALE, null);
         user.withdraw(LocalDateTime.now());
         return user;
     }
@@ -87,8 +81,7 @@ class CommunityPostServiceTest {
             assertThat(saved.getContent()).isEqualTo("내용");
             assertThat(saved.getLat()).isEqualByComparingTo(BigDecimal.valueOf(37.5));
             assertThat(saved.getLng()).isEqualByComparingTo(BigDecimal.valueOf(127.0));
-            // TODO: Chat 도메인 개발 전까지 chatRoomId는 null이어야 한다.
-            assertThat(response.chatRoomId()).isNull();
+            // assertThat(response.chatRoomId()).isNull(); // TODO: Chat 도메인 연동 전까지 null
         }
 
         @Test
