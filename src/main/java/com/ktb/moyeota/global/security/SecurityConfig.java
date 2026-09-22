@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .hasAuthority(Authority.SIGNUP_NAME)
                         .requestMatchers(HttpMethod.GET, "/users/nickname-availability")
                         .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
+                        .requestMatchers(HttpMethod.POST, "/images/presigned-url")
+                        .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
                         .anyRequest().hasAuthority(Authority.USER_NAME))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(
@@ -76,7 +78,8 @@ public class SecurityConfig {
         PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
         filter.setRequestMatcher(new OrRequestMatcher(
                 paths.matcher(HttpMethod.POST, "/users"),
-                paths.matcher(HttpMethod.GET, "/users/nickname-availability")));
+                paths.matcher(HttpMethod.GET, "/users/nickname-availability"),
+                paths.matcher(HttpMethod.POST, "/images/presigned-url")));
         filter.setSuccessHandler((request, response, authentication) -> {
         });
         return filter;
