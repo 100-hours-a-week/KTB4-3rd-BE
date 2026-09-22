@@ -5,8 +5,34 @@ spring:
     default: local
   jackson:
     time-zone: Asia/Seoul
+    property-naming-strategy: SNAKE_CASE
   jpa:
     open-in-view: false
 
 server:
   port: 8080
+
+moyeota:
+  auth:
+    jwt:
+      issuer: moyeota
+      access-token-ttl: 30m
+    refresh:
+      ttl: 7d
+      grace: 10s
+    signup:
+      ttl: 15m
+    cookie:
+      secure: true
+  oauth:
+    kakao:
+      authorize-uri: https://kauth.kakao.com/oauth/authorize
+      token-uri: https://kauth.kakao.com/oauth/token
+      user-info-uri: https://kapi.kakao.com/v2/user/me
+  storage:
+    s3:
+      region: ap-northeast-2
+      presign-ttl: 5m
+  cors:
+    allowed-origins:
+      - http://localhost:3000
