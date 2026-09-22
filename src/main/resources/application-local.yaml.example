@@ -23,7 +23,16 @@ moyeota:
       secret: local-only-moyeota-access-token-secret-0123456789
     cookie:
       secure: false
+  crypto:
+    # 로컬 전용 값. 운영은 ACCOUNT_ENC_KEY 환경변수로 주입한다. base64로 인코딩한 32바이트(AES-256).
+    account-key: bG9jYWwtb25seS1tb3llb3RhLWFjY291bnQta2V5ISE=
   oauth:
+    front-callback-uri: http://localhost:3000/auth/callback
     kakao:
       client-id: REPLACE_WITH_KAKAO_REST_API_KEY
+      client-secret: REPLACE_WITH_KAKAO_CLIENT_SECRET
       redirect-uri: http://localhost:8080/auth/kakao/callback
+  storage:
+    s3:
+      # 로컬 개발용 버킷. 자격 증명은 yaml이 아니라 AWS_ACCESS_KEY_ID · AWS_SECRET_ACCESS_KEY 환경변수 또는 ~/.aws/credentials 로 준다.
+      bucket: REPLACE_WITH_DEV_BUCKET_NAME

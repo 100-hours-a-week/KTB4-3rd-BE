@@ -99,6 +99,7 @@ class AccessTokenProviderTest {
         return new AuthProperties(
                 new AuthProperties.Jwt(secret, issuer, TTL),
                 new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
+                new AuthProperties.Signup(Duration.ofMinutes(15)),
                 new AuthProperties.Cookie(false));
     }
 

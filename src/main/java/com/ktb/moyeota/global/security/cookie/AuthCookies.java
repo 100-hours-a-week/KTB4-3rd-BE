@@ -12,9 +12,11 @@ public class AuthCookies {
 
     public static final String REFRESH_TOKEN = "refresh_token";
     public static final String OAUTH_STATE = "oauth_state";
+    public static final String SIGNUP_TOKEN = "signup_token";
 
     private static final String REFRESH_TOKEN_PATH = "/auth";
     private static final String OAUTH_STATE_PATH = "/auth";
+    private static final String SIGNUP_TOKEN_PATH = "/users";
     private static final Duration OAUTH_STATE_MAX_AGE = Duration.ofMinutes(5);
     private static final String SAME_SITE = "Lax";
 
@@ -30,6 +32,18 @@ public class AuthCookies {
 
     public ResponseCookie oauthState(String value) {
         return builder(OAUTH_STATE, value, OAUTH_STATE_PATH).maxAge(OAUTH_STATE_MAX_AGE).build();
+    }
+
+    public ResponseCookie expiredOauthState() {
+        return builder(OAUTH_STATE, "", OAUTH_STATE_PATH).maxAge(Duration.ZERO).build();
+    }
+
+    public ResponseCookie signupToken(String value, Duration maxAge) {
+        return builder(SIGNUP_TOKEN, value, SIGNUP_TOKEN_PATH).maxAge(maxAge).build();
+    }
+
+    public ResponseCookie expiredSignupToken() {
+        return builder(SIGNUP_TOKEN, "", SIGNUP_TOKEN_PATH).maxAge(Duration.ZERO).build();
     }
 
     private ResponseCookie.ResponseCookieBuilder builder(String name, String value, String path) {
