@@ -1,0 +1,176 @@
+name: BE Prod CD
+
+on:
+  workflow_run:
+    workflows:
+      - BE CI
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  pull-requests: read
+
+concurrency:
+  group: backend-cd-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAIN_SHA: ${{ github.event.workflow_run.head_sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      EC2_INSTANCE_ID: ${{ vars.PROD_EC2_INSTANCE_ID }}
+      REMOTE_SCRIPT_PATH: /opt/moyeota/scripts/deploy-backend-ec2.sh
+
+    steps:
+      - name: Checkout exact main CI commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_PROD || secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: backend-prod-cd-${{ github.run_id }}
+
+      - name: Resolve QA-approved source commit
+        id: source
+        run: |
+          set -Eeuo pipefail
+
+          source_sha="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/commits/${MAIN_SHA}/pulls" \
+            --jq '[.[] | select(.base.ref == "main")][0].head.sha // empty')"
+          source_branch="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/commits/${MAIN_SHA}/pulls" \
+            --jq '[.[] | select(.base.ref == "main")][0].head.ref // empty')"
+
+          if [[ -z "$source_sha" || -z "$source_branch" ]]; then
+            echo "Unable to resolve the source pull request for ${MAIN_SHA}; refusing production deployment." >&2
+            exit 1
+          fi
+
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          {
+            echo "source_sha=$source_sha"
+            echo "source_branch=$source_branch"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release version and source image
+        id: release
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          SOURCE_BRANCH: ${{ steps.source.outputs.source_branch }}
+        run: |
+          set -Eeuo pipefail
+
+          case "$SOURCE_BRANCH" in
+            dev)
+              source_tag="dev-${SOURCE_SHA:0:7}"
+              promote_tag="prod-${SOURCE_SHA:0:7}"
+              ;;
+            release/v*)
+              release_version="${SOURCE_BRANCH#release/}"
+              [[ "$release_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+              source_tag="rc-${release_version}-${SOURCE_SHA:0:7}"
+              promote_tag="prod-${release_version}-${SOURCE_SHA:0:7}"
+              ;;
+            *)
+              echo "Unsupported production source branch: ${SOURCE_BRANCH}" >&2
+              exit 1
+              ;;
+          esac
+
+          image_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$source_tag" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          [[ "$image_digest" == sha256:* ]]
+
+          if aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$promote_tag" > /dev/null 2>&1; then
+            echo "ECR tag already exists: $promote_tag" >&2
+            exit 1
+          fi
+
+          {
+            echo "image_ref=${ECR_REGISTRY}/${ECR_REPOSITORY}@${image_digest}"
+            echo "image_digest=$image_digest"
+            echo "source_tag=$source_tag"
+            echo "promote_tag=$promote_tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Promote image tag without rebuilding
+        env:
+          SOURCE_TAG: ${{ steps.release.outputs.source_tag }}
+          PROMOTE_TAG: ${{ steps.release.outputs.promote_tag }}
+          IMAGE_DIGEST: ${{ steps.release.outputs.image_digest }}
+        run: |
+          set -Eeuo pipefail
+
+          manifest="$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$SOURCE_TAG" \
+            --query 'images[0].imageManifest' \
+            --output text)"
+
+          test -n "$manifest"
+          test "$manifest" != None
+
+          aws ecr put-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-tag "$PROMOTE_TAG" \
+            --image-manifest "$manifest"
+
+          promoted_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$PROMOTE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+
+          test "$promoted_digest" = "$IMAGE_DIGEST"
+
+      - name: Start deployment on EC2
+        shell: bash
+        env:
+          IMAGE_REF: ${{ steps.release.outputs.image_ref }}
+          RELEASE_ID: ${{ steps.release.outputs.promote_tag }}
+        run: |
+          set -Eeuo pipefail
+
+          command="$(printf 'IMAGE_REF=%q RELEASE_ID=%q bash %q' \
+            "$IMAGE_REF" "$RELEASE_ID" "$REMOTE_SCRIPT_PATH")"
+          parameters="$(jq -n --arg command "$command" '{commands: [$command]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "backend-${RELEASE_ID}" \
+            --timeout-seconds 900 \
+            --max-concurrency 1 \
+            --max-errors 0 \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          echo "SSM deployment command started: $command_id"
