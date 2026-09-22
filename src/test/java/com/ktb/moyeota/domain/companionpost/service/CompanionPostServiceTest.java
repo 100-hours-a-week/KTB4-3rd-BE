@@ -24,7 +24,6 @@ import com.ktb.moyeota.global.exception.CommonErrorCode;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,13 +34,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * CompanionPostService 단위 테스트.
- *
- * [참고] Companion 엔티티는 상태(RECRUITING 이외)를 만드는 public API가 없어서(현재 코드에는
- * createRecruiting()만 있음), isExpired/joined/취소 분기 테스트는 Mockito로 Companion을
- * 모킹해서 검증한다.
- */
+
 @ExtendWith(MockitoExtension.class)
 class CompanionPostServiceTest {
 
@@ -193,7 +186,7 @@ class CompanionPostServiceTest {
         void throwsNotFoundWhenMissing() {
             given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.find(COMPANION_ID))
+            assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CompanionPostErrorCode.COMPANION_POST_NOT_FOUND);
@@ -206,64 +199,85 @@ class CompanionPostServiceTest {
             given(companion.getStatus()).willReturn(CompanionStatus.CANCELED);
             given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
-            assertThatThrownBy(() -> service.find(COMPANION_ID))
+            assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CompanionPostErrorCode.COMPANION_POST_CANCELED);
         }
 
-        private Companion companionWith(CompanionStatus status, int currentCount, int capacity) {
+        private Companion companionWith(LocalDateTime departureAt, int currentCount, int capacity, Long hostId) {
+            User host = mock(User.class);
+            given(host.getId()).willReturn(hostId);
+            given(host.getNickname()).willReturn("호스트닉네임");
+
             Companion companion = mock(Companion.class);
             given(companion.getId()).willReturn(COMPANION_ID);
-            given(companion.getStatus()).willReturn(status);
+            given(companion.getStatus()).willReturn(CompanionStatus.RECRUITING);
             given(companion.getCurrentCount()).willReturn(currentCount);
             given(companion.getCapacity()).willReturn(capacity);
             given(companion.getOriginName()).willReturn("판교역");
             given(companion.getDestName()).willReturn("강남역");
-            given(companion.getDepartureAt()).willReturn(LocalDateTime.now().plusHours(1));
+            given(companion.getDepartureAt()).willReturn(departureAt);
             given(companion.getTransportType()).willReturn(TransportType.TAXI);
             given(companion.getContent()).willReturn("내용");
+            given(companion.getHost()).willReturn(host);
             return companion;
         }
 
         @Test
-        @DisplayName("모집 중이고 정원이 남았으면 isExpired=false, joined=true다")
-        void recruitingWithRoomLeft() {
-            Companion companion = companionWith(CompanionStatus.RECRUITING, 2, 4);
+        @DisplayName("출발 전이고 정원이 남았으면 isExpired=false, isFull=false다")
+        void beforeDepartureWithRoomLeft() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
             given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
-            given(companionPostRepository.findParticipantUserIds(COMPANION_ID)).willReturn(List.of(1L, 2L));
 
-            CompanionPostDetailResponse response = service.find(COMPANION_ID);
+            CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
             assertThat(response.isExpired()).isFalse();
-            assertThat(response.joined()).isTrue();
+            assertThat(response.isFull()).isFalse();
             assertThat(response.title()).isEqualTo("판교역 → 강남역");
-            assertThat(response.participantIds()).containsExactly(1L, 2L);
         }
 
         @Test
-        @DisplayName("모집 중이지만 정원이 다 찼으면 joined=false다")
-        void recruitingButFull() {
-            Companion companion = companionWith(CompanionStatus.RECRUITING, 4, 4);
+        @DisplayName("정원이 다 찼으면 isFull=true다")
+        void full() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 4, 4, 99L);
             given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
-            given(companionPostRepository.findParticipantUserIds(COMPANION_ID)).willReturn(List.of());
 
-            CompanionPostDetailResponse response = service.find(COMPANION_ID);
+            CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
-            assertThat(response.isExpired()).isFalse();
-            assertThat(response.joined()).isFalse();
+            assertThat(response.isFull()).isTrue();
         }
 
         @Test
-        @DisplayName("모집 중이 아니면 isExpired=true, joined=false다")
-        void notRecruitingIsExpired() {
-            Companion companion = companionWith(CompanionStatus.COMPLETED, 4, 4);
+        @DisplayName("출발 시각이 지났으면 isExpired=true다")
+        void afterDepartureIsExpired() {
+            Companion companion = companionWith(LocalDateTime.now().minusHours(1), 2, 4, 99L);
             given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
-            given(companionPostRepository.findParticipantUserIds(COMPANION_ID)).willReturn(List.of());
 
-            CompanionPostDetailResponse response = service.find(COMPANION_ID);
+            CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
             assertThat(response.isExpired()).isTrue();
+        }
+
+        @Test
+        @DisplayName("방장이 조회하면 joined=true다")
+        void hostSeesJoinedTrue() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, USER_ID);
+            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+
+            CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
+
+            assertThat(response.joined()).isTrue();
+        }
+
+        @Test
+        @DisplayName("방장이 아니면 joined=false다")
+        void nonHostSeesJoinedFalse() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
+            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+
+            CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
+
             assertThat(response.joined()).isFalse();
         }
     }

@@ -3,7 +3,6 @@ package com.ktb.moyeota.domain.community.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -68,6 +67,7 @@ class CommunityCommentServiceTest {
         return user;
     }
 
+    // isDeleted()만 스텁한다 — create/findAll 둘 다 게시글 상태 확인에는 이 값만 쓴다.
     private CommunityPost activePost() {
         CommunityPost post = mock(CommunityPost.class);
         given(post.isDeleted()).willReturn(false);
@@ -89,8 +89,9 @@ class CommunityCommentServiceTest {
         @Test
         @DisplayName("정상 유저/게시글이면 댓글을 저장하고 댓글 수를 +1한다")
         void createsComment() {
+            CommunityPost post = activePost();
             given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
-            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(activePost()));
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
 
             CommunityCommentCreateResponse response = service.create(USER_ID, POST_ID, request);
 
@@ -127,8 +128,9 @@ class CommunityCommentServiceTest {
         @Test
         @DisplayName("삭제된 게시글이면 409를 던진다(목록 조회의 410과 다름)")
         void throwsConflictWhenPostDeleted() {
+            CommunityPost post = deletedPost();
             given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
-            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(deletedPost()));
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
 
             assertThatThrownBy(() -> service.create(USER_ID, POST_ID, request))
                     .isInstanceOf(BusinessException.class)
@@ -157,7 +159,8 @@ class CommunityCommentServiceTest {
         @Test
         @DisplayName("삭제된 게시글이면 410을 던진다(작성의 409와 다름)")
         void throwsGoneWhenPostDeleted() {
-            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(deletedPost()));
+            CommunityPost post = deletedPost();
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
 
             assertThatThrownBy(() -> service.findAll(POST_ID, null))
                     .isInstanceOf(BusinessException.class)
@@ -165,6 +168,7 @@ class CommunityCommentServiceTest {
                     .isEqualTo(CommunityErrorCode.COMMUNITY_POST_DELETED);
         }
 
+        // CommunityCommentItem.from()이 쓰는 필드(id, content, createdAt, author.nickname)만 스텁한다.
         private CommunityComment commentWithId(Long id) {
             CommunityComment comment = mock(CommunityComment.class);
             given(comment.getId()).willReturn(id);
@@ -177,11 +181,15 @@ class CommunityCommentServiceTest {
         @Test
         @DisplayName("PAGE_SIZE보다 많이 조회되면 10건만 반환하고 nextCursor를 채운다")
         void returnsNextCursorWhenMoreThanPageSize() {
-            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(activePost()));
+            CommunityPost post = activePost();
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
             List<CommunityComment> fetched = new ArrayList<>();
-            for (long id = PAGE_SIZE + 1; id >= 1; id--) {
-                fetched.add(commentWithId(id)); // 11건, id 내림차순
+            for (long id = PAGE_SIZE + 1; id >= 2; id--) {
+                fetched.add(commentWithId(id)); // 10건(id 11..2) — 응답 items에 매핑되는 것만 스텁
             }
+            // hasNext 판단용 11번째(초과분) — subList(0, PAGE_SIZE)에서 잘려나가 어떤 getter도 호출되지 않으므로
+            // 스텁하면 UnnecessaryStubbingException이 난다. 개수만 채우는 용도라 빈 mock을 그대로 둔다.
+            fetched.add(mock(CommunityComment.class));
             given(communityCommentRepository.findByPostIdWithAuthor(eq(POST_ID), any(), any())).willReturn(fetched);
 
             CommunityCommentListResponse response = service.findAll(POST_ID, null);
@@ -193,7 +201,8 @@ class CommunityCommentServiceTest {
         @Test
         @DisplayName("PAGE_SIZE 이하로 조회되면 nextCursor가 없다")
         void returnsNoCursorWhenExactlyPageSizeOrLess() {
-            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(activePost()));
+            CommunityPost post = activePost();
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
             List<CommunityComment> fetched = new ArrayList<>();
             for (long id = 5; id >= 1; id--) {
                 fetched.add(commentWithId(id)); // 5건

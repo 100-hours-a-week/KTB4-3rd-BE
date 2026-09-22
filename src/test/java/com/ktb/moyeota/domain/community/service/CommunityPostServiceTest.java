@@ -68,7 +68,7 @@ class CommunityPostServiceTest {
                 "제목", "내용", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0));
 
         @Test
-        @DisplayName("정상 유저면 게시글을 저장하고 chatRoomId는 null로 응답한다")
+        @DisplayName("정상 유저면 게시글을 저장한다")
         void createsPost() {
             given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
 
@@ -81,7 +81,7 @@ class CommunityPostServiceTest {
             assertThat(saved.getContent()).isEqualTo("내용");
             assertThat(saved.getLat()).isEqualByComparingTo(BigDecimal.valueOf(37.5));
             assertThat(saved.getLng()).isEqualByComparingTo(BigDecimal.valueOf(127.0));
-            // assertThat(response.chatRoomId()).isNull(); // TODO: Chat 도메인 연동 전까지 null
+            assertThat(response).isNotNull();
         }
 
         @Test
@@ -129,6 +129,8 @@ class CommunityPostServiceTest {
         @Test
         @DisplayName("정상 게시글이면 상세 DTO를 반환한다")
         void returnsDetail() {
+            // CommunityPostDetailResponse.from()이 실제로 쓰는 필드만 스텁한다
+            // (getLat/getLng은 응답 DTO에 없어서 스텁하면 UnnecessaryStubbingException 발생)
             CommunityPost post = mock(CommunityPost.class);
             LocalDateTime createdAt = LocalDateTime.now();
             given(post.isDeleted()).willReturn(false);
@@ -136,8 +138,6 @@ class CommunityPostServiceTest {
             given(post.getAuthor()).willReturn(activeUser());
             given(post.getTitle()).willReturn("제목");
             given(post.getContent()).willReturn("내용");
-            given(post.getLat()).willReturn(BigDecimal.valueOf(37.5));
-            given(post.getLng()).willReturn(BigDecimal.valueOf(127.0));
             given(post.getCommentCount()).willReturn(3);
             given(post.getCreatedAt()).willReturn(createdAt);
             given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));

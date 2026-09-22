@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+
 @ExtendWith(MockitoExtension.class)
 class HomeServiceTest {
 
@@ -59,8 +60,6 @@ class HomeServiceTest {
     private CompanionPinProjection companionPin(Long id) {
         CompanionPinProjection pin = mock(CompanionPinProjection.class);
         given(pin.getId()).willReturn(id);
-        given(pin.getOriginName()).willReturn("판교역");
-        given(pin.getDestName()).willReturn("강남역");
         given(pin.getOriginLat()).willReturn(BigDecimal.valueOf(37.6));
         given(pin.getOriginLng()).willReturn(BigDecimal.valueOf(127.6));
         return pin;
@@ -69,10 +68,12 @@ class HomeServiceTest {
     @Test
     @DisplayName("커뮤니티 핀과 동행 핀을 하나의 목록으로 합친다")
     void mergesBothPinTypes() {
+        CommunityPinProjection communityPin = communityPin(1L);
+        CompanionPinProjection companionPin = companionPin(2L);
         given(communityPostRepository.findPinsInViewport(any(), any(), any(), any()))
-                .willReturn(List.of(communityPin(1L)));
+                .willReturn(List.of(communityPin));
         given(companionPostRepository.findPinsInViewport(any(), any(), any(), any()))
-                .willReturn(List.of(companionPin(2L)));
+                .willReturn(List.of(companionPin));
 
         MapPinSearchResponse response = service.searchMapPins(request);
 
@@ -89,8 +90,9 @@ class HomeServiceTest {
     @Test
     @DisplayName("합산 결과가 500건 이하면 그대로 반환한다")
     void returnsItemsWhenUnderLimit() {
+        CommunityPinProjection communityPin = communityPin(1L);
         given(communityPostRepository.findPinsInViewport(any(), any(), any(), any()))
-                .willReturn(List.of(communityPin(1L)));
+                .willReturn(List.of(communityPin));
         given(companionPostRepository.findPinsInViewport(any(), any(), any(), any()))
                 .willReturn(List.of());
 
