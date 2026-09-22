@@ -35,12 +35,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * CommunityCommentService 단위 테스트.
- *
- * [참고] 댓글 작성 API는 "게시글 삭제됨"이 409, 댓글 목록 조회 API는 410으로 서로 다른 상태
- * 코드를 쓴다는 테크스펙 규칙(주석 참고)을 각각 별도로 검증한다.
- */
 @ExtendWith(MockitoExtension.class)
 class CommunityCommentServiceTest {
 
@@ -65,11 +59,11 @@ class CommunityCommentServiceTest {
     }
 
     private User activeUser() {
-        return User.register("우림", "rain", Gender.FEMALE, true, null);
+        return User.register("우림", "rain", Gender.FEMALE, null);
     }
 
     private User withdrawnUser() {
-        User user = User.register("탈퇴자", "withdrawn", Gender.FEMALE, true, null);
+        User user = User.register("탈퇴자", "withdrawn", Gender.FEMALE, null);
         user.withdraw(LocalDateTime.now());
         return user;
     }
@@ -176,7 +170,7 @@ class CommunityCommentServiceTest {
             given(comment.getId()).willReturn(id);
             given(comment.getContent()).willReturn("댓글 " + id);
             given(comment.getCreatedAt()).willReturn(LocalDateTime.now());
-            given(comment.getAuthor()).willReturn(User.register("작성자" + id, "author" + id, Gender.FEMALE, true, null));
+            given(comment.getAuthor()).willReturn(User.register("작성자" + id, "author" + id, Gender.FEMALE, null));
             return comment;
         }
 
