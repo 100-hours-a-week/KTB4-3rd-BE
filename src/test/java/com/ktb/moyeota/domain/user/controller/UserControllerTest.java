@@ -120,7 +120,8 @@ class UserControllerTest extends SignupApiTestSupport {
             assertThat(session.getValue().tokenHash()).isEqualTo(opaqueTokenFactory.hash(cookie.getValue()));
             assertThat(session.getValue().providerUserId()).isEqualTo("1234567890");
             assertThat(command.getValue()).isEqualTo(
-                    new SignupCommand("길동이", Gender.FEMALE, null, new AgreementsCommand(true, false)));
+                    new SignupCommand(
+                            "길동이", Gender.FEMALE, null, null, new AgreementsCommand(true, false)));
         }
     }
 }

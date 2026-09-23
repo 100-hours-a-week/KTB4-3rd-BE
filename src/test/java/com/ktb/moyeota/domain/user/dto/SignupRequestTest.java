@@ -144,7 +144,17 @@ class SignupRequestTest {
     @DisplayName("검증을 통과한 요청은 성별을 enum으로, 선택 약관만 담은 명령이 된다. 계좌가 없으면 null이다")
     void convertsToCommand() {
         assertThat(new SignupRequest("길동이", "FEMALE", null, null, null, ALL_AGREED).toCommand())
-                .isEqualTo(new SignupCommand("길동이", Gender.FEMALE, null, new AgreementsCommand(true, false)));
+                .isEqualTo(new SignupCommand(
+                        "길동이", Gender.FEMALE, null, null, new AgreementsCommand(true, false)));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 키는 그대로 명령에 담긴다")
+    void carriesProfileImageKey() {
+        String key = "tmp/profile/s-1a2b3c4d5e6f7a8b/0b9c2f7e-1111-2222-3333-444455556666.jpg";
+
+        assertThat(new SignupRequest("길동이", "FEMALE", key, null, null, ALL_AGREED).toCommand().profileImageKey())
+                .isEqualTo(key);
     }
 
     private Set<String> violatedFields(SignupRequest request) {
