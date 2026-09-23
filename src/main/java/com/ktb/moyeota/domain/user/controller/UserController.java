@@ -7,6 +7,7 @@ import com.ktb.moyeota.domain.user.dto.SignupRequest;
 import com.ktb.moyeota.domain.user.dto.SignupResponse;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.service.UserService;
+import com.ktb.moyeota.domain.user.success.UserSuccessCode;
 import com.ktb.moyeota.domain.user.validation.NicknameRules;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.cookie.AuthCookies;
@@ -28,10 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class UserController {
 
-    private static final String SIGNED_UP = "가입이 완료되었어요";
-    private static final String NICKNAME_AVAILABLE = "사용할 수 있는 닉네임이에요";
-    private static final String NICKNAME_TAKEN = "이미 사용 중인 닉네임이에요";
-
     private final UserService userService;
     private final AuthCookies authCookies;
 
@@ -48,7 +45,7 @@ public class UserController {
                         authCookies.refreshToken(session.refreshToken(), session.refreshTokenMaxAge())
                                 .toString(),
                         authCookies.expiredSignupToken().toString())
-                .body(ApiResponse.success(SIGNED_UP, SignupResponse.from(registered)));
+                .body(ApiResponse.of(UserSuccessCode.SIGNED_UP, SignupResponse.from(registered)));
     }
 
     @GetMapping("/users/nickname-availability")
@@ -59,8 +56,8 @@ public class UserController {
             String nickname) {
 
         boolean available = userService.isNicknameAvailable(nickname);
-        return ApiResponse.success(
-                available ? NICKNAME_AVAILABLE : NICKNAME_TAKEN,
+        return ApiResponse.of(
+                available ? UserSuccessCode.NICKNAME_AVAILABLE : UserSuccessCode.NICKNAME_TAKEN,
                 new NicknameAvailabilityResponse(available));
     }
 }

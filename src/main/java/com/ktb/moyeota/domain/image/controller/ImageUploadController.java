@@ -5,6 +5,7 @@ import com.ktb.moyeota.domain.image.dto.PresignedUrlResponse;
 import com.ktb.moyeota.domain.image.model.IssuedUploadUrl;
 import com.ktb.moyeota.domain.image.model.UploadScope;
 import com.ktb.moyeota.domain.image.service.ImageUploadService;
+import com.ktb.moyeota.domain.image.success.ImageSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.UploadPrincipal;
 import jakarta.validation.Valid;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ImageUploadController {
 
-    private static final String ISSUED = "이미지 업로드 URL이 발급되었습니다.";
-
     private final ImageUploadService imageUploadService;
 
     @PostMapping("/images/presigned-url")
@@ -27,6 +26,6 @@ public class ImageUploadController {
             @Valid @RequestBody PresignedUrlRequest request) {
 
         IssuedUploadUrl issued = imageUploadService.issue(scope, request.toCommand());
-        return ApiResponse.success(ISSUED, PresignedUrlResponse.from(issued));
+        return ApiResponse.of(ImageSuccessCode.UPLOAD_URL_ISSUED, PresignedUrlResponse.from(issued));
     }
 }
