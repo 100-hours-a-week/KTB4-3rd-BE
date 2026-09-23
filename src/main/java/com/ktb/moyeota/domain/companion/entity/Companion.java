@@ -1,25 +1,16 @@
 package com.ktb.moyeota.domain.companion.entity;
 
+// import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.user.entity.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "companions")
@@ -38,6 +29,9 @@ public class Companion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
+
+    // @OneToMany(mappedBy = "user")
+    // private List<ChatRoom> chatRoomList = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -90,6 +84,13 @@ public class Companion {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // capacity는 방장을 포함한 총원이다. 방장 혼자(recruit_count 0)도 생성 가능.
+    // TAXI·OWNED_CAR: 방장 포함 1~4명
+    // SUBWAY·BUS: 방장 포함 1~10명
+    private static final int MIN_CAPACITY = 1;
+    private static final int CAR_MAX_CAPACITY = 4;       // TAXI, OWNED_CAR
+    private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10; // SUBWAY, BUS
+
     private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
                        String destName, BigDecimal destLat, BigDecimal destLng,
@@ -97,8 +98,8 @@ public class Companion {
         this.creator = creator;
         this.host = host;
         this.kind = kind;
-        this.transportType = transportType; // 매칭팟에는 필요없음
-        this.content = content; // 매칭팟에는 필요없음
+        this.transportType = transportType;
+        this.content = content;
         this.originName = originName;
         this.originLat = originLat;
         this.originLng = originLng;
@@ -106,21 +107,18 @@ public class Companion {
         this.destLat = destLat;
         this.destLng = destLng;
         this.departureAt = departureAt;
-        this.capacity = capacity; // 매칭팟은 4명으로 고정
+        this.capacity = capacity;
         this.currentCount = 1;
         this.status = CompanionStatus.RECRUITING;
     }
 
-    public static Companion createRecruiting(User host, TransportType transportType, String content,
-                                              String originName, BigDecimal originLat, BigDecimal originLng,
-                                              String destName, BigDecimal destLat, BigDecimal destLng,
-                                              LocalDateTime departureAt, Integer capacity) {
-        return new Companion(host, host, CompanionKind.COMPANION, transportType, content,
+    public static Companion createCompanionPost(User host, CompanionKind kind, TransportType transportType,
+                                                  String content,
+                                                  String originName, BigDecimal originLat, BigDecimal originLng,
+                                                  String destName, BigDecimal destLat, BigDecimal destLng,
+                                                  LocalDateTime departureAt, Integer capacity) {
+        return new Companion(host, host, kind, transportType, content,
                 originName, originLat, originLng, destName, destLat, destLng, departureAt, capacity);
-    }
-
-    public void transferHost(User newHost) {
-        this.host = newHost;
     }
 
     @PrePersist
@@ -133,5 +131,29 @@ public class Companion {
     @PreUpdate
     private void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isDepartureAtFuture() {
+        return departureAt != null && departureAt.isAfter(LocalDateTime.now());
+    }
+
+    public boolean isOriginDestDifferent() {
+        return !(originLat.compareTo(destLat) == 0 && originLng.compareTo(destLng) == 0);
+    }
+
+    public boolean isCapacityValid() {
+        int max = maxCapacityFor(transportType);
+        return capacity != null && capacity >= MIN_CAPACITY && capacity <= max;
+    }
+
+    private static int maxCapacityFor(TransportType transportType) {
+        return switch (transportType) {
+            case TAXI, OWNED_CAR -> CAR_MAX_CAPACITY;
+            case SUBWAY, BUS -> PUBLIC_TRANSPORT_MAX_CAPACITY;
+        };
+    }
+
+    public void transferHost(User newHost) {
+        this.host = newHost;
     }
 }
