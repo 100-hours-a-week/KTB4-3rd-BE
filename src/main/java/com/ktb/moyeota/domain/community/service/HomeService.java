@@ -16,6 +16,7 @@ import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ public class HomeService {
     private final CommunityPostRepository communityPostRepository;
     private final CompanionPostRepository companionPostRepository;
     private final NearbyPostCursorCodec cursorCodec;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public MapPinSearchResponse searchMapPins(MapPinSearchRequest request) {
@@ -82,10 +84,10 @@ public class HomeService {
 
         List<Candidate> merged = new ArrayList<>(communityRows.size() + companionRows.size());
         for (CommunityNearbyProjection row : communityRows) {
-            merged.add(Candidate.ofCommunity(row));
+            merged.add(Candidate.ofCommunity(row, imageUrlResolver.toUrl(row.getAuthorProfileImageUrl())));
         }
         for (CompanionNearbyProjection row : companionRows) {
-            merged.add(Candidate.ofCompanion(row));
+            merged.add(Candidate.ofCompanion(row, imageUrlResolver.toUrl(row.getHostProfileImageUrl())));
         }
         merged.sort(Comparator.comparing(Candidate::distance)
                 .thenComparing(Candidate::createdAt, Comparator.reverseOrder()));
@@ -135,16 +137,16 @@ public class HomeService {
 
     private record Candidate(MapPinType type, Long id, double distance, LocalDateTime createdAt, NearbyPostItem item) {
 
-        static Candidate ofCommunity(CommunityNearbyProjection row) {
-            NearbyPostAuthor author = new NearbyPostAuthor(row.getAuthorNickname(), row.getAuthorProfileImageUrl());
+        static Candidate ofCommunity(CommunityNearbyProjection row, String authorProfileImageUrl) {
+            NearbyPostAuthor author = new NearbyPostAuthor(row.getAuthorNickname(), authorProfileImageUrl);
             NearbyPostItem item = NearbyPostItem.ofCommunity(
                     row.getId(), row.getTitle(), author, row.getDistanceM(),
                     row.getCommentCount(), row.getCreatedAt());
             return new Candidate(MapPinType.COMMUNITY, row.getId(), row.getDistanceM(), row.getCreatedAt(), item);
         }
 
-        static Candidate ofCompanion(CompanionNearbyProjection row) {
-            NearbyPostAuthor author = new NearbyPostAuthor(row.getHostNickname(), row.getHostProfileImageUrl());
+        static Candidate ofCompanion(CompanionNearbyProjection row, String hostProfileImageUrl) {
+            NearbyPostAuthor author = new NearbyPostAuthor(row.getHostNickname(), hostProfileImageUrl);
             String title = row.getOriginName() + " → " + row.getDestName();
             boolean isExpired = !"RECRUITING".equals(row.getStatus());
             NearbyPostItem item = NearbyPostItem.ofCompanion(
