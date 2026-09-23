@@ -38,7 +38,8 @@ public record SignupRequest(
         AgreementsRequest agreements) implements BankAccountFields {
 
     public SignupCommand toCommand() {
-        return new SignupCommand(nickname, Gender.valueOf(gender), bankAccount(), agreements.toCommand());
+        return new SignupCommand(
+                nickname, Gender.valueOf(gender), profileImageKey, bankAccount(), agreements.toCommand());
     }
 
     private BankAccountCommand bankAccount() {

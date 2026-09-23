@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ktb.moyeota.domain.image.error.ImageErrorCode;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -114,6 +115,17 @@ class UserControllerRejectionTest extends SignupApiTestSupport {
                         """.formatted(ALL_AGREED)).cookie(validSignupCookie()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.profile_image_url").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지가 업로드되지 않았으면 422 IMAGE_NOT_EXISTS다")
+    void imageNotExists() throws Exception {
+        given(userService.register(any(), any()))
+                .willThrow(new BusinessException(ImageErrorCode.IMAGE_NOT_EXISTS));
+
+        mockMvc.perform(signUp(VALID_BODY).cookie(validSignupCookie()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("IMAGE_NOT_EXISTS"));
     }
 
     @Test

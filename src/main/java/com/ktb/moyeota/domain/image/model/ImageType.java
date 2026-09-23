@@ -23,6 +23,12 @@ public enum ImageType {
                 .findFirst();
     }
 
+    public static Optional<ImageType> fromExtension(String extension) {
+        return Arrays.stream(values())
+                .filter(type -> type.extension.equals(extension))
+                .findFirst();
+    }
+
     public String contentType() {
         return contentType;
     }

@@ -29,6 +29,7 @@ moyeota:
   storage:
     s3:
       bucket: ${S3_BUCKET}
+      public-base-url: ${IMAGE_PUBLIC_BASE_URL:}
   cors:
     allowed-origins:
       - ${FRONT_URL}

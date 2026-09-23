@@ -6,6 +6,10 @@ import com.ktb.moyeota.domain.auth.model.SignupSessionView;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
 import com.ktb.moyeota.domain.auth.service.AuthSessionService;
 import com.ktb.moyeota.domain.auth.store.SignupSessionStore;
+import com.ktb.moyeota.domain.image.model.ImagePurpose;
+import com.ktb.moyeota.domain.image.model.UploadScope;
+import com.ktb.moyeota.domain.image.service.ImagePromotionService;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.entity.UserAgreement;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
@@ -35,6 +39,8 @@ public class UserService {
     private final AuthSessionService authSessionService;
     private final SignupSessionStore signupSessionStore;
     private final AccountNoCipher accountNoCipher;
+    private final ImagePromotionService imagePromotionService;
+    private final ImageUrlResolver imageUrlResolver;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -43,19 +49,30 @@ public class UserService {
             throw new BusinessException(UserErrorCode.NICKNAME_DUPLICATE);
         }
 
-        User user = createAccountInTransaction(signupSession, command);
+        String profileImageKey = promoteProfileImage(signupSession, command.profileImageKey());
+        User user = createAccountInTransaction(signupSession, command, profileImageKey);
         IssuedSession session = authSessionService.issue(user.getId());
         closeSignupSession(signupSession);
-        return new RegisteredUser(user.getId(), user.getProfileImageUrl(), user.getCreatedAt(), session);
+        return new RegisteredUser(
+                user.getId(), imageUrlResolver.toUrl(user.getProfileImageUrl()), user.getCreatedAt(), session);
     }
 
     public boolean isNicknameAvailable(String nickname) {
         return !userRepository.existsByNickname(nickname);
     }
 
-    private User createAccountInTransaction(SignupSessionView signupSession, SignupCommand command) {
+    private String promoteProfileImage(SignupSessionView signupSession, String tmpKey) {
+        if (tmpKey == null) {
+            return null;
+        }
+        return imagePromotionService.promote(
+                UploadScope.signup(signupSession.tokenHash()), ImagePurpose.PROFILE, tmpKey);
+    }
+
+    private User createAccountInTransaction(
+            SignupSessionView signupSession, SignupCommand command, String profileImageKey) {
         try {
-            return transactionTemplate.execute(status -> createAccount(signupSession, command));
+            return transactionTemplate.execute(status -> createAccount(signupSession, command, profileImageKey));
         } catch (DataIntegrityViolationException e) {
             if (userRepository.existsByNickname(command.nickname())) {
                 throw new BusinessException(UserErrorCode.NICKNAME_DUPLICATE);
@@ -64,8 +81,8 @@ public class UserService {
         }
     }
 
-    private User createAccount(SignupSessionView signupSession, SignupCommand command) {
-        User user = User.register(signupSession.name(), command.nickname(), command.gender(), null);
+    private User createAccount(SignupSessionView signupSession, SignupCommand command, String profileImageKey) {
+        User user = User.register(signupSession.name(), command.nickname(), command.gender(), profileImageKey);
         registerBankAccount(user, command.bankAccount());
         userRepository.save(user);
         oAuthAccountRepository.save(

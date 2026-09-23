@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
@@ -15,6 +16,11 @@ import com.ktb.moyeota.domain.auth.model.SignupSessionView;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
 import com.ktb.moyeota.domain.auth.service.AuthSessionService;
 import com.ktb.moyeota.domain.auth.store.SignupSessionStore;
+import com.ktb.moyeota.domain.image.error.ImageErrorCode;
+import com.ktb.moyeota.domain.image.model.ImagePurpose;
+import com.ktb.moyeota.domain.image.model.UploadScope;
+import com.ktb.moyeota.domain.image.service.ImagePromotionService;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.entity.UserAgreement;
@@ -28,6 +34,7 @@ import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.external.s3.S3Properties;
 import com.ktb.moyeota.global.security.jwt.AccessToken;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -49,7 +56,12 @@ class UserServiceTest {
     private static final Instant NOW = Instant.parse("2026-01-01T09:00:00Z");
     private static final LocalDateTime NOW_LOCAL = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
     private static final SignupCommand COMMAND =
-            new SignupCommand("길동이", Gender.FEMALE, null, new AgreementsCommand(true, false));
+            new SignupCommand("길동이", Gender.FEMALE, null, null, new AgreementsCommand(true, false));
+    private static final String SIGNUP_HASH = "4e30b9ed47b5ea2e" + "0".repeat(48);
+    private static final String TMP_KEY = "tmp/profile/s-4e30b9ed47b5ea2e/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
+    private static final String FINAL_KEY = "profile/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
+    private static final SignupCommand WITH_IMAGE =
+            new SignupCommand("길동이", Gender.FEMALE, TMP_KEY, null, new AgreementsCommand(true, false));
     private static final IssuedSession ISSUED = new IssuedSession(
             new AccessToken("access-value", 1800), "refresh-value", Duration.ofDays(7));
 
@@ -69,13 +81,17 @@ class UserServiceTest {
     private final SignupSessionStore signupSessionStore = mock(SignupSessionStore.class);
     private final AccountNoCipher accountNoCipher = new AccountNoCipher(new CryptoProperties(
             Base64.getEncoder().encodeToString(new byte[32])));
+    private final ImagePromotionService imagePromotionService = mock(ImagePromotionService.class);
+    private final ImageUrlResolver imageUrlResolver = new ImageUrlResolver(new S3Properties(
+            "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test"));
 
     private UserService service;
 
     @BeforeEach
     void setUp() {
         service = new UserService(userRepository, oAuthAccountRepository, userAgreementRepository,
-                authSessionService, signupSessionStore, accountNoCipher, transactionTemplate,
+                authSessionService, signupSessionStore, accountNoCipher, imagePromotionService, imageUrlResolver,
+                transactionTemplate,
                 Clock.fixed(NOW, ZoneOffset.UTC));
         given(authSessionService.issue(any())).willReturn(ISSUED);
     }
@@ -105,7 +121,7 @@ class UserServiceTest {
     @Test
     @DisplayName("계좌를 입력하면 은행명은 그대로, 계좌번호는 암호화해 저장한다")
     void storesEncryptedAccountNo() {
-        SignupCommand withAccount = new SignupCommand("길동이", Gender.FEMALE,
+        SignupCommand withAccount = new SignupCommand("길동이", Gender.FEMALE, null,
                 new BankAccountCommand("shinhan", "11012345678"), new AgreementsCommand(false, false));
 
         RegisteredUser registered = service.register(signupSession("카카오닉네임"), withAccount);
@@ -119,7 +135,7 @@ class UserServiceTest {
     @Test
     @DisplayName("계좌정보 제3자 제공에 동의하지 않아도 계좌는 저장된다")
     void accountIsStoredRegardlessOfThirdPartyAgreement() {
-        SignupCommand declined = new SignupCommand("길동이", Gender.FEMALE,
+        SignupCommand declined = new SignupCommand("길동이", Gender.FEMALE, null,
                 new BankAccountCommand("shinhan", "11012345678"), new AgreementsCommand(false, false));
 
         RegisteredUser registered = service.register(signupSession("카카오닉네임"), declined);
@@ -165,7 +181,7 @@ class UserServiceTest {
     void closesSignupSession() {
         service.register(signupSession("카카오닉네임"), COMMAND);
 
-        verify(signupSessionStore).delete("hash-a");
+        verify(signupSessionStore).delete(SIGNUP_HASH);
     }
 
     @Test
@@ -188,6 +204,56 @@ class UserServiceTest {
                         e -> assertThat(e.getErrorCode()).isEqualTo(UserErrorCode.NICKNAME_DUPLICATE));
 
         assertThat(userRepository.count()).isEqualTo(1);
+        assertThat(oAuthAccountRepository.count()).isZero();
+        assertThat(userAgreementRepository.count()).isZero();
+        verify(authSessionService, never()).issue(any());
+        verify(signupSessionStore, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("닉네임이 이미 쓰이고 있으면 프로필 이미지를 확정하지 않는다")
+    void duplicateNicknameSkipsImagePromotion() {
+        userRepository.saveAndFlush(User.register("김철수", "길동이", Gender.MALE, null));
+
+        assertThatThrownBy(() -> service.register(signupSession("카카오닉네임"), WITH_IMAGE))
+                .isInstanceOf(BusinessException.class);
+
+        verifyNoInteractions(imagePromotionService);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 키가 없으면 S3를 부르지 않고 이미지 없이 가입한다")
+    void signsUpWithoutImage() {
+        RegisteredUser registered = service.register(signupSession("카카오닉네임"), COMMAND);
+
+        assertThat(registered.profileImageUrl()).isNull();
+        verifyNoInteractions(imagePromotionService);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 키는 현재 회원가입 세션의 범위로 확정하고, 확정된 키를 저장하고 URL을 돌려준다")
+    void promotesProfileImageWithSignupScope() {
+        given(imagePromotionService.promote(any(), any(), any())).willReturn(FINAL_KEY);
+
+        RegisteredUser registered = service.register(signupSession("카카오닉네임"), WITH_IMAGE);
+
+        verify(imagePromotionService).promote(UploadScope.signup(SIGNUP_HASH), ImagePurpose.PROFILE, TMP_KEY);
+        assertThat(userRepository.findById(registered.userId()).orElseThrow().getProfileImageUrl())
+                .isEqualTo(FINAL_KEY);
+        assertThat(registered.profileImageUrl()).isEqualTo("https://cdn.moyeota.test/" + FINAL_KEY);
+    }
+
+    @Test
+    @DisplayName("프로필 이미지를 확정하지 못하면 계정을 만들지 않는다")
+    void imagePromotionFailureCreatesNothing() {
+        given(imagePromotionService.promote(any(), any(), any()))
+                .willThrow(new BusinessException(ImageErrorCode.IMAGE_NOT_EXISTS));
+
+        assertThatThrownBy(() -> service.register(signupSession("카카오닉네임"), WITH_IMAGE))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ImageErrorCode.IMAGE_NOT_EXISTS));
+
+        assertThat(userRepository.count()).isZero();
         assertThat(oAuthAccountRepository.count()).isZero();
         assertThat(userAgreementRepository.count()).isZero();
         verify(authSessionService, never()).issue(any());
@@ -220,6 +286,6 @@ class UserServiceTest {
 
     private SignupSessionView signupSession(String kakaoName) {
         return new SignupSessionView(
-                "hash-a", OAuthProvider.KAKAO, "1234567890", kakaoName, LocalDateTime.of(2026, 1, 1, 9, 15));
+                SIGNUP_HASH, OAuthProvider.KAKAO, "1234567890", kakaoName, LocalDateTime.of(2026, 1, 1, 9, 15));
     }
 }
