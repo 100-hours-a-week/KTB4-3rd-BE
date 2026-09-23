@@ -59,10 +59,10 @@ class AuthTokenControllerTest {
     @Test
     @DisplayName("로그아웃은 204와 함께 쿠키를 지운다")
     void logoutClearsCookie() throws Exception {
-        mockMvc.perform(delete("/auth/sessions").cookie(new Cookie(REFRESH_TOKEN, "any-value")))
+        mockMvc.perform(delete("/api/auth/sessions").cookie(new Cookie(REFRESH_TOKEN, "any-value")))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(REFRESH_TOKEN, 0))
-                .andExpect(cookie().path(REFRESH_TOKEN, "/auth"));
+                .andExpect(cookie().path(REFRESH_TOKEN, "/api/auth"));
 
         verify(authSessionService).revokeSession("any-value");
     }
@@ -70,7 +70,7 @@ class AuthTokenControllerTest {
     @Test
     @DisplayName("쿠키 없이 로그아웃해도 204다")
     void logoutIsIdempotent() throws Exception {
-        mockMvc.perform(delete("/auth/sessions"))
+        mockMvc.perform(delete("/api/auth/sessions"))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(REFRESH_TOKEN, 0));
 
@@ -83,13 +83,13 @@ class AuthTokenControllerTest {
         given(authSessionService.reissue(any())).willReturn(new ReissueResult.Rotated(
                 new AccessToken("access-value", 1800), "rotated-value", Duration.ofDays(7)));
 
-        mockMvc.perform(post("/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "old-value")))
+        mockMvc.perform(post("/api/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "old-value")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.access_token").value("access-value"))
                 .andExpect(jsonPath("$.data.expires_in").value(1800))
                 .andExpect(cookie().value(REFRESH_TOKEN, "rotated-value"))
                 .andExpect(cookie().httpOnly(REFRESH_TOKEN, true))
-                .andExpect(cookie().path(REFRESH_TOKEN, "/auth"))
+                .andExpect(cookie().path(REFRESH_TOKEN, "/api/auth"))
                 .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
                         .contains("SameSite=Lax"));
     }
@@ -100,7 +100,7 @@ class AuthTokenControllerTest {
         given(authSessionService.reissue(any()))
                 .willReturn(new ReissueResult.Graced(new AccessToken("access-value", 1800)));
 
-        mockMvc.perform(post("/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "old-value")))
+        mockMvc.perform(post("/api/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "old-value")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.access_token").value("access-value"))
                 .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
@@ -111,7 +111,7 @@ class AuthTokenControllerTest {
     void rejectedClearsCookie() throws Exception {
         given(authSessionService.reissue(any())).willReturn(new ReissueResult.Rejected());
 
-        mockMvc.perform(post("/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "stale-value")))
+        mockMvc.perform(post("/api/auth/tokens").cookie(new Cookie(REFRESH_TOKEN, "stale-value")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
                 .andExpect(cookie().maxAge(REFRESH_TOKEN, 0));
@@ -122,7 +122,7 @@ class AuthTokenControllerTest {
     void reachesControllerWithoutCookie() throws Exception {
         given(authSessionService.reissue(any())).willReturn(new ReissueResult.Rejected());
 
-        mockMvc.perform(post("/auth/tokens"))
+        mockMvc.perform(post("/api/auth/tokens"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
 

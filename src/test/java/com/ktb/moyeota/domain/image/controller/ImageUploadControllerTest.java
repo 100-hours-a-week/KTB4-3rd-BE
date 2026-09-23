@@ -250,7 +250,7 @@ class ImageUploadControllerTest {
     }
 
     private static MockHttpServletRequestBuilder issue(String body) {
-        return post("/images/presigned-url").contentType(MediaType.APPLICATION_JSON).content(body);
+        return post("/api/images/presigned-url").contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
     private static RequestPostProcessor member(Long userId) {

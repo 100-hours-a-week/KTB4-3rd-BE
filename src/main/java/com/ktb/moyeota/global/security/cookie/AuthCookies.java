@@ -14,8 +14,8 @@ public class AuthCookies {
     public static final String OAUTH_STATE = "oauth_state";
     public static final String SIGNUP_TOKEN = "signup_token";
 
-    private static final String REFRESH_TOKEN_PATH = "/auth";
-    private static final String OAUTH_STATE_PATH = "/auth";
+    private static final String REFRESH_TOKEN_PATH = "/api/auth";
+    private static final String OAUTH_STATE_PATH = "/api/auth";
     private static final String SIGNUP_TOKEN_PATH = "/";
     private static final Duration OAUTH_STATE_MAX_AGE = Duration.ofMinutes(5);
     private static final String SAME_SITE = "Lax";
