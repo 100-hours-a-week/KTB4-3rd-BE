@@ -16,6 +16,7 @@ public record NearbyPostItem(
         LocalDateTime createdAt,
 
         // COMPANION 전용
+        String transportType,
         Integer currentCount,
         Integer capacity,
         LocalDateTime departureAt,
@@ -28,15 +29,16 @@ public record NearbyPostItem(
         return new NearbyPostItem(
                 MapPinType.COMMUNITY, id, title, author, distanceM,
                 commentCount, createdAt,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     public static NearbyPostItem ofCompanion(
             Long id, String title, NearbyPostAuthor author, double distanceM,
-            Integer currentCount, Integer capacity, LocalDateTime departureAt, boolean isExpired) {
+            String transportType, Integer currentCount, Integer capacity,
+            LocalDateTime departureAt, boolean isExpired) {
         return new NearbyPostItem(
                 MapPinType.COMPANION, id, title, author, distanceM,
                 null, null,
-                currentCount, capacity, departureAt, isExpired);
+                transportType, currentCount, capacity, departureAt, isExpired);
     }
 }

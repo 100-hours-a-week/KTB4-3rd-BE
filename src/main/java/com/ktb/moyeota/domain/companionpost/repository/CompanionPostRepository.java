@@ -44,6 +44,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
     @Query(nativeQuery = true, value = """
             SELECT * FROM (
                 SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
+                       c.transport_type AS transportType,
                        c.current_count AS currentCount, c.capacity AS capacity,
                        c.departure_at AS departureAt, c.created_at AS createdAt, c.status AS status,
                        u.nickname AS hostNickname, u.profile_image_url AS hostProfileImageUrl,

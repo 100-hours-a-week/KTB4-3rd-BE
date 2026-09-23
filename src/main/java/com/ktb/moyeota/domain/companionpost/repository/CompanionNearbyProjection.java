@@ -8,6 +8,8 @@ public interface CompanionNearbyProjection {
 
     String getOriginName();
 
+    String getTransportType();
+
     String getDestName();
 
     Integer getCurrentCount();
