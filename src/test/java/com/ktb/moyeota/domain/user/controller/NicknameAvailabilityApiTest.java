@@ -156,7 +156,7 @@ class NicknameAvailabilityApiTest extends SignupApiTestSupport {
         @Test
         @DisplayName("nickname 파라미터가 없으면 REQUIRED다")
         void missingParameter() throws Exception {
-            mockMvc.perform(get("/users/nickname-availability").cookie(validSignupCookie()))
+            mockMvc.perform(get("/api/users/nickname-availability").cookie(validSignupCookie()))
                     .andExpect(status().isUnprocessableContent())
                     .andExpect(jsonPath("$.error.field").value("nickname"))
                     .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
@@ -164,7 +164,7 @@ class NicknameAvailabilityApiTest extends SignupApiTestSupport {
     }
 
     private static MockHttpServletRequestBuilder checkNickname(String nickname) {
-        return get("/users/nickname-availability").param("nickname", nickname);
+        return get("/api/users/nickname-availability").param("nickname", nickname);
     }
 
     private static RequestPostProcessor member() {

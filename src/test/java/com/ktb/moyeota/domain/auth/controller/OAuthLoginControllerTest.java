@@ -78,7 +78,7 @@ class OAuthLoginControllerTest {
         void redirectsToKakaoWithoutToken() throws Exception {
             givenKakaoRedirect();
 
-            mockMvc.perform(get("/auth/kakao/login"))
+            mockMvc.perform(get("/api/auth/kakao/login"))
                     .andExpect(status().isFound())
                     .andExpect(header().string(HttpHeaders.LOCATION, AUTHORIZE_LOCATION));
         }
@@ -88,10 +88,10 @@ class OAuthLoginControllerTest {
         void setsStateCookie() throws Exception {
             givenKakaoRedirect();
 
-            mockMvc.perform(get("/auth/kakao/login"))
+            mockMvc.perform(get("/api/auth/kakao/login"))
                     .andExpect(cookie().value(OAUTH_STATE, STATE))
                     .andExpect(cookie().maxAge(OAUTH_STATE, 300))
-                    .andExpect(cookie().path(OAUTH_STATE, "/auth"))
+                    .andExpect(cookie().path(OAUTH_STATE, "/api/auth"))
                     .andExpect(cookie().httpOnly(OAUTH_STATE, true));
         }
 
@@ -100,7 +100,7 @@ class OAuthLoginControllerTest {
         void stateCookieIsSameSiteLax() throws Exception {
             givenKakaoRedirect();
 
-            mockMvc.perform(get("/auth/kakao/login"))
+            mockMvc.perform(get("/api/auth/kakao/login"))
                     .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
                             .contains("SameSite=Lax"));
         }
@@ -108,7 +108,7 @@ class OAuthLoginControllerTest {
         @Test
         @DisplayName("지원하지 않는 공급자는 404다")
         void unknownProviderIsNotFound() throws Exception {
-            mockMvc.perform(get("/auth/naver/login"))
+            mockMvc.perform(get("/api/auth/naver/login"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("ENDPOINT_NOT_FOUND"));
 
@@ -118,7 +118,7 @@ class OAuthLoginControllerTest {
         @Test
         @DisplayName("공급자 이름은 대소문자를 구분한다")
         void providerIsCaseSensitive() throws Exception {
-            mockMvc.perform(get("/auth/KAKAO/login"))
+            mockMvc.perform(get("/api/auth/KAKAO/login"))
                     .andExpect(status().isNotFound());
         }
 
@@ -137,7 +137,7 @@ class OAuthLoginControllerTest {
         void passesParamsToService() throws Exception {
             givenResult(new OAuthCallbackResult.Failed(OAuthLoginError.INVALID_STATE));
 
-            mockMvc.perform(get("/auth/kakao/callback")
+            mockMvc.perform(get("/api/auth/kakao/callback")
                     .param("code", "auth-code")
                     .param("state", STATE)
                     .cookie(new Cookie(OAUTH_STATE, "cookie-state")));
@@ -151,13 +151,13 @@ class OAuthLoginControllerTest {
         void existingMember() throws Exception {
             givenResult(new OAuthCallbackResult.Existing("refresh-value", Duration.ofDays(7)));
 
-            mockMvc.perform(get("/auth/kakao/callback").param("code", "c").param("state", STATE))
+            mockMvc.perform(get("/api/auth/kakao/callback").param("code", "c").param("state", STATE))
                     .andExpect(status().isFound())
                     .andExpect(header().string(HttpHeaders.LOCATION, FRONT_CALLBACK + "?status=ok"))
                     .andExpect(content().string(""))
                     .andExpect(cookie().value(REFRESH_TOKEN, "refresh-value"))
                     .andExpect(cookie().maxAge(REFRESH_TOKEN, 604800))
-                    .andExpect(cookie().path(REFRESH_TOKEN, "/auth"))
+                    .andExpect(cookie().path(REFRESH_TOKEN, "/api/auth"))
                     .andExpect(cookie().httpOnly(REFRESH_TOKEN, true))
                     .andExpect(cookie().doesNotExist(SIGNUP_TOKEN));
         }
@@ -167,7 +167,7 @@ class OAuthLoginControllerTest {
         void newcomer() throws Exception {
             givenResult(new OAuthCallbackResult.SignupRequired("signup-value", Duration.ofMinutes(15)));
 
-            mockMvc.perform(get("/auth/kakao/callback").param("code", "c").param("state", STATE))
+            mockMvc.perform(get("/api/auth/kakao/callback").param("code", "c").param("state", STATE))
                     .andExpect(status().isFound())
                     .andExpect(header().string(
                             HttpHeaders.LOCATION, FRONT_CALLBACK + "?status=signup_required"))
@@ -183,7 +183,7 @@ class OAuthLoginControllerTest {
         void failure() throws Exception {
             givenResult(new OAuthCallbackResult.Failed(OAuthLoginError.OAUTH_UNAVAILABLE));
 
-            mockMvc.perform(get("/auth/kakao/callback").param("code", "c").param("state", STATE))
+            mockMvc.perform(get("/api/auth/kakao/callback").param("code", "c").param("state", STATE))
                     .andExpect(status().isFound())
                     .andExpect(header().string(
                             HttpHeaders.LOCATION, FRONT_CALLBACK + "?error=OAUTH_UNAVAILABLE"))
@@ -196,12 +196,12 @@ class OAuthLoginControllerTest {
         @DisplayName("결과와 무관하게 state 쿠키를 지운다")
         void alwaysExpiresStateCookie() throws Exception {
             givenResult(new OAuthCallbackResult.Existing("refresh-value", Duration.ofDays(7)));
-            mockMvc.perform(get("/auth/kakao/callback"))
+            mockMvc.perform(get("/api/auth/kakao/callback"))
                     .andExpect(cookie().maxAge(OAUTH_STATE, 0))
-                    .andExpect(cookie().path(OAUTH_STATE, "/auth"));
+                    .andExpect(cookie().path(OAUTH_STATE, "/api/auth"));
 
             givenResult(new OAuthCallbackResult.Failed(OAuthLoginError.INVALID_STATE));
-            mockMvc.perform(get("/auth/kakao/callback"))
+            mockMvc.perform(get("/api/auth/kakao/callback"))
                     .andExpect(cookie().maxAge(OAUTH_STATE, 0));
         }
 
@@ -210,7 +210,7 @@ class OAuthLoginControllerTest {
         void missingParamsStillRedirect() throws Exception {
             givenResult(new OAuthCallbackResult.Failed(OAuthLoginError.INVALID_STATE));
 
-            mockMvc.perform(get("/auth/kakao/callback"))
+            mockMvc.perform(get("/api/auth/kakao/callback"))
                     .andExpect(status().isFound())
                     .andExpect(header().string(
                             HttpHeaders.LOCATION, FRONT_CALLBACK + "?error=INVALID_STATE"));
@@ -219,7 +219,7 @@ class OAuthLoginControllerTest {
         @Test
         @DisplayName("지원하지 않는 공급자는 404다")
         void unknownProviderIsNotFound() throws Exception {
-            mockMvc.perform(get("/auth/naver/callback").param("code", "c").param("state", STATE))
+            mockMvc.perform(get("/api/auth/naver/callback").param("code", "c").param("state", STATE))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("ENDPOINT_NOT_FOUND"));
 

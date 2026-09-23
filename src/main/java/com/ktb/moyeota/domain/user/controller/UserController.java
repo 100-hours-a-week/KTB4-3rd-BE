@@ -22,10 +22,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class UserController {
 
@@ -40,7 +42,7 @@ public class UserController {
         RegisteredUser registered = userService.register(signupSession, request.toCommand());
         IssuedSession session = registered.session();
 
-        return ResponseEntity.created(URI.create("/users/" + registered.userId()))
+        return ResponseEntity.created(URI.create("/api/users/" + registered.userId()))
                 .header(HttpHeaders.SET_COOKIE,
                         authCookies.refreshToken(session.refreshToken(), session.refreshTokenMaxAge())
                                 .toString(),
