@@ -22,7 +22,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 class ImageUploadServiceTest {
 
     private static final S3Properties PROPERTIES =
-            new S3Properties("moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5));
+            new S3Properties("moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), null);
     private static final PresignedUrlCommand JPEG_482KB =
             new PresignedUrlCommand(ImagePurpose.PROFILE, ImageType.JPEG, 482_113L);
 
