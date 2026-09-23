@@ -21,6 +21,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(message, data, null);
     }
 
+    public static <T> ApiResponse<T> of(SuccessCode code, T data) {
+        return success(code.getMessage(), data);
+    }
+
     public static <T> ApiResponse<T> success(String message) {
         return new ApiResponse<>(message, null, null);
     }
