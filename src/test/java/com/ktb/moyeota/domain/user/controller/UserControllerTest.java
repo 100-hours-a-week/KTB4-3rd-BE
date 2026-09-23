@@ -103,7 +103,7 @@ class UserControllerTest extends SignupApiTestSupport {
                     .andExpect(cookie().path(REFRESH_TOKEN, "/auth"))
                     .andExpect(cookie().httpOnly(REFRESH_TOKEN, true))
                     .andExpect(cookie().maxAge(SIGNUP_TOKEN, 0))
-                    .andExpect(cookie().path(SIGNUP_TOKEN, "/users"));
+                    .andExpect(cookie().path(SIGNUP_TOKEN, "/"));
         }
 
         @Test

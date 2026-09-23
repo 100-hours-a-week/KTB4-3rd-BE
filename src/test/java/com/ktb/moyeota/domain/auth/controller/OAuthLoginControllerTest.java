@@ -173,7 +173,7 @@ class OAuthLoginControllerTest {
                             HttpHeaders.LOCATION, FRONT_CALLBACK + "?status=signup_required"))
                     .andExpect(cookie().value(SIGNUP_TOKEN, "signup-value"))
                     .andExpect(cookie().maxAge(SIGNUP_TOKEN, 900))
-                    .andExpect(cookie().path(SIGNUP_TOKEN, "/users"))
+                    .andExpect(cookie().path(SIGNUP_TOKEN, "/"))
                     .andExpect(cookie().httpOnly(SIGNUP_TOKEN, true))
                     .andExpect(cookie().doesNotExist(REFRESH_TOKEN));
         }
