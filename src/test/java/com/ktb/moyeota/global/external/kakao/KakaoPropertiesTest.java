@@ -10,7 +10,7 @@ class KakaoPropertiesTest {
 
     private static final String CLIENT_ID = "test-kakao-client-id";
     private static final String CLIENT_SECRET = "test-kakao-client-secret";
-    private static final String REDIRECT_URI = "http://localhost:8080/auth/kakao/callback";
+    private static final String REDIRECT_URI = "http://localhost:8080/api/auth/kakao/callback";
     private static final String AUTHORIZE_URI = "https://kauth.kakao.com/oauth/authorize";
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token";
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";

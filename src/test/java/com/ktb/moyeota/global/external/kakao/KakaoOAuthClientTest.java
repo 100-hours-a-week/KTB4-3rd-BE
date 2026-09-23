@@ -34,7 +34,7 @@ class KakaoOAuthClientTest {
 
     private static final String CLIENT_ID = "test-kakao-client-id";
     private static final String CLIENT_SECRET = "test-kakao-client-secret";
-    private static final String REDIRECT_URI = "http://localhost:8080/auth/kakao/callback";
+    private static final String REDIRECT_URI = "http://localhost:8080/api/auth/kakao/callback";
     private static final String AUTHORIZE_URI = "https://kauth.kakao.com/oauth/authorize";
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token";
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";
@@ -93,7 +93,7 @@ class KakaoOAuthClientTest {
         @DisplayName("리다이렉트 URI는 퍼센트 인코딩되어 실린다")
         void encodesRedirectUri() {
             assertThat(client.buildAuthorizeUri("state-value").getRawQuery())
-                    .contains("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fkakao%2Fcallback");
+                    .contains("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fkakao%2Fcallback");
         }
 
         @Test
