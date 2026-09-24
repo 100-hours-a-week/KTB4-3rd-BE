@@ -57,6 +57,15 @@ class AuthCookiesTest {
         assertThat(cookieNamesSentTo(browser, "/api/images/presigned-url")).doesNotContain(AuthCookies.REFRESH_TOKEN);
     }
 
+    @Test
+    @DisplayName("오리진 쿠키는 콜백 요청에 실리고 /auth 밖의 요청에는 실리지 않는다")
+    void frontCookieReachesCallback() throws IOException {
+        CookieManager browser = browserWith(authCookies.oauthFront("http://localhost:3000"));
+
+        assertThat(cookieNamesSentTo(browser, "/api/auth/kakao/callback")).contains(AuthCookies.OAUTH_FRONT);
+        assertThat(cookieNamesSentTo(browser, "/api/users")).doesNotContain(AuthCookies.OAUTH_FRONT);
+    }
+
     private CookieManager browserWith(ResponseCookie cookie) throws IOException {
         CookieManager browser = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
         browser.put(CALLBACK, setCookie(cookie));

@@ -12,6 +12,7 @@ public class AuthCookies {
 
     public static final String REFRESH_TOKEN = "refresh_token";
     public static final String OAUTH_STATE = "oauth_state";
+    public static final String OAUTH_FRONT = "oauth_front";
     public static final String SIGNUP_TOKEN = "signup_token";
 
     private static final String REFRESH_TOKEN_PATH = "/api/auth";
@@ -36,6 +37,14 @@ public class AuthCookies {
 
     public ResponseCookie expiredOauthState() {
         return builder(OAUTH_STATE, "", OAUTH_STATE_PATH).maxAge(Duration.ZERO).build();
+    }
+
+    public ResponseCookie oauthFront(String origin) {
+        return builder(OAUTH_FRONT, origin, OAUTH_STATE_PATH).maxAge(OAUTH_STATE_MAX_AGE).build();
+    }
+
+    public ResponseCookie expiredOauthFront() {
+        return builder(OAUTH_FRONT, "", OAUTH_STATE_PATH).maxAge(Duration.ZERO).build();
     }
 
     public ResponseCookie signupToken(String value, Duration maxAge) {
