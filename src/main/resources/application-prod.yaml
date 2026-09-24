@@ -22,6 +22,7 @@ moyeota:
     account-key: ${ACCOUNT_ENC_KEY}
   oauth:
     front-callback-uri: ${FRONT_CALLBACK_URI}
+    extra-front-origins: ${EXTRA_FRONT_ORIGINS:}
     kakao:
       client-id: ${KAKAO_CLIENT_ID}
       client-secret: ${KAKAO_CLIENT_SECRET}
