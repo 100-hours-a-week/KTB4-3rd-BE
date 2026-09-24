@@ -84,7 +84,7 @@ class UserControllerTest extends SignupApiTestSupport {
 
             mockMvc.perform(signUp(VALID_BODY).cookie(validSignupCookie()))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string(HttpHeaders.LOCATION, "/users/7"))
+                    .andExpect(header().string(HttpHeaders.LOCATION, "/api/users/7"))
                     .andExpect(jsonPath("$.message").value("가입이 완료되었어요"))
                     .andExpect(jsonPath("$.data.user_id").value(7))
                     .andExpect(jsonPath("$.data.access_token").value("access-value"))
@@ -100,7 +100,7 @@ class UserControllerTest extends SignupApiTestSupport {
             mockMvc.perform(signUp(VALID_BODY).cookie(validSignupCookie()))
                     .andExpect(cookie().value(REFRESH_TOKEN, "refresh-value"))
                     .andExpect(cookie().maxAge(REFRESH_TOKEN, 604800))
-                    .andExpect(cookie().path(REFRESH_TOKEN, "/auth"))
+                    .andExpect(cookie().path(REFRESH_TOKEN, "/api/auth"))
                     .andExpect(cookie().httpOnly(REFRESH_TOKEN, true))
                     .andExpect(cookie().maxAge(SIGNUP_TOKEN, 0))
                     .andExpect(cookie().path(SIGNUP_TOKEN, "/"));

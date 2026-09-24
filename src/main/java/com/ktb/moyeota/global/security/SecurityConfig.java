@@ -25,7 +25,7 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private static final String[] OAUTH_LOGIN_PATHS = {"/auth/*/login", "/auth/*/callback"};
+    private static final String[] OAUTH_LOGIN_PATHS = {"/api/auth/*/login", "/api/auth/*/callback"};
 
     @Bean
     @Order(Ordered.LOWEST_PRECEDENCE)
@@ -45,14 +45,15 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, OAUTH_LOGIN_PATHS).permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/tokens").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/auth/sessions").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users")
+                        .requestMatchers(HttpMethod.POST, "/api/auth/tokens").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/auth/sessions").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/users")
                         .hasAuthority(Authority.SIGNUP_NAME)
-                        .requestMatchers(HttpMethod.GET, "/users/nickname-availability")
+                        .requestMatchers(HttpMethod.GET, "/api/users/nickname-availability")
                         .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
-                        .requestMatchers(HttpMethod.POST, "/images/presigned-url")
+                        .requestMatchers(HttpMethod.POST, "/api/images/presigned-url")
                         .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
                         .anyRequest().hasAuthority(Authority.USER_NAME))
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -77,9 +78,9 @@ public class SecurityConfig {
                 alreadyVerified, signupSessionAuthenticator::authenticate);
         PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
         filter.setRequestMatcher(new OrRequestMatcher(
-                paths.matcher(HttpMethod.POST, "/users"),
-                paths.matcher(HttpMethod.GET, "/users/nickname-availability"),
-                paths.matcher(HttpMethod.POST, "/images/presigned-url")));
+                paths.matcher(HttpMethod.POST, "/api/users"),
+                paths.matcher(HttpMethod.GET, "/api/users/nickname-availability"),
+                paths.matcher(HttpMethod.POST, "/api/images/presigned-url")));
         filter.setSuccessHandler((request, response, authentication) -> {
         });
         return filter;

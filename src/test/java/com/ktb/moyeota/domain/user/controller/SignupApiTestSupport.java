@@ -73,7 +73,7 @@ abstract class SignupApiTestSupport {
     }
 
     protected MockHttpServletRequestBuilder signUp(String body) {
-        return post("/users").contentType(MediaType.APPLICATION_JSON).content(body);
+        return post("/api/users").contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
     protected Cookie validSignupCookie() {

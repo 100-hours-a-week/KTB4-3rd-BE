@@ -31,7 +31,7 @@ moyeota:
     kakao:
       client-id: REPLACE_WITH_KAKAO_REST_API_KEY
       client-secret: REPLACE_WITH_KAKAO_CLIENT_SECRET
-      redirect-uri: http://localhost:8080/auth/kakao/callback
+      redirect-uri: http://localhost:8080/api/auth/kakao/callback
   storage:
     s3:
       # 로컬 개발용 버킷. 자격 증명은 yaml이 아니라 AWS_ACCESS_KEY_ID · AWS_SECRET_ACCESS_KEY 환경변수 또는 ~/.aws/credentials 로 준다.

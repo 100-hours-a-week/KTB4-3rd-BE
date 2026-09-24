@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,8 @@ class KakaoOAuthClientTest {
 
     private static final String CLIENT_ID = "test-kakao-client-id";
     private static final String CLIENT_SECRET = "test-kakao-client-secret";
-    private static final String REDIRECT_URI = "http://localhost:8080/auth/kakao/callback";
+    private static final String REDIRECT_URI = "http://localhost:8080/api/auth/kakao/callback";
+    private static final String OTHER_REDIRECT_URI = "http://localhost:3000/api/auth/kakao/callback";
     private static final String AUTHORIZE_URI = "https://kauth.kakao.com/oauth/authorize";
     private static final String TOKEN_URI = "https://kauth.kakao.com/oauth/token";
     private static final String USER_INFO_URI = "https://kapi.kakao.com/v2/user/me";
@@ -67,7 +69,7 @@ class KakaoOAuthClientTest {
         @Test
         @DisplayName("인가 URI는 카카오 인가 엔드포인트를 가리킨다")
         void pointsToAuthorizeEndpoint() {
-            URI uri = client.buildAuthorizeUri("state-value");
+            URI uri = client.buildAuthorizeUri("state-value", REDIRECT_URI);
 
             assertThat(uri.getScheme()).isEqualTo("https");
             assertThat(uri.getHost()).isEqualTo("kauth.kakao.com");
@@ -78,7 +80,7 @@ class KakaoOAuthClientTest {
         @DisplayName("인가 URI에 필수 쿼리 네 개가 실린다")
         void carriesRequiredQueryParams() {
             MultiValueMap<String, String> params = UriComponentsBuilder
-                    .fromUri(client.buildAuthorizeUri("state-value")).build().getQueryParams();
+                    .fromUri(client.buildAuthorizeUri("state-value", REDIRECT_URI)).build().getQueryParams();
 
             assertThat(params.keySet())
                     .containsExactlyInAnyOrder("client_id", "redirect_uri", "response_type", "state");
@@ -92,14 +94,25 @@ class KakaoOAuthClientTest {
         @Test
         @DisplayName("리다이렉트 URI는 퍼센트 인코딩되어 실린다")
         void encodesRedirectUri() {
-            assertThat(client.buildAuthorizeUri("state-value").getRawQuery())
-                    .contains("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fkakao%2Fcallback");
+            assertThat(client.buildAuthorizeUri("state-value", REDIRECT_URI).getRawQuery())
+                    .contains("redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fkakao%2Fcallback");
+        }
+
+        @Test
+        @DisplayName("넘겨받은 리다이렉트 URI를 설정값 대신 싣는다")
+        void usesGivenRedirectUri() {
+            URI uri = client.buildAuthorizeUri("state-value", OTHER_REDIRECT_URI);
+
+            assertThat(URLDecoder.decode(
+                    UriComponentsBuilder.fromUri(uri).build().getQueryParams().getFirst("redirect_uri"),
+                    StandardCharsets.UTF_8))
+                    .isEqualTo(OTHER_REDIRECT_URI);
         }
 
         @Test
         @DisplayName("인가 URI에는 클라이언트 시크릿이 실리지 않는다")
         void neverCarriesClientSecret() {
-            assertThat(client.buildAuthorizeUri("state-value").toString())
+            assertThat(client.buildAuthorizeUri("state-value", REDIRECT_URI).toString())
                     .doesNotContain(CLIENT_SECRET);
         }
     }
@@ -126,10 +139,23 @@ class KakaoOAuthClientTest {
                     .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer kakao-access"))
                     .andRespond(withSuccess(FULL_USER_BODY, MediaType.APPLICATION_JSON));
 
-            OAuthUserProfile profile = client.fetchProfile("auth-code");
+            OAuthUserProfile profile = client.fetchProfile("auth-code", REDIRECT_URI);
 
             server.verify();
             assertThat(profile).isEqualTo(new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "길동이"));
+        }
+
+        @Test
+        @DisplayName("토큰 교환에는 인가 요청과 같은 리다이렉트 URI를 싣는다")
+        void exchangesWithGivenRedirectUri() {
+            server.expect(requestTo(TOKEN_URI))
+                    .andExpect(content().formDataContains(Map.of("redirect_uri", OTHER_REDIRECT_URI)))
+                    .andRespond(withSuccess(TOKEN_BODY, MediaType.APPLICATION_JSON));
+            givenUser(FULL_USER_BODY);
+
+            client.fetchProfile("auth-code", OTHER_REDIRECT_URI);
+
+            server.verify();
         }
 
         @Test
@@ -242,7 +268,7 @@ class KakaoOAuthClientTest {
         }
 
         private void assertFailsWith(OAuthLoginError expected) {
-            assertThatThrownBy(() -> client.fetchProfile("auth-code"))
+            assertThatThrownBy(() -> client.fetchProfile("auth-code", REDIRECT_URI))
                     .isInstanceOfSatisfying(OAuthLoginException.class,
                             e -> assertThat(e.getError()).isEqualTo(expected));
         }
