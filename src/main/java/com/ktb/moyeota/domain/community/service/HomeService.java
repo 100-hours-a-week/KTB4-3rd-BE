@@ -151,7 +151,8 @@ public class HomeService {
             boolean isExpired = !"RECRUITING".equals(row.getStatus());
             NearbyPostItem item = NearbyPostItem.ofCompanion(
                     row.getId(), title, author, row.getDistanceM(),
-                    row.getCurrentCount(), row.getCapacity(), row.getDepartureAt(), isExpired);
+                    row.getTransportType(), row.getCurrentCount(), row.getCapacity(),
+                    row.getDepartureAt(), isExpired);
             return new Candidate(MapPinType.COMPANION, row.getId(), row.getDistanceM(), row.getCreatedAt(), item);
         }
     }
