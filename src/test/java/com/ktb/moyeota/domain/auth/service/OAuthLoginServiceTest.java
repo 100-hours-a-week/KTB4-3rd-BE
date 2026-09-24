@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.auth.model.AuthorizeRedirect;
 import com.ktb.moyeota.domain.auth.model.CallbackParams;
 import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.OAuthCallbackResult;
+import com.ktb.moyeota.domain.auth.model.OAuthFront;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
 import com.ktb.moyeota.domain.auth.model.OAuthUserProfile;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
@@ -41,6 +42,12 @@ class OAuthLoginServiceTest {
     private static final String CODE = "auth-code";
     private static final OAuthUserProfile PROFILE =
             new OAuthUserProfile(OAuthProvider.KAKAO, "1234567890", "카카오닉네임");
+    private static final OAuthFront FRONT = new OAuthFront(
+            null, "http://localhost:8080/api/auth/kakao/callback", "http://localhost:3000/auth/callback");
+    private static final OAuthFront LOCAL_FRONT = new OAuthFront(
+            "http://localhost:3000",
+            "http://localhost:3000/api/auth/kakao/callback",
+            "http://localhost:3000/auth/callback");
 
     private final KakaoOAuthClient kakaoOAuthClient = mock(KakaoOAuthClient.class);
     private final OpaqueTokenFactory opaqueTokenFactory = new OpaqueTokenFactory();
@@ -70,10 +77,10 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("state는 32바이트 난수의 base64url 표현이고 호출마다 달라진다")
         void stateIsRandomAndUrlSafe() {
-            given(kakaoOAuthClient.buildAuthorizeUri(any())).willReturn(URI.create("https://kauth"));
+            given(kakaoOAuthClient.buildAuthorizeUri(any(), any())).willReturn(URI.create("https://kauth"));
 
-            String first = service.buildAuthorizeRedirect(OAuthProvider.KAKAO).state();
-            String second = service.buildAuthorizeRedirect(OAuthProvider.KAKAO).state();
+            String first = service.buildAuthorizeRedirect(OAuthProvider.KAKAO, FRONT).state();
+            String second = service.buildAuthorizeRedirect(OAuthProvider.KAKAO, FRONT).state();
 
             assertThat(first).hasSize(43).matches("^[A-Za-z0-9_-]+$");
             assertThat(first).isNotEqualTo(second);
@@ -82,12 +89,38 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("쿠키에 담길 state를 그대로 인가 URI 조립에 넘긴다")
         void passesSameStateToClient() {
-            given(kakaoOAuthClient.buildAuthorizeUri(any())).willReturn(URI.create("https://kauth"));
+            given(kakaoOAuthClient.buildAuthorizeUri(any(), any())).willReturn(URI.create("https://kauth"));
 
-            AuthorizeRedirect redirect = service.buildAuthorizeRedirect(OAuthProvider.KAKAO);
+            AuthorizeRedirect redirect = service.buildAuthorizeRedirect(OAuthProvider.KAKAO, FRONT);
 
-            verify(kakaoOAuthClient).buildAuthorizeUri(redirect.state());
+            verify(kakaoOAuthClient).buildAuthorizeUri(redirect.state(), FRONT.redirectUri());
             assertThat(redirect.location()).isEqualTo(URI.create("https://kauth"));
+        }
+    }
+
+    @Nested
+    @DisplayName("프론트별 리다이렉트 URI")
+    class FrontRedirectUri {
+
+        @Test
+        @DisplayName("인가 URI는 고른 프론트의 리다이렉트 URI로 만든다")
+        void authorizeUsesFrontRedirectUri() {
+            given(kakaoOAuthClient.buildAuthorizeUri(any(), any())).willReturn(URI.create("https://kauth"));
+
+            AuthorizeRedirect redirect = service.buildAuthorizeRedirect(OAuthProvider.KAKAO, LOCAL_FRONT);
+
+            verify(kakaoOAuthClient).buildAuthorizeUri(redirect.state(), LOCAL_FRONT.redirectUri());
+        }
+
+        @Test
+        @DisplayName("토큰 교환도 같은 프론트의 리다이렉트 URI로 한다")
+        void callbackUsesFrontRedirectUri() {
+            given(kakaoOAuthClient.fetchProfile(CODE, LOCAL_FRONT.redirectUri())).willReturn(PROFILE);
+            given(oAuthAccountRepository.findActiveUserId(any(), any())).willReturn(Optional.empty());
+
+            service.handleCallback(OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE), LOCAL_FRONT);
+
+            verify(kakaoOAuthClient).fetchProfile(CODE, LOCAL_FRONT.redirectUri());
         }
     }
 
@@ -149,7 +182,7 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("카카오 클라이언트가 실패하면 그 사유를 전달하고 회원 여부조차 조회하지 않는다")
         void propagatesClientFailure() {
-            given(kakaoOAuthClient.fetchProfile(CODE))
+            given(kakaoOAuthClient.fetchProfile(CODE, FRONT.redirectUri()))
                     .willThrow(new OAuthLoginException(OAuthLoginError.OAUTH_UNAVAILABLE));
 
             assertFailed(callback(CODE, STATE, null, STATE), OAuthLoginError.OAUTH_UNAVAILABLE);
@@ -164,14 +197,14 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("기존 회원이면 로그인 세션을 발급하고 회원가입 세션은 만들지 않는다")
         void existingMemberLogsIn() {
-            given(kakaoOAuthClient.fetchProfile(CODE)).willReturn(PROFILE);
+            given(kakaoOAuthClient.fetchProfile(CODE, FRONT.redirectUri())).willReturn(PROFILE);
             given(oAuthAccountRepository.findActiveUserId(OAuthProvider.KAKAO, "1234567890"))
                     .willReturn(Optional.of(42L));
             given(authSessionService.issue(42L)).willReturn(new IssuedSession(
                     new AccessToken("access-value", 1800), "refresh-value", Duration.ofDays(7)));
 
             OAuthCallbackResult result = service.handleCallback(
-                    OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE));
+                    OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE), FRONT);
 
             assertThat(result).isEqualTo(
                     new OAuthCallbackResult.Existing("refresh-value", Duration.ofDays(7)));
@@ -181,12 +214,12 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("신규면 회원가입 세션을 해시로 저장하고 원문 토큰을 돌려준다")
         void newcomerOpensSignupSession() {
-            given(kakaoOAuthClient.fetchProfile(CODE)).willReturn(PROFILE);
+            given(kakaoOAuthClient.fetchProfile(CODE, FRONT.redirectUri())).willReturn(PROFILE);
             given(oAuthAccountRepository.findActiveUserId(OAuthProvider.KAKAO, "1234567890"))
                     .willReturn(Optional.empty());
 
             OAuthCallbackResult result = service.handleCallback(
-                    OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE));
+                    OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE), FRONT);
 
             assertThat(result).isInstanceOf(OAuthCallbackResult.SignupRequired.class);
             OAuthCallbackResult.SignupRequired signup = (OAuthCallbackResult.SignupRequired) result;
@@ -207,10 +240,10 @@ class OAuthLoginServiceTest {
         @Test
         @DisplayName("회원가입 세션은 카카오 회원번호를 기억한다")
         void signupSessionCarriesProviderUserId() {
-            given(kakaoOAuthClient.fetchProfile(CODE)).willReturn(PROFILE);
+            given(kakaoOAuthClient.fetchProfile(CODE, FRONT.redirectUri())).willReturn(PROFILE);
             given(oAuthAccountRepository.findActiveUserId(any(), any())).willReturn(Optional.empty());
 
-            service.handleCallback(OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE));
+            service.handleCallback(OAuthProvider.KAKAO, callback(CODE, STATE, null, STATE), FRONT);
 
             ArgumentCaptor<OAuthUserProfile> profile = ArgumentCaptor.forClass(OAuthUserProfile.class);
             verify(signupSessionStore).create(any(), profile.capture(), any());
@@ -223,7 +256,7 @@ class OAuthLoginServiceTest {
     }
 
     private void assertFailed(CallbackParams params, OAuthLoginError expected) {
-        assertThat(service.handleCallback(OAuthProvider.KAKAO, params))
+        assertThat(service.handleCallback(OAuthProvider.KAKAO, params, FRONT))
                 .isEqualTo(new OAuthCallbackResult.Failed(expected));
     }
 }

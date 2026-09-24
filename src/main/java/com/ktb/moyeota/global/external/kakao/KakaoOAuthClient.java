@@ -28,7 +28,7 @@ public class KakaoOAuthClient {
     private final KakaoProperties kakaoProperties;
     private final RestClient kakaoRestClient;
 
-    public URI buildAuthorizeUri(String state) {
+    public URI buildAuthorizeUri(String state, String redirectUri) {
         return UriComponentsBuilder.fromUriString(kakaoProperties.authorizeUri())
                 .queryParam("client_id", "{clientId}")
                 .queryParam("redirect_uri", "{redirectUri}")
@@ -37,14 +37,14 @@ public class KakaoOAuthClient {
                 .encode()
                 .buildAndExpand(
                         kakaoProperties.clientId(),
-                        kakaoProperties.redirectUri(),
+                        redirectUri,
                         RESPONSE_TYPE,
                         state)
                 .toUri();
     }
 
-    public OAuthUserProfile fetchProfile(String code) {
-        KakaoUserResponse user = fetchUser(exchangeToken(code));
+    public OAuthUserProfile fetchProfile(String code, String redirectUri) {
+        KakaoUserResponse user = fetchUser(exchangeToken(code, redirectUri));
         if (user.nickname() == null) {
             log.error("[KAKAO_NICKNAME_MISSING] 닉네임 동의항목이 필수 동의로 설정됐는지 확인하세요.");
             throw new OAuthLoginException(OAuthLoginError.OAUTH_UNAVAILABLE);
@@ -52,12 +52,12 @@ public class KakaoOAuthClient {
         return new OAuthUserProfile(OAuthProvider.KAKAO, String.valueOf(user.id()), user.nickname());
     }
 
-    private String exchangeToken(String code) {
+    private String exchangeToken(String code, String redirectUri) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", GRANT_TYPE);
         form.add("client_id", kakaoProperties.clientId());
         form.add("client_secret", kakaoProperties.clientSecret());
-        form.add("redirect_uri", kakaoProperties.redirectUri());
+        form.add("redirect_uri", redirectUri);
         form.add("code", code);
 
         try {
