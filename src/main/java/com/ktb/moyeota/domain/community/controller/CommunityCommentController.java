@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/community-posts/{post_id}/comments")
+@RequestMapping("/api/community-posts/{post_id}/comments")
 @RequiredArgsConstructor
 public class CommunityCommentController {
 

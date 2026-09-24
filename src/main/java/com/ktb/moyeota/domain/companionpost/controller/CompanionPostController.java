@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/companion-posts")
+@RequestMapping("/api/companion-posts")
 @RequiredArgsConstructor
 public class CompanionPostController {
 
@@ -31,7 +31,7 @@ public class CompanionPostController {
     ) {
         CompanionPostCreateResponse response = companionPostService.create(userId, request);
         return ResponseEntity
-                .created(URI.create("/companion-posts/" + response.id()))
+                .created(URI.create("/api/companion-posts/" + response.id()))
                 .body(ApiResponse.success("게시글이 등록되었습니다", response));
     }
 
