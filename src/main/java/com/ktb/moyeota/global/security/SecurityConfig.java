@@ -45,6 +45,7 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, OAUTH_LOGIN_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/tokens").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/sessions").permitAll()
