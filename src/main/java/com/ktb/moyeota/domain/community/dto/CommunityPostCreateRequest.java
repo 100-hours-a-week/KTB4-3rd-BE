@@ -14,7 +14,7 @@ public record CommunityPostCreateRequest(
         String title,
 
         @NotBlank
-        @Size(max = 500)
+        @Size(max = 280)
         String content,
 
         @NotNull
