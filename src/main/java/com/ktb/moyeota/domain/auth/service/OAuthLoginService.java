@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.auth.model.AuthorizeRedirect;
 import com.ktb.moyeota.domain.auth.model.CallbackParams;
 import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.OAuthCallbackResult;
+import com.ktb.moyeota.domain.auth.model.OAuthFront;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
 import com.ktb.moyeota.domain.auth.model.OAuthUserProfile;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
@@ -35,15 +36,16 @@ public class OAuthLoginService {
     private final AuthProperties authProperties;
     private final Clock clock;
 
-    public AuthorizeRedirect buildAuthorizeRedirect(OAuthProvider provider) {
+    public AuthorizeRedirect buildAuthorizeRedirect(OAuthProvider provider, OAuthFront front) {
         String state = opaqueTokenFactory.generate();
         URI location = switch (provider) {
-            case KAKAO -> kakaoOAuthClient.buildAuthorizeUri(state);
+            case KAKAO -> kakaoOAuthClient.buildAuthorizeUri(state, front.redirectUri());
         };
         return new AuthorizeRedirect(location, state);
     }
 
-    public OAuthCallbackResult handleCallback(OAuthProvider provider, CallbackParams params) {
+    public OAuthCallbackResult handleCallback(
+            OAuthProvider provider, CallbackParams params, OAuthFront front) {
         if (!stateMatches(params.stateCookie(), params.state())) {
             return new OAuthCallbackResult.Failed(OAuthLoginError.INVALID_STATE);
         }
@@ -56,7 +58,7 @@ public class OAuthLoginService {
 
         OAuthUserProfile profile;
         try {
-            profile = fetchProfile(provider, params.code());
+            profile = fetchProfile(provider, params.code(), front.redirectUri());
         } catch (OAuthLoginException e) {
             return new OAuthCallbackResult.Failed(e.getError());
         }
@@ -66,9 +68,9 @@ public class OAuthLoginService {
                 .orElseGet(() -> openSignupSession(profile));
     }
 
-    private OAuthUserProfile fetchProfile(OAuthProvider provider, String code) {
+    private OAuthUserProfile fetchProfile(OAuthProvider provider, String code, String redirectUri) {
         return switch (provider) {
-            case KAKAO -> kakaoOAuthClient.fetchProfile(code);
+            case KAKAO -> kakaoOAuthClient.fetchProfile(code, redirectUri);
         };
     }
 

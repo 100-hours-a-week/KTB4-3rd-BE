@@ -3,9 +3,10 @@ package com.ktb.moyeota.domain.auth.controller;
 import com.ktb.moyeota.domain.auth.model.AuthorizeRedirect;
 import com.ktb.moyeota.domain.auth.model.CallbackParams;
 import com.ktb.moyeota.domain.auth.model.OAuthCallbackResult;
+import com.ktb.moyeota.domain.auth.model.OAuthFront;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
+import com.ktb.moyeota.domain.auth.service.OAuthFrontResolver;
 import com.ktb.moyeota.domain.auth.service.OAuthLoginService;
-import com.ktb.moyeota.global.config.OAuthProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.security.cookie.AuthCookies;
@@ -13,6 +14,7 @@ import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,15 +34,23 @@ public class OAuthLoginController {
 
     private final OAuthLoginService oAuthLoginService;
     private final AuthCookies authCookies;
-    private final OAuthProperties oAuthProperties;
+    private final OAuthFrontResolver oAuthFrontResolver;
 
     @GetMapping("/auth/{provider}/login")
-    public ResponseEntity<Void> startLogin(@PathVariable String provider) {
-        AuthorizeRedirect redirect = oAuthLoginService.buildAuthorizeRedirect(providerOf(provider));
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(redirect.location())
-                .header(HttpHeaders.SET_COOKIE, authCookies.oauthState(redirect.state()).toString())
-                .build();
+    public ResponseEntity<Void> startLogin(
+            @PathVariable String provider,
+            @RequestParam(name = "front_origin", required = false) String frontOrigin) {
+
+        OAuthProvider oAuthProvider = providerOf(provider);
+        OAuthFront front = oAuthFrontResolver.resolve(oAuthProvider, frontOrigin);
+        AuthorizeRedirect redirect = oAuthLoginService.buildAuthorizeRedirect(oAuthProvider, front);
+        ResponseCookie frontCookie = front.isDefault()
+                ? authCookies.expiredOauthFront()
+                : authCookies.oauthFront(front.origin());
+        return redirect(
+                redirect.location(),
+                authCookies.oauthState(redirect.state()).toString(),
+                frontCookie.toString());
     }
 
     @GetMapping("/auth/{provider}/callback")
@@ -49,25 +59,32 @@ public class OAuthLoginController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
-            @CookieValue(name = AuthCookies.OAUTH_STATE, required = false) String oauthStateCookie) {
+            @CookieValue(name = AuthCookies.OAUTH_STATE, required = false) String oauthStateCookie,
+            @CookieValue(name = AuthCookies.OAUTH_FRONT, required = false) String oauthFrontCookie) {
 
+        OAuthProvider oAuthProvider = providerOf(provider);
+        OAuthFront front = oAuthFrontResolver.resolve(oAuthProvider, oauthFrontCookie);
         CallbackParams params = new CallbackParams(code, state, error, oauthStateCookie);
         String expiredState = authCookies.expiredOauthState().toString();
+        String expiredFront = authCookies.expiredOauthFront().toString();
 
-        return switch (oAuthLoginService.handleCallback(providerOf(provider), params)) {
+        return switch (oAuthLoginService.handleCallback(oAuthProvider, params, front)) {
             case OAuthCallbackResult.Existing existing -> redirect(
-                    frontCallback("status", STATUS_OK),
+                    frontCallback(front, "status", STATUS_OK),
                     expiredState,
+                    expiredFront,
                     authCookies.refreshToken(existing.refreshToken(), existing.refreshTokenMaxAge())
                             .toString());
             case OAuthCallbackResult.SignupRequired signup -> redirect(
-                    frontCallback("status", STATUS_SIGNUP_REQUIRED),
+                    frontCallback(front, "status", STATUS_SIGNUP_REQUIRED),
                     expiredState,
+                    expiredFront,
                     authCookies.signupToken(signup.signupToken(), signup.signupTokenMaxAge())
                             .toString());
             case OAuthCallbackResult.Failed failed -> redirect(
-                    frontCallback("error", failed.error().name()),
-                    expiredState);
+                    frontCallback(front, "error", failed.error().name()),
+                    expiredState,
+                    expiredFront);
         };
     }
 
@@ -76,8 +93,8 @@ public class OAuthLoginController {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.ENDPOINT_NOT_FOUND));
     }
 
-    private URI frontCallback(String name, String value) {
-        return UriComponentsBuilder.fromUriString(oAuthProperties.frontCallbackUri())
+    private URI frontCallback(OAuthFront front, String name, String value) {
+        return UriComponentsBuilder.fromUriString(front.callbackUri())
                 .queryParam(name, value)
                 .build()
                 .toUri();
