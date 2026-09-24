@@ -13,6 +13,11 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
+management:
+  endpoints:
+    web:
+      base-path: /api/actuator
+
 moyeota:
   auth:
     jwt:

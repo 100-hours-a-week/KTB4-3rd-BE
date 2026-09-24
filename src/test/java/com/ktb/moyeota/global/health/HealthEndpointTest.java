@@ -20,7 +20,7 @@ class HealthEndpointTest {
     @Test
     @DisplayName("readiness 헬스체크는 토큰 없이 200 UP을 준다")
     void readinessWithoutToken() {
-        ResponseEntity<String> response = get("/actuator/health/readiness");
+        ResponseEntity<String> response = get("/api/actuator/health/readiness");
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isEqualTo("{\"status\":\"UP\"}");
@@ -29,7 +29,7 @@ class HealthEndpointTest {
     @Test
     @DisplayName("liveness 헬스체크도 토큰 없이 200 UP을 준다")
     void livenessWithoutToken() {
-        ResponseEntity<String> response = get("/actuator/health/liveness");
+        ResponseEntity<String> response = get("/api/actuator/health/liveness");
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).isEqualTo("{\"status\":\"UP\"}");
