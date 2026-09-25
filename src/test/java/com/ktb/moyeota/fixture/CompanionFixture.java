@@ -22,6 +22,12 @@ public final class CompanionFixture {
         return taxiPot;
     }
 
+    public static Companion taxiPot(User host, CompanionStatus status, int currentCount) {
+        Companion taxiPot = taxiPot(host, status);
+        ReflectionTestUtils.setField(taxiPot, "currentCount", currentCount);
+        return taxiPot;
+    }
+
     public static Companion companionPost(User host) {
         return recruiting(host, CompanionKind.COMPANION, TransportType.SUBWAY, 10);
     }
