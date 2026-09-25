@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum TaxiPotSuccessCode implements SuccessCode {
 
-    CURRENT_TAXI_POT_FOUND("조회에 성공했습니다"),
+    TAXI_POT_FOUND("조회에 성공했습니다"),
 
     NO_CURRENT_TAXI_POT("진행 중인 매칭이 없습니다");
 
