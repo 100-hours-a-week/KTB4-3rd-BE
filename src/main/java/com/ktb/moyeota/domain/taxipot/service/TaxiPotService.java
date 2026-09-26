@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.taxipot.service;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
@@ -37,35 +38,18 @@ public class TaxiPotService {
 
     @Transactional
     public TaxiPotDetail changeStatus(Long userId, Long taxiPotId, CompanionStatus target) {
-        Companion companion = companionRepository.findTaxiPotForParticipant(taxiPotId, userId)
+        Companion companion = companionRepository.findTaxiPotForParticipantForUpdate(taxiPotId, userId)
                 .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
         if (!companion.getHost().getId().equals(userId)) {
             throw new BusinessException(TaxiPotErrorCode.HOST_ONLY);
         }
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        int changed = switch (target) {
-            case IN_PROGRESS -> companionRepository.startRide(taxiPotId, userId, now);
-            case COMPLETED -> companionRepository.completeRide(taxiPotId, userId);
-            default -> throw new BusinessException(TaxiPotErrorCode.INVALID_STATE_TRANSITION);
-        };
-        if (changed == 0) {
-            throw new BusinessException(rejectionReason(companion, target, now));
+        switch (target) {
+            case IN_PROGRESS -> companion.startRide(LocalDateTime.now(clock));
+            case COMPLETED -> companion.completeRide();
+            default -> throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         return toTaxiPotDetail(companion);
-    }
-
-    private static TaxiPotErrorCode rejectionReason(Companion companion, CompanionStatus target, LocalDateTime now) {
-        if (target == CompanionStatus.COMPLETED || companion.getStatus() != CompanionStatus.RECRUITING) {
-            return TaxiPotErrorCode.INVALID_STATE_TRANSITION;
-        }
-        if (companion.getCurrentCount() < 2) {
-            return TaxiPotErrorCode.NOT_ENOUGH_PARTICIPANTS;
-        }
-        if (companion.getDepartureAt().isAfter(now)) {
-            return TaxiPotErrorCode.DEPARTURE_NOT_REACHED;
-        }
-        return TaxiPotErrorCode.INVALID_STATE_TRANSITION;
     }
 
     private static CurrentTaxiPot toCurrentTaxiPot(Companion companion) {
