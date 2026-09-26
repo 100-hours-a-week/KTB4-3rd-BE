@@ -6,6 +6,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -245,6 +247,26 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value(reason));
 
         verifyNoInteractions(taxiPotService);
+    }
+
+    @Test
+    @DisplayName("나가면 204이고 본문이 없다")
+    void leave() throws Exception {
+        mockMvc.perform(delete("/api/taxi-pots/30/participants/me").with(member()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(taxiPotService).leave(42L, 30L);
+    }
+
+    @Test
+    @DisplayName("운행 중에 나가면 409 RIDE_IN_PROGRESS다")
+    void leaveDuringRide() throws Exception {
+        willThrow(new BusinessException(CompanionErrorCode.RIDE_IN_PROGRESS)).given(taxiPotService).leave(42L, 30L);
+
+        mockMvc.perform(delete("/api/taxi-pots/30/participants/me").with(member()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("RIDE_IN_PROGRESS"));
     }
 
     private static final Map<String, String> START_VALUES = Map.of(

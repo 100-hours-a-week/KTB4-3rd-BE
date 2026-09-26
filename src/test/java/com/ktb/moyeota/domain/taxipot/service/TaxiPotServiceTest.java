@@ -177,6 +177,20 @@ class TaxiPotServiceTest {
     }
 
     @Nested
+    @DisplayName("나가기")
+    class Leave {
+
+        @Test
+        @DisplayName("참여 중인 택시팟이 아니면 TAXI_POT_NOT_FOUND다")
+        void notFound() {
+            given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
+                    .willReturn(Optional.empty());
+
+            assertErrorCode(() -> service.leave(USER_ID, TAXI_POT_ID), TaxiPotErrorCode.TAXI_POT_NOT_FOUND);
+        }
+    }
+
+    @Nested
     @DisplayName("운행 상태 변경")
     class ChangeStatus {
 

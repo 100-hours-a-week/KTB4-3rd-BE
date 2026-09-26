@@ -78,6 +78,19 @@ public class TaxiPotService {
         return toCurrentTaxiPot(taxiPot);
     }
 
+    @Transactional
+    public void leave(Long userId, Long taxiPotId) {
+        Companion taxiPot = taxiPotRepository.findTaxiPotForParticipantForUpdate(taxiPotId, userId)
+                .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
+        CompanionParticipant leaver = taxiPotParticipantRepository.findByCompanionIdAndUserId(taxiPotId, userId)
+                .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
+        CompanionParticipant nextHost = taxiPot.isHostedBy(userId)
+                ? taxiPotParticipantRepository.findNextHost(taxiPotId, userId).orElse(null)
+                : null;
+
+        taxiPot.leave(leaver, nextHost);
+    }
+
     @Transactional(readOnly = true)
     public TaxiPotDetail find(Long userId, Long taxiPotId) {
         return taxiPotRepository.findTaxiPotForParticipant(taxiPotId, userId)

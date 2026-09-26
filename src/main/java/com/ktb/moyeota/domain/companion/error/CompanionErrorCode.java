@@ -13,7 +13,11 @@ public enum CompanionErrorCode implements ErrorCode {
 
     NOT_ENOUGH_PARTICIPANTS(HttpStatus.CONFLICT, "2명 이상 모여야 출발할 수 있어요"),
 
-    DEPARTURE_NOT_REACHED(HttpStatus.CONFLICT, "출발 시각 이후에 시작할 수 있어요");
+    DEPARTURE_NOT_REACHED(HttpStatus.CONFLICT, "출발 시각 이후에 시작할 수 있어요"),
+
+    RIDE_IN_PROGRESS(HttpStatus.CONFLICT, "운행 중에는 나갈 수 없습니다"),
+
+    SETTLEMENT_IN_PROGRESS(HttpStatus.CONFLICT, "정산 전에는 나갈 수 없습니다");
 
     private final HttpStatus status;
     private final String message;

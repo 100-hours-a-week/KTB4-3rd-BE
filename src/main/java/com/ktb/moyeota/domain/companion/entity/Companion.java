@@ -164,6 +164,34 @@ public class Companion {
         return CompanionParticipant.join(this, user, previous);
     }
 
+    public boolean isHostedBy(Long userId) {
+        return host.getId().equals(userId);
+    }
+
+    public void leave(CompanionParticipant leaver, CompanionParticipant nextHost) {
+        if (leaver.isSettled()) {
+            return;
+        }
+        if (status == CompanionStatus.IN_PROGRESS) {
+            throw new BusinessException(CompanionErrorCode.RIDE_IN_PROGRESS);
+        }
+        if (status == CompanionStatus.COMPLETED) {
+            throw new BusinessException(CompanionErrorCode.SETTLEMENT_IN_PROGRESS);
+        }
+        leaver.leave();
+        this.currentCount--;
+        if (currentCount == 0) {
+            this.status = CompanionStatus.CANCELED;
+            return;
+        }
+        if (isHostedBy(leaver.getUser().getId())) {
+            if (nextHost == null) {
+                throw new IllegalStateException("남은 참여자가 있는데 다음 방장이 없다: " + id);
+            }
+            this.host = nextHost.getUser();
+        }
+    }
+
     public void startRide(LocalDateTime now) {
         if (status != CompanionStatus.RECRUITING) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
