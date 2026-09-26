@@ -210,6 +210,16 @@ class CompanionTest {
             assertThat(pot.getStatus()).isEqualTo(IN_PROGRESS);
         }
 
+        @Test
+        @DisplayName("운행을 시작하면 도착 예정 시각은 시작 시각의 1시간 뒤다")
+        void setsDefaultEta() {
+            Companion pot = taxiPot(user("방장"), RECRUITING, 2);
+
+            pot.startRide(DEPARTURE_AT.plusMinutes(5));
+
+            assertThat(pot.getEtaAt()).isEqualTo(DEPARTURE_AT.plusMinutes(5).plusHours(1));
+        }
+
         @ParameterizedTest(name = "{0}", quoteTextArguments = false)
         @EnumSource(value = CompanionStatus.class, names = "RECRUITING", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("모집 중이 아니면 INVALID_STATE_TRANSITION이다")
@@ -268,6 +278,32 @@ class CompanionTest {
 
             assertErrorCode(pot::completeRide, CompanionErrorCode.INVALID_STATE_TRANSITION);
             assertThat(pot.getStatus()).isEqualTo(status);
+        }
+    }
+
+    @Nested
+    @DisplayName("도착 예정 시각 갱신")
+    class EstimateArrival {
+
+        @Test
+        @DisplayName("운행 중에 도착 예정 시각을 바꿀 수 있다")
+        void updatesWhileRiding() {
+            Companion pot = taxiPot(user("방장"), IN_PROGRESS, 2);
+
+            pot.estimateArrival(DEPARTURE_AT.plusMinutes(20));
+
+            assertThat(pot.getEtaAt()).isEqualTo(DEPARTURE_AT.plusMinutes(20));
+        }
+
+        @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+        @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("운행 중이 아니면 도착 예정 시각이 그대로다")
+        void ignoresWhenNotRiding(CompanionStatus status) {
+            Companion pot = taxiPot(user("방장"), status, 2);
+
+            pot.estimateArrival(DEPARTURE_AT.plusMinutes(20));
+
+            assertThat(pot.getEtaAt()).isNull();
         }
     }
 

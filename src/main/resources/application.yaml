@@ -8,6 +8,9 @@ spring:
     property-naming-strategy: SNAKE_CASE
   jpa:
     open-in-view: false
+  task:
+    execution:
+      mode: force
 
 server:
   port: 8080
@@ -29,6 +32,8 @@ moyeota:
       authorize-uri: https://kauth.kakao.com/oauth/authorize
       token-uri: https://kauth.kakao.com/oauth/token
       user-info-uri: https://kapi.kakao.com/v2/user/me
+  kakao-navi:
+    directions-uri: https://apis-navi.kakaomobility.com/v1/directions
   storage:
     s3:
       region: ap-northeast-2

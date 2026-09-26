@@ -1,8 +1,13 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
+import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.COMPLETED;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
+import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LAT;
+import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LNG;
+import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LAT;
+import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.TaxiPotFixture.startCommand;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
@@ -14,12 +19,14 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
@@ -40,7 +47,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -64,6 +73,9 @@ class TaxiPotServiceTest {
 
     @Mock
     private ChatSystemMessageService chatSystemMessageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @Spy
     private Clock clock = Clock.fixed(DEPARTURE_AT.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
@@ -228,6 +240,33 @@ class TaxiPotServiceTest {
                     TaxiPotErrorCode.HOST_ONLY);
         }
 
+        @Test
+        @DisplayName("운행을 시작하면 시작 시각과 경로를 담아 운행 시작 이벤트를 발행한다")
+        void publishesRideStarted() {
+            Companion pot = taxiPot(host, RECRUITING, 2);
+            ReflectionTestUtils.setField(pot, "id", TAXI_POT_ID);
+            given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
+                    .willReturn(Optional.of(pot));
+            given(chatRoomRepository.findByCompanionId(TAXI_POT_ID)).willReturn(Optional.of(ChatRoom.create(pot)));
+
+            service.changeStatus(USER_ID, TAXI_POT_ID, IN_PROGRESS);
+
+            verify(eventPublisher).publishEvent(new TaxiPotRideStartedEvent(
+                    TAXI_POT_ID, DEPARTURE_AT, ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG));
+        }
+
+        @Test
+        @DisplayName("운행을 종료할 때는 운행 시작 이벤트를 발행하지 않는다")
+        void noEventOnComplete() {
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
+                    .willReturn(Optional.of(pot));
+            given(chatRoomRepository.findByCompanionId(any())).willReturn(Optional.of(ChatRoom.create(pot)));
+
+            service.changeStatus(USER_ID, TAXI_POT_ID, COMPLETED);
+
+            verifyNoInteractions(eventPublisher);
+        }
 
     }
 

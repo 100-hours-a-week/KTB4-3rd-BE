@@ -8,6 +8,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class TaxiPotService {
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatSystemMessageService chatSystemMessageService;
+    private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -113,11 +116,23 @@ public class TaxiPotService {
         }
 
         switch (target) {
-            case IN_PROGRESS -> companion.startRide(LocalDateTime.now(clock));
+            case IN_PROGRESS -> startRide(companion);
             case COMPLETED -> companion.completeRide();
             default -> throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         return toTaxiPotDetail(companion);
+    }
+
+    @Transactional
+    public void estimateArrival(Long taxiPotId, LocalDateTime etaAt) {
+        taxiPotRepository.findById(taxiPotId).ifPresent(taxiPot -> taxiPot.estimateArrival(etaAt));
+    }
+
+    private void startRide(Companion taxiPot) {
+        LocalDateTime startedAt = LocalDateTime.now(clock);
+        taxiPot.startRide(startedAt);
+        eventPublisher.publishEvent(new TaxiPotRideStartedEvent(taxiPot.getId(), startedAt,
+                taxiPot.getOriginLat(), taxiPot.getOriginLng(), taxiPot.getDestLat(), taxiPot.getDestLng()));
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
