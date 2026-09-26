@@ -1,10 +1,13 @@
 package com.ktb.moyeota.domain.chat.repository;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -56,4 +59,18 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("cursorLastMessageAt") LocalDateTime cursorLastMessageAt,
             @Param("cursorRoomId") Long cursorRoomId,
             @Param("n") int n);
+
+    @Modifying
+    @Query("""
+            UPDATE Companion c
+            SET c.currentCount = c.currentCount + 1
+            WHERE c.id = :id
+              AND c.status = :status
+              AND c.currentCount < c.capacity
+            """)
+    int increaseCurrentCountIfRecruitingAndNotFull(@Param("id") Long id, @Param("status") CompanionStatus status);
+
+    @Modifying
+    @Query("UPDATE Companion c SET c.currentCount = c.currentCount - 1 WHERE c.id = :id AND c.currentCount > 0")
+    int decreaseCurrentCount(@Param("id") Long id);
 }

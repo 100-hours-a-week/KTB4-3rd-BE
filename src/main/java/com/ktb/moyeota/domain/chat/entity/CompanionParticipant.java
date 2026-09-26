@@ -44,13 +44,14 @@ public class CompanionParticipant {
     private CompanionParticipant(Companion companion, User user){
         this.companion = companion;
         this.user = user;
-        this.outcomeStatus = OutcomeStatus.PENDING; // 애초에 참가자 엔티티가 생기는 시점은 참여가능한 채팅방에 들어갈때이다.
+        this.outcomeStatus = OutcomeStatus.PENDING;
     }
 
     @PrePersist
     private void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
-        this.joinedAt = now;
+        if (this.joinedAt == null) {
+            this.joinedAt = LocalDateTime.now();
+        }
     }
 
     public static CompanionParticipant join(Companion companion, User user) {

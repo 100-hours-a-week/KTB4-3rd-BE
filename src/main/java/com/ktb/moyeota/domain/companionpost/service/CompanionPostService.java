@@ -1,9 +1,9 @@
 package com.ktb.moyeota.domain.companionpost.service;
 
+import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
-import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostCreateRequest;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostCreateResponse;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostDetailResponse;
@@ -23,8 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CompanionPostService {
 
-    private final CompanionRepository companionRepository;
     private final CompanionPostRepository companionPostRepository;
+    private final ChatRoomService chatRoomService;
     private final EntityManager entityManager;
 
     @Transactional
@@ -34,7 +34,7 @@ public class CompanionPostService {
             throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
         }
 
-        int capacity = request.recruitCount() + 1; // 방장 포함 총원
+        int capacity = request.recruitCount() + 1;
         Companion companion = createCompanionPost(host, request, capacity);
 
         Optional.of(companion).filter(Companion::isDepartureAtFuture)
@@ -44,16 +44,17 @@ public class CompanionPostService {
         Optional.of(companion).filter(Companion::isCapacityValid)
                 .orElseThrow(() -> new BusinessException(CompanionPostErrorCode.COMPANION_POST_RECRUIT_COUNT_OUT_OF_RANGE));
 
-        companionRepository.save(companion);
+        companionPostRepository.save(companion);
 
-        // TODO: [채팅 도메인 연동] chat_rooms insert는 Chat 도메인 범위라 구현하지 않음 — chatRoomId는 null.
+        chatRoomService.createChatRoomForCompanion(companion, host);
+
         return new CompanionPostCreateResponse(companion.getId());
     }
 
     @Transactional(readOnly = true)
     public CompanionPostDetailResponse find(Long userId, Long companionId) {
 
-        Companion companion = companionRepository.findById(companionId)
+        Companion companion = companionPostRepository.findById(companionId)
                 .orElseThrow(() -> new BusinessException(CompanionPostErrorCode.COMPANION_POST_NOT_FOUND));
 
         if (companion.getStatus() == CompanionStatus.CANCELED) {

@@ -8,10 +8,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.entity.TransportType;
-import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostCreateRequest;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostCreateResponse;
 import com.ktb.moyeota.domain.companionpost.dto.CompanionPostDetailResponse;
@@ -42,10 +42,10 @@ class CompanionPostServiceTest {
     private static final Long COMPANION_ID = 20L;
 
     @Mock
-    private CompanionRepository companionRepository;
+    private CompanionPostRepository companionPostRepository;
 
     @Mock
-    private CompanionPostRepository companionPostRepository;
+    private ChatRoomService chatRoomService;
 
     @Mock
     private EntityManager entityManager;
@@ -54,7 +54,7 @@ class CompanionPostServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CompanionPostService(companionRepository, companionPostRepository, entityManager);
+        service = new CompanionPostService(companionPostRepository, chatRoomService, entityManager);
     }
 
     private User activeUser() {
@@ -95,8 +95,8 @@ class CompanionPostServiceTest {
             CompanionPostCreateResponse response = service.create(USER_ID, validRequest());
 
             ArgumentCaptor<Companion> captor = ArgumentCaptor.forClass(Companion.class);
-            verify(companionRepository).save(captor.capture());
-            assertThat(captor.getValue().getCapacity()).isEqualTo(4); // recruitCount(3) + 방장(1)
+            verify(companionPostRepository).save(captor.capture());
+            assertThat(captor.getValue().getCapacity()).isEqualTo(4);
             // assertThat(response.chatRoomId()).isNull(); // TODO: Chat 도메인 연동 전까지 null
         }
 
@@ -110,7 +110,7 @@ class CompanionPostServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CommonErrorCode.UNAUTHORIZED);
 
-            verify(companionRepository, never()).save(any());
+            verify(companionPostRepository, never()).save(any());
         }
 
         @Test
@@ -127,7 +127,7 @@ class CompanionPostServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CompanionPostErrorCode.COMPANION_POST_DEPARTURE_AT_PAST);
 
-            verify(companionRepository, never()).save(any());
+            verify(companionPostRepository, never()).save(any());
         }
 
         @Test
@@ -172,8 +172,8 @@ class CompanionPostServiceTest {
             service.create(USER_ID, request);
 
             ArgumentCaptor<Companion> captor = ArgumentCaptor.forClass(Companion.class);
-            verify(companionRepository).save(captor.capture());
-            assertThat(captor.getValue().getCapacity()).isEqualTo(10); // 9 + 방장(1)
+            verify(companionPostRepository).save(captor.capture());
+            assertThat(captor.getValue().getCapacity()).isEqualTo(10);
         }
     }
 
@@ -184,7 +184,7 @@ class CompanionPostServiceTest {
         @Test
         @DisplayName("존재하지 않으면 404를 던진다")
         void throwsNotFoundWhenMissing() {
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.empty());
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
@@ -197,7 +197,7 @@ class CompanionPostServiceTest {
         void throwsGoneWhenCanceled() {
             Companion companion = mock(Companion.class);
             given(companion.getStatus()).willReturn(CompanionStatus.CANCELED);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
@@ -228,7 +228,7 @@ class CompanionPostServiceTest {
         @DisplayName("출발 전이고 정원이 남았으면 isExpired=false, isFull=false다")
         void beforeDepartureWithRoomLeft() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -241,7 +241,7 @@ class CompanionPostServiceTest {
         @DisplayName("정원이 다 찼으면 isFull=true다")
         void full() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 4, 4, 99L);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -252,7 +252,7 @@ class CompanionPostServiceTest {
         @DisplayName("출발 시각이 지났으면 isExpired=true다")
         void afterDepartureIsExpired() {
             Companion companion = companionWith(LocalDateTime.now().minusHours(1), 2, 4, 99L);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -263,7 +263,7 @@ class CompanionPostServiceTest {
         @DisplayName("방장이 조회하면 joined=true다")
         void hostSeesJoinedTrue() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, USER_ID);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -274,7 +274,7 @@ class CompanionPostServiceTest {
         @DisplayName("방장이 아니면 joined=false다")
         void nonHostSeesJoinedFalse() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
-            given(companionRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 

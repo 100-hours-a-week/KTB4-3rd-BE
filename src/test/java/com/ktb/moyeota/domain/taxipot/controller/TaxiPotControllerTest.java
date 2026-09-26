@@ -4,15 +4,22 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
+import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotService;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
@@ -30,16 +37,23 @@ import com.ktb.moyeota.global.security.resolver.AuthUserArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.SignupPrincipalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(controllers = TaxiPotController.class)
@@ -127,6 +141,132 @@ class TaxiPotControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("TAXI_POT_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("존재하지 않는 매칭입니다"));
+    }
+
+    @Test
+    @DisplayName("운행을 시작하면 200과 바뀐 상세 정보를 내린다")
+    void startRide() throws Exception {
+        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.IN_PROGRESS)).willReturn(new TaxiPotDetail(30L,
+                CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+
+        mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("운행 상태가 변경됐어요"))
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+    }
+
+    @Test
+    @DisplayName("운행을 종료하면 200과 바뀐 상세 정보를 내린다")
+    void completeRide() throws Exception {
+        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.COMPLETED)).willReturn(new TaxiPotDetail(30L,
+                CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+
+        mockMvc.perform(changeStatus("COMPLETED").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("운행 상태가 변경됐어요"))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+    @ValueSource(strings = {"RECRUITING", "CANCELED", "in_progress", "UNKNOWN"})
+    @DisplayName("요청으로 바꿀 수 없는 상태 값이면 422 INVALID_ENUM이고 서비스를 부르지 않는다")
+    void unsupportedStatus(String status) throws Exception {
+        mockMvc.perform(changeStatus(status).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("status"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));
+
+        verifyNoInteractions(taxiPotService);
+    }
+
+    @Test
+    @DisplayName("방장이 아니면 403 HOST_ONLY다")
+    void hostOnly() throws Exception {
+        given(taxiPotService.changeStatus(any(), any(), any()))
+                .willThrow(new BusinessException(TaxiPotErrorCode.HOST_ONLY));
+
+        mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("HOST_ONLY"));
+    }
+
+    @Test
+    @DisplayName("전이할 수 없는 상태면 409다")
+    void conflict() throws Exception {
+        given(taxiPotService.changeStatus(any(), any(), any()))
+                .willThrow(new BusinessException(CompanionErrorCode.DEPARTURE_NOT_REACHED));
+
+        mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("DEPARTURE_NOT_REACHED"));
+    }
+
+    @Test
+    @DisplayName("매칭을 시작하면 201과 Location, 참여한 택시팟 데이터 응답을 내린다")
+    void startMatch() throws Exception {
+        given(taxiPotService.start(any(), any()))
+                .willReturn(new CurrentTaxiPot(30L, CompanionStatus.RECRUITING, 2, 4));
+
+        mockMvc.perform(startMatch(startBody()).with(member()))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/taxi-pots/30"))
+                .andExpect(jsonPath("$.message").value("매칭을 시작했습니다"))
+                .andExpect(jsonPath("$.data.id").value(30))
+                .andExpect(jsonPath("$.data.current_count").value(2));
+    }
+
+    @Test
+    @DisplayName("요청 값을 제자리의 명령 필드로 옮긴다")
+    void startMatchCommand() throws Exception {
+        given(taxiPotService.start(any(), any()))
+                .willReturn(new CurrentTaxiPot(30L, CompanionStatus.RECRUITING, 1, 4));
+
+        mockMvc.perform(startMatch(startBody()).with(member()));
+
+        verify(taxiPotService).start(42L, new TaxiPotStartCommand(
+                "판교역", new BigDecimal("37.394500"), new BigDecimal("127.111200"),
+                "강남역", new BigDecimal("37.497900"), new BigDecimal("127.027600"),
+                LocalDateTime.of(2026, 9, 5, 17, 30)));
+    }
+
+    @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+    @CsvSource(delimiter = '|', textBlock = """
+            departure_at 없음 | departure_at | null        | REQUIRED
+            위도 범위 밖      | origin_lat   | 91          | OUT_OF_RANGE
+            소수 7자리        | dest_lng     | 127.0276001 | OUT_OF_RANGE
+            """)
+    @DisplayName("형식이 틀리면 422이고 서비스를 부르지 않는다")
+    void startMatchValidation(String caseName, String field, String value, String reason) throws Exception {
+        mockMvc.perform(startMatch(startBody().replace(START_VALUES.get(field), value)).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value(field))
+                .andExpect(jsonPath("$.error.details[0].reason").value(reason));
+
+        verifyNoInteractions(taxiPotService);
+    }
+
+    private static final Map<String, String> START_VALUES = Map.of(
+            "origin_lat", "37.394500",
+            "dest_lng", "127.027600",
+            "departure_at", "\"2026-09-05T17:30:00\"");
+
+    private static String startBody() {
+        return """
+                {"origin_name":"판교역","origin_lat":37.394500,"origin_lng":127.111200,\
+                "dest_name":"강남역","dest_lat":37.497900,"dest_lng":127.027600,\
+                "departure_at":"2026-09-05T17:30:00"}""";
+    }
+
+    private static MockHttpServletRequestBuilder startMatch(String body) {
+        return post("/api/taxi-pots").contentType(MediaType.APPLICATION_JSON).content(body);
+    }
+
+    private static MockHttpServletRequestBuilder changeStatus(String status) {
+        return patch("/api/taxi-pots/30")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"" + status + "\"}");
     }
 
     private static RequestPostProcessor member() {

@@ -85,6 +85,10 @@ public class User {
         this.profileImageUrl = profileImageUrl;
     }
 
+    public boolean hasBankAccount() {
+        return bankName != null && accountNo != null;
+    }
+
     public boolean isWithdrawn() {
         return withdrawnAt != null;
     }

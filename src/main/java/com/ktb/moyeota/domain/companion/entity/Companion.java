@@ -1,7 +1,9 @@
 package com.ktb.moyeota.domain.companion.entity;
 
-// import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -9,8 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "companions")
@@ -29,9 +29,6 @@ public class Companion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
-
-    // @OneToMany(mappedBy = "user")
-    // private List<ChatRoom> chatRoomList = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -84,12 +81,11 @@ public class Companion {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // capacity는 방장을 포함한 총원이다. 방장 혼자(recruit_count 0)도 생성 가능.
-    // TAXI·OWNED_CAR: 방장 포함 1~4명
-    // SUBWAY·BUS: 방장 포함 1~10명
     private static final int MIN_CAPACITY = 1;
-    private static final int CAR_MAX_CAPACITY = 4;       // TAXI, OWNED_CAR
-    private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10; // SUBWAY, BUS
+    private static final int CAR_MAX_CAPACITY = 4;
+    private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10;
+    private static final int MIN_RIDE_PARTICIPANTS = 2;
+    private static final int TAXI_POT_CAPACITY = 4;
 
     private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
@@ -133,6 +129,13 @@ public class Companion {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public static Companion openTaxiPot(User host, String originName, BigDecimal originLat, BigDecimal originLng,
+                                        String destName, BigDecimal destLat, BigDecimal destLng,
+                                        LocalDateTime departureAt) {
+        return new Companion(host, host, CompanionKind.TAXI_POT, TransportType.TAXI, null,
+                originName, originLat, originLng, destName, destLat, destLng, departureAt, TAXI_POT_CAPACITY);
+    }
+
     public boolean isDepartureAtFuture() {
         return departureAt != null && departureAt.isAfter(LocalDateTime.now());
     }
@@ -151,6 +154,34 @@ public class Companion {
             case TAXI, OWNED_CAR -> CAR_MAX_CAPACITY;
             case SUBWAY, BUS -> PUBLIC_TRANSPORT_MAX_CAPACITY;
         };
+    }
+
+    public CompanionParticipant join(User user) {
+        if (status != CompanionStatus.RECRUITING || currentCount >= capacity) {
+            throw new IllegalStateException("모집 중인 자리가 없는 동행에 합류할 수 없다: " + id);
+        }
+        this.currentCount++;
+        return CompanionParticipant.join(this, user);
+    }
+
+    public void startRide(LocalDateTime now) {
+        if (status != CompanionStatus.RECRUITING) {
+            throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
+        }
+        if (currentCount < MIN_RIDE_PARTICIPANTS) {
+            throw new BusinessException(CompanionErrorCode.NOT_ENOUGH_PARTICIPANTS);
+        }
+        if (departureAt.isAfter(now)) {
+            throw new BusinessException(CompanionErrorCode.DEPARTURE_NOT_REACHED);
+        }
+        this.status = CompanionStatus.IN_PROGRESS;
+    }
+
+    public void completeRide() {
+        if (status != CompanionStatus.IN_PROGRESS) {
+            throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
+        }
+        this.status = CompanionStatus.COMPLETED;
     }
 
     public void transferHost(User newHost) {
