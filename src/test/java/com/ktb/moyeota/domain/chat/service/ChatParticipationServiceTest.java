@@ -13,6 +13,7 @@ import com.ktb.moyeota.domain.chat.dto.ChatLeaveResponse;
 import com.ktb.moyeota.domain.chat.dto.ChatParticipateResponse;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
@@ -127,6 +128,30 @@ class ChatParticipationServiceTest {
 
             assertThat(response.companionParticipantId()).isEqualTo(100L);
             assertThat(response.chatRoomId()).isEqualTo(ROOM_ID);
+        }
+
+        @Test
+        @DisplayName("나갔던 동행에 다시 참여하면 새 참여 대신 예전 참여를 되살려 저장한다")
+        void rejoinsPreviousParticipation() {
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
+                    .willReturn(Optional.empty());
+            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
+            given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
+                    .willReturn(1);
+            CompanionParticipant previous = CompanionParticipant.join(companion, guest);
+            ReflectionTestUtils.setField(previous, "id", 100L);
+            previous.leave();
+            given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
+                    .willReturn(Optional.of(previous));
+            given(companionParticipantRepository.save(previous)).willReturn(previous);
+            given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
+
+            ChatParticipateResponse response = service.participate(GUEST_ID, COMPANION_ID);
+
+            assertThat(response.companionParticipantId()).isEqualTo(100L);
+            assertThat(previous.getOutcomeStatus()).isEqualTo(OutcomeStatus.PENDING);
+            assertThat(previous.getLeftAt()).isNull();
         }
 
         @Test
