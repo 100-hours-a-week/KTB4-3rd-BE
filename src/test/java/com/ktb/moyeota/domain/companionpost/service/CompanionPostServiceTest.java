@@ -184,7 +184,7 @@ class CompanionPostServiceTest {
         @Test
         @DisplayName("존재하지 않으면 404를 던진다")
         void throwsNotFoundWhenMissing() {
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.empty());
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
@@ -197,7 +197,7 @@ class CompanionPostServiceTest {
         void throwsGoneWhenCanceled() {
             Companion companion = mock(Companion.class);
             given(companion.getStatus()).willReturn(CompanionStatus.CANCELED);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             assertThatThrownBy(() -> service.find(USER_ID, COMPANION_ID))
                     .isInstanceOf(BusinessException.class)
@@ -228,7 +228,7 @@ class CompanionPostServiceTest {
         @DisplayName("출발 전이고 정원이 남았으면 isExpired=false, isFull=false다")
         void beforeDepartureWithRoomLeft() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -241,7 +241,7 @@ class CompanionPostServiceTest {
         @DisplayName("정원이 다 찼으면 isFull=true다")
         void full() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 4, 4, 99L);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -252,7 +252,7 @@ class CompanionPostServiceTest {
         @DisplayName("출발 시각이 지났으면 isExpired=true다")
         void afterDepartureIsExpired() {
             Companion companion = companionWith(LocalDateTime.now().minusHours(1), 2, 4, 99L);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -263,7 +263,7 @@ class CompanionPostServiceTest {
         @DisplayName("방장이 조회하면 joined=true다")
         void hostSeesJoinedTrue() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, USER_ID);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -274,7 +274,7 @@ class CompanionPostServiceTest {
         @DisplayName("방장이 아니면 joined=false다")
         void nonHostSeesJoinedFalse() {
             Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 

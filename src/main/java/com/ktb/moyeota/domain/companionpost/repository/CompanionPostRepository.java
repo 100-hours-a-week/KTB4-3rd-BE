@@ -3,11 +3,19 @@ package com.ktb.moyeota.domain.companionpost.repository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CompanionPostRepository extends JpaRepository<Companion, Long> {
+
+    @Query("""
+            SELECT c FROM Companion c
+            WHERE c.id = :id
+              AND c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.COMPANION
+            """)
+    Optional<Companion> findCompanionPostById(@Param("id") Long id);
 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,

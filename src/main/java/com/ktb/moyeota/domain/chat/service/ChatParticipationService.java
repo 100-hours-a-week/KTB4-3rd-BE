@@ -30,13 +30,12 @@ public class ChatParticipationService {
 
     @Transactional
     public ChatParticipateResponse participate(Long userId, Long companionId) {
+        Companion companion = companionPostRepository.findCompanionPostById(companionId)
+                .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_NOT_FOUND));
         companionParticipantRepository.findActiveByCompanionIdAndUserId(companionId, userId)
                 .ifPresent(p -> {
                     throw new BusinessException(ChatErrorCode.ALREADY_PARTICIPATING);
                 });
-
-        Companion companion = companionPostRepository.findById(companionId)
-                .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_NOT_FOUND));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
 
@@ -71,7 +70,7 @@ public class ChatParticipationService {
                 .findActiveByCompanionIdAndUserId(companionId, userId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.NOT_PARTICIPATING));
 
-        Companion companion = companionPostRepository.findById(companionId)
+        Companion companion = companionPostRepository.findCompanionPostById(companionId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_NOT_FOUND));
 
         ChatRoom chatRoom = chatRoomRepository.findByCompanionId(companionId)
