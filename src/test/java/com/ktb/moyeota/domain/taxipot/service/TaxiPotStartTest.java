@@ -32,7 +32,7 @@ class TaxiPotStartTest {
     private TaxiPotService taxiPotService;
 
     @Autowired
-    private TaxiPotParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository taxiPotParticipantRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -62,7 +62,7 @@ class TaxiPotStartTest {
         assertThat(joined.id()).isEqualTo(opened.id());
         assertThat(joined.currentCount()).isEqualTo(2);
         assertThat(reload(joined).getCurrentCount()).isEqualTo(2);
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(joiner.getId())).isPresent();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(joiner.getId())).isPresent();
     }
 
     @Test

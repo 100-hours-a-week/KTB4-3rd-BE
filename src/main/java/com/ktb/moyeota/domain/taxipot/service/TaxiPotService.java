@@ -33,14 +33,14 @@ public class TaxiPotService {
     private static final int MAX_START_ATTEMPTS = 3;
 
     private final TaxiPotRepository taxiPotRepository;
-    private final TaxiPotParticipantRepository companionParticipantRepository;
+    private final TaxiPotParticipantRepository taxiPotParticipantRepository;
     private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
-        return companionParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
+        return taxiPotParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
     }
 
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
@@ -67,7 +67,7 @@ public class TaxiPotService {
         if (!user.hasBankAccount()) {
             throw new BusinessException(TaxiPotErrorCode.BANK_ACCOUNT_REQUIRED);
         }
-        if (companionParticipantRepository.findCurrentTaxiPot(userId).isPresent()) {
+        if (taxiPotParticipantRepository.findCurrentTaxiPot(userId).isPresent()) {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
 
@@ -102,7 +102,7 @@ public class TaxiPotService {
     }
 
     private Companion joinTaxiPot(Companion taxiPot, User user, LocalDateTime now) {
-        companionParticipantRepository.save(taxiPot.join(user));
+        taxiPotParticipantRepository.save(taxiPot.join(user));
         return taxiPot;
     }
 
@@ -110,7 +110,7 @@ public class TaxiPotService {
         Companion taxiPot = taxiPotRepository.save(Companion.openTaxiPot(host,
                 command.originName(), command.originLat(), command.originLng(),
                 command.destName(), command.destLat(), command.destLng(), departureAt));
-        companionParticipantRepository.save(CompanionParticipant.join(taxiPot, host));
+        taxiPotParticipantRepository.save(CompanionParticipant.join(taxiPot, host));
         return taxiPot;
     }
 

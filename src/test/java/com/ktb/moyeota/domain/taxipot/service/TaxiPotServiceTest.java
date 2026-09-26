@@ -50,7 +50,7 @@ class TaxiPotServiceTest {
     private TaxiPotRepository taxiPotRepository;
 
     @Mock
-    private TaxiPotParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository taxiPotParticipantRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -106,7 +106,7 @@ class TaxiPotServiceTest {
         @DisplayName("진행 중인 택시팟 참여가 있으면 MATCH_ALREADY_IN_PROGRESS다")
         void alreadyInProgress() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "참여중")));
-            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID))
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID))
                     .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING)));
 
             assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)),
@@ -117,7 +117,7 @@ class TaxiPotServiceTest {
         @DisplayName("데드락으로 튕기면 새 트랜잭션으로 다시 시도한다")
         void retriesOnDeadlock() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
-            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
             given(taxiPotRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
                     .willThrow(new CannotAcquireLockException("Deadlock found"))
                     .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING, 1)));
@@ -132,7 +132,7 @@ class TaxiPotServiceTest {
         @DisplayName("세 번 모두 데드락이면 MATCH_BUSY다")
         void givesUpAfterThreeDeadlocks() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "포기")));
-            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
             given(taxiPotRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
                     .willThrow(new CannotAcquireLockException("Deadlock found"));
 
@@ -148,7 +148,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("진행 중인 택시팟이 있으면 조회된다")
         void findsCurrent() {
-            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID))
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID))
                     .willReturn(Optional.of(taxiPot(user("길동이"), RECRUITING)));
 
             assertThat(service.findMyCurrent(USER_ID)).isPresent();
@@ -157,7 +157,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("진행 중인 택시팟이 없으면 비어 있다")
         void emptyWhenNone() {
-            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
 
             assertThat(service.findMyCurrent(USER_ID)).isEmpty();
         }
