@@ -54,7 +54,7 @@ public class CompanionPostService {
     @Transactional(readOnly = true)
     public CompanionPostDetailResponse find(Long userId, Long companionId) {
 
-        Companion companion = companionPostRepository.findById(companionId)
+        Companion companion = companionPostRepository.findCompanionPostById(companionId)
                 .orElseThrow(() -> new BusinessException(CompanionPostErrorCode.COMPANION_POST_NOT_FOUND));
 
         if (companion.getStatus() == CompanionStatus.CANCELED) {

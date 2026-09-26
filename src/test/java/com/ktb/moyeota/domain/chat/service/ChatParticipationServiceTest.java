@@ -82,8 +82,21 @@ class ChatParticipationServiceTest {
     class Participate {
 
         @Test
+        @DisplayName("동행모집이 아닌 id면 참여 여부와 상관없이 COMPANION_NOT_FOUND")
+        void notCompanionPost() {
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.participate(GUEST_ID, COMPANION_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ChatErrorCode.COMPANION_NOT_FOUND);
+            verify(companionParticipantRepository, never()).findActiveByCompanionIdAndUserId(any(), any());
+        }
+
+        @Test
         @DisplayName("이미 참여 중이면 ALREADY_PARTICIPATING")
         void alreadyParticipating() {
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.of(CompanionParticipant.join(companion, guest)));
 
@@ -98,7 +111,7 @@ class ChatParticipationServiceTest {
         void notJoinable() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
             given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
                     .willReturn(0);
@@ -114,7 +127,7 @@ class ChatParticipationServiceTest {
         void participatesSuccessfully() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
             given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
                     .willReturn(1);
@@ -135,7 +148,7 @@ class ChatParticipationServiceTest {
         void rejoinsPreviousParticipation() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
             given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
                     .willReturn(1);
@@ -159,7 +172,7 @@ class ChatParticipationServiceTest {
         void raceConditionOnSave() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
             given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
                     .willReturn(1);
@@ -195,7 +208,7 @@ class ChatParticipationServiceTest {
             CompanionParticipant guestParticipation = CompanionParticipant.join(companion, guest);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.of(guestParticipation));
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
 
             ChatLeaveResponse response = service.leave(GUEST_ID, COMPANION_ID);
@@ -214,7 +227,7 @@ class ChatParticipationServiceTest {
             CompanionParticipant hostParticipation = CompanionParticipant.join(companion, host);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, HOST_ID))
                     .willReturn(Optional.of(hostParticipation));
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
 
             service.leave(HOST_ID, COMPANION_ID);
@@ -229,7 +242,7 @@ class ChatParticipationServiceTest {
             CompanionParticipant hostParticipation = CompanionParticipant.join(companion, host);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, HOST_ID))
                     .willReturn(Optional.of(hostParticipation));
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
 
             CompanionParticipant nextHostParticipation = CompanionParticipant.join(companion, guest);
@@ -249,7 +262,7 @@ class ChatParticipationServiceTest {
             CompanionParticipant hostParticipation = CompanionParticipant.join(companion, host);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, HOST_ID))
                     .willReturn(Optional.of(hostParticipation));
-            given(companionPostRepository.findById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
             given(companionParticipantRepository
                     .findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(COMPANION_ID, HOST_ID))
