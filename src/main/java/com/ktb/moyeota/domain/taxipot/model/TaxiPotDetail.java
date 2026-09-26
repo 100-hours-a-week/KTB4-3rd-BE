@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 public record TaxiPotDetail(
         Long id,
+        Long chatRoomId,
         CompanionStatus status,
         String originName,
         String destName,

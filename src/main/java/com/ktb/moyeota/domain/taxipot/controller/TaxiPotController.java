@@ -94,7 +94,7 @@ public class TaxiPotController {
     private static TaxiPotDetailResponse toResponse(TaxiPotDetail detail) {
         return new TaxiPotDetailResponse(
                 detail.id(),
-                null,
+                detail.chatRoomId(),
                 detail.status().name(),
                 detail.originName(),
                 detail.destName(),
