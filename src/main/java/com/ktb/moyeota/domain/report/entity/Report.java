@@ -41,8 +41,10 @@ public class Report {
     @JoinColumn(name = "reported_user_id", nullable = false)
     private User reportedUser;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reported_message_id")
+    // 이번 단계는 메시지 신고만 지원한다 — 유저 단독 신고(reported_message_id=null)는
+    // 범위에서 제외했다(레이스 컨디션 이슈로 SQL 보완 필요 — 별도 확인 후 진행).
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "reported_message_id", nullable = false)
     private Message reportedMessage;
 
     @Enumerated(EnumType.STRING)
