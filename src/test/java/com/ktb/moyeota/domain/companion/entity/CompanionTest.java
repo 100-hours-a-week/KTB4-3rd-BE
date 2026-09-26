@@ -3,7 +3,7 @@ package com.ktb.moyeota.domain.companion.entity;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.COMPLETED;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.PENDING;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LAT;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LNG;
@@ -16,6 +16,7 @@ import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -60,7 +61,7 @@ class CompanionTest {
             Companion pot = taxiPot(user("방장"), RECRUITING, 2);
             User joiner = user("합류자");
 
-            CompanionParticipant participant = pot.join(joiner, DEPARTURE_AT);
+            CompanionParticipant participant = pot.join(joiner);
 
             assertThat(pot.getCurrentCount()).isEqualTo(3);
             assertThat(participant.getUser()).isSameAs(joiner);
@@ -72,7 +73,7 @@ class CompanionTest {
         void full() {
             Companion pot = taxiPot(user("방장"), RECRUITING, 4);
 
-            assertThatThrownBy(() -> pot.join(user("합류자"), DEPARTURE_AT)).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> pot.join(user("합류자"))).isInstanceOf(IllegalStateException.class);
             assertThat(pot.getCurrentCount()).isEqualTo(4);
         }
 
@@ -82,7 +83,7 @@ class CompanionTest {
         void notRecruiting(CompanionStatus status) {
             Companion pot = taxiPot(user("방장"), status, 2);
 
-            assertThatThrownBy(() -> pot.join(user("합류자"), DEPARTURE_AT)).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> pot.join(user("합류자"))).isInstanceOf(IllegalStateException.class);
         }
     }
 

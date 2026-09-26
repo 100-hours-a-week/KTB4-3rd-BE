@@ -1,15 +1,15 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.Companion;
-import com.ktb.moyeota.domain.companion.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
-import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
-import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -18,9 +18,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import org.springframework.dao.CannotAcquireLockException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -32,8 +32,8 @@ public class TaxiPotService {
     private static final Duration MAX_DEPARTURE_LEAD_TIME = Duration.ofHours(3);
     private static final int MAX_START_ATTEMPTS = 3;
 
-    private final CompanionRepository companionRepository;
-    private final CompanionParticipantRepository companionParticipantRepository;
+    private final TaxiPotRepository taxiPotRepository;
+    private final TaxiPotParticipantRepository companionParticipantRepository;
     private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -71,7 +71,7 @@ public class TaxiPotService {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
 
-        Companion taxiPot = companionRepository.findMatchableTaxiPotForUpdate(
+        Companion taxiPot = taxiPotRepository.findMatchableTaxiPotForUpdate(
                         command.originLat(), command.originLng(), command.destLat(), command.destLng(), departureAt)
                 .map(matched -> joinTaxiPot(matched, user, now))
                 .orElseGet(() -> openTaxiPot(user, command, departureAt, now));
@@ -80,14 +80,14 @@ public class TaxiPotService {
 
     @Transactional(readOnly = true)
     public TaxiPotDetail find(Long userId, Long taxiPotId) {
-        return companionRepository.findTaxiPotForParticipant(taxiPotId, userId)
+        return taxiPotRepository.findTaxiPotForParticipant(taxiPotId, userId)
                 .map(TaxiPotService::toTaxiPotDetail)
                 .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
     }
 
     @Transactional
     public TaxiPotDetail changeStatus(Long userId, Long taxiPotId, CompanionStatus target) {
-        Companion companion = companionRepository.findTaxiPotForParticipantForUpdate(taxiPotId, userId)
+        Companion companion = taxiPotRepository.findTaxiPotForParticipantForUpdate(taxiPotId, userId)
                 .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
         if (!companion.getHost().getId().equals(userId)) {
             throw new BusinessException(TaxiPotErrorCode.HOST_ONLY);
@@ -102,15 +102,15 @@ public class TaxiPotService {
     }
 
     private Companion joinTaxiPot(Companion taxiPot, User user, LocalDateTime now) {
-        companionParticipantRepository.save(taxiPot.join(user, now));
+        companionParticipantRepository.save(taxiPot.join(user));
         return taxiPot;
     }
 
     private Companion openTaxiPot(User host, TaxiPotStartCommand command, LocalDateTime departureAt, LocalDateTime now) {
-        Companion taxiPot = companionRepository.save(Companion.openTaxiPot(host,
+        Companion taxiPot = taxiPotRepository.save(Companion.openTaxiPot(host,
                 command.originName(), command.originLat(), command.originLng(),
                 command.destName(), command.destLat(), command.destLng(), departureAt));
-        companionParticipantRepository.save(CompanionParticipant.join(taxiPot, host, now));
+        companionParticipantRepository.save(CompanionParticipant.join(taxiPot, host));
         return taxiPot;
     }
 

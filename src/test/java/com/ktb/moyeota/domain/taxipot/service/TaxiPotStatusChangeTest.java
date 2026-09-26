@@ -2,7 +2,7 @@ package com.ktb.moyeota.domain.taxipot.service;
 
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.PENDING;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;

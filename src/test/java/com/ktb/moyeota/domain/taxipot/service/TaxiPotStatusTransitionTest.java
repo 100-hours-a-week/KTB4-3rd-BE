@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
-import com.ktb.moyeota.domain.companion.entity.ParticipantOutcome;
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
@@ -69,8 +69,8 @@ class TaxiPotStatusTransitionTest {
 
     private Companion persistTaxiPot(User host, CompanionStatus status) {
         Companion pot = entityManager.persist(taxiPot(host, status, 2));
-        ParticipantOutcome outcome =
-                status == CompanionStatus.CANCELED ? ParticipantOutcome.INCOMPLETE : ParticipantOutcome.PENDING;
+        OutcomeStatus outcome =
+                status == CompanionStatus.CANCELED ? OutcomeStatus.INCOMPLETE : OutcomeStatus.PENDING;
         entityManager.persistAndFlush(participant(pot, host, outcome));
         return pot;
     }

@@ -15,13 +15,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
-import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
-import com.ktb.moyeota.domain.user.repository.UserRepository;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -47,10 +47,10 @@ class TaxiPotServiceTest {
     private static final Long TAXI_POT_ID = 30L;
 
     @Mock
-    private CompanionRepository companionRepository;
+    private TaxiPotRepository taxiPotRepository;
 
     @Mock
-    private CompanionParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository companionParticipantRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -118,7 +118,7 @@ class TaxiPotServiceTest {
         void retriesOnDeadlock() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
             given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
-            given(companionRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
+            given(taxiPotRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
                     .willThrow(new CannotAcquireLockException("Deadlock found"))
                     .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING, 1)));
 
@@ -133,7 +133,7 @@ class TaxiPotServiceTest {
         void givesUpAfterThreeDeadlocks() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "포기")));
             given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
-            given(companionRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
+            given(taxiPotRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
                     .willThrow(new CannotAcquireLockException("Deadlock found"));
 
             assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)), TaxiPotErrorCode.MATCH_BUSY);
@@ -170,7 +170,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("조회할 수 있는 택시팟이 없으면 TAXI_POT_NOT_FOUND다")
         void notFound() {
-            given(companionRepository.findTaxiPotForParticipant(TAXI_POT_ID, USER_ID)).willReturn(Optional.empty());
+            given(taxiPotRepository.findTaxiPotForParticipant(TAXI_POT_ID, USER_ID)).willReturn(Optional.empty());
 
             assertErrorCode(() -> service.find(USER_ID, TAXI_POT_ID), TaxiPotErrorCode.TAXI_POT_NOT_FOUND);
         }
@@ -185,7 +185,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("조회할 수 있는 택시팟이 없으면 TAXI_POT_NOT_FOUND다")
         void notFound() {
-            given(companionRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID)).willReturn(Optional.empty());
+            given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID)).willReturn(Optional.empty());
 
             assertErrorCode(() -> service.changeStatus(USER_ID, TAXI_POT_ID, IN_PROGRESS),
                     TaxiPotErrorCode.TAXI_POT_NOT_FOUND);
@@ -194,7 +194,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("참여자지만 방장이 아니면 HOST_ONLY다")
         void hostOnly() {
-            given(companionRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
+            given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
                     .willReturn(Optional.of(taxiPot(user(7L, "다른방장"), RECRUITING, 2)));
 
             assertErrorCode(() -> service.changeStatus(USER_ID, TAXI_POT_ID, IN_PROGRESS),

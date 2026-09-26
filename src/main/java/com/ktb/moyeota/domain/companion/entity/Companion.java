@@ -1,6 +1,6 @@
 package com.ktb.moyeota.domain.companion.entity;
 
-// import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -11,8 +11,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "companions")
@@ -31,9 +29,6 @@ public class Companion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
-
-    // @OneToMany(mappedBy = "user")
-    // private List<ChatRoom> chatRoomList = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -86,12 +81,9 @@ public class Companion {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // capacity는 방장을 포함한 총원이다. 방장 혼자(recruit_count 0)도 생성 가능.
-    // TAXI·OWNED_CAR: 방장 포함 1~4명
-    // SUBWAY·BUS: 방장 포함 1~10명
     private static final int MIN_CAPACITY = 1;
-    private static final int CAR_MAX_CAPACITY = 4;       // TAXI, OWNED_CAR
-    private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10; // SUBWAY, BUS
+    private static final int CAR_MAX_CAPACITY = 4;
+    private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10;
     private static final int MIN_RIDE_PARTICIPANTS = 2;
     private static final int TAXI_POT_CAPACITY = 4;
 
@@ -164,12 +156,12 @@ public class Companion {
         };
     }
 
-    public CompanionParticipant join(User user, LocalDateTime joinedAt) {
+    public CompanionParticipant join(User user) {
         if (status != CompanionStatus.RECRUITING || currentCount >= capacity) {
             throw new IllegalStateException("모집 중인 자리가 없는 동행에 합류할 수 없다: " + id);
         }
         this.currentCount++;
-        return CompanionParticipant.join(this, user, joinedAt);
+        return CompanionParticipant.join(this, user);
     }
 
     public void startRide(LocalDateTime now) {

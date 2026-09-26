@@ -7,8 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
-import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -32,7 +32,7 @@ class TaxiPotStartTest {
     private TaxiPotService taxiPotService;
 
     @Autowired
-    private CompanionParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository companionParticipantRepository;
 
     @Autowired
     private TestEntityManager entityManager;

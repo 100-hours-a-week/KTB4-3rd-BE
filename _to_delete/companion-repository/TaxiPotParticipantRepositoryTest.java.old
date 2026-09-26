@@ -1,18 +1,19 @@
 package com.ktb.moyeota.domain.companion.repository;
 
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.INCOMPLETE;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.CANCELED;
-import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.COMPLETED;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.INCOMPLETE;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.entity.Companion;
-import com.ktb.moyeota.domain.companion.entity.ParticipantOutcome;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,11 +22,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 
+/**
+ * 2026-09-26: CompanionParticipantRepository -> TaxiPotParticipantRepository로 이름 변경(엔티티는
+ * 채팅 도메인 것으로 일원화)에 따라 이 테스트도 같이 옮김. 검증 대상 쿼리(findCurrentTaxiPot)는 그대로다.
+ */
 @DataJpaTest
-class CompanionParticipantRepositoryTest {
+class TaxiPotParticipantRepositoryTest {
 
     @Autowired
-    private CompanionParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository taxiPotParticipantRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -43,32 +48,32 @@ class CompanionParticipantRepositoryTest {
         Companion pot = persist(taxiPot(me, RECRUITING));
         persist(participant(pot, me, PENDING));
 
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId()))
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId()))
                 .get().extracting(Companion::getId).isEqualTo(pot.getId());
     }
 
     @Test
     @DisplayName("운행이 끝나 정산 중인 택시팟도 PENDING이면 진행 중이다")
     void settlingTaxiPotIsStillCurrent() {
-        Companion pot = persist(taxiPot(me, COMPLETED));
+        Companion pot = persist(taxiPot(me, CompanionStatus.COMPLETED));
         persist(participant(pot, me, PENDING));
 
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isPresent();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId())).isPresent();
     }
 
     @Test
     @DisplayName("참여한 적이 없으면 비어 있다")
     void emptyWhenNeverJoined() {
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
     @Test
     @DisplayName("나갔거나 완주한 택시팟은 진행 중이 아니다")
     void ignoresFinishedParticipation() {
         persist(participant(persist(taxiPot(me, CANCELED)), me, INCOMPLETE));
-        persist(participant(persist(taxiPot(me, COMPLETED)), me, ParticipantOutcome.COMPLETED));
+        persist(participant(persist(taxiPot(me, CompanionStatus.COMPLETED)), me, COMPLETED));
 
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
     @Test
@@ -76,7 +81,7 @@ class CompanionParticipantRepositoryTest {
     void ignoresOtherKinds() {
         persist(participant(persist(companionPost(me)), me, PENDING));
 
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
     @Test
@@ -85,7 +90,7 @@ class CompanionParticipantRepositoryTest {
         User other = persist(user("임꺽정"));
         persist(participant(persist(taxiPot(other, RECRUITING)), other, PENDING));
 
-        assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
 
