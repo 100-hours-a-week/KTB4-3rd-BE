@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.entity.ParticipantOutcome;
-import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
@@ -57,14 +56,14 @@ class TaxiPotStatusTransitionTest {
             "CANCELED,    IN_PROGRESS, TAXI_POT_NOT_FOUND",
             "CANCELED,    COMPLETED,   TAXI_POT_NOT_FOUND"
     })
-    void rejected(CompanionStatus current, CompanionStatus target, TaxiPotErrorCode expected) {
+    void rejected(CompanionStatus current, CompanionStatus target, String expectedCode) {
         User host = entityManager.persist(user("방장"));
         Companion pot = persistTaxiPot(host, current);
 
         assertThatThrownBy(() -> taxiPotService.changeStatus(host.getId(), pot.getId(), target))
                 .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(expected);
+                .extracting(e -> ((BusinessException) e).getErrorCode().name())
+                .isEqualTo(expectedCode);
         assertThat(reload(pot).getStatus()).isEqualTo(current);
     }
 
@@ -77,6 +76,7 @@ class TaxiPotStatusTransitionTest {
     }
 
     private Companion reload(Companion pot) {
+        entityManager.flush();
         entityManager.clear();
         return entityManager.find(Companion.class, pot.getId());
     }
