@@ -15,4 +15,6 @@ public interface TaxiPotParticipantRepository extends JpaRepository<CompanionPar
                and p.companion.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
             """)
     Optional<Companion> findCurrentTaxiPot(Long userId);
+
+    Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 }
