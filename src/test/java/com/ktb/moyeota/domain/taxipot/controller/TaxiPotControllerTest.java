@@ -80,7 +80,7 @@ class TaxiPotControllerTest {
     @DisplayName("진행 중인 택시팟이 있으면 요약을 내린다")
     void current() throws Exception {
         given(taxiPotService.findMyCurrent(42L))
-                .willReturn(Optional.of(new CurrentTaxiPot(30L, CompanionStatus.RECRUITING, 2, 4)));
+                .willReturn(Optional.of(new CurrentTaxiPot(30L, null, CompanionStatus.RECRUITING, 2, 4)));
 
         mockMvc.perform(get(CURRENT_TAXI_POT).with(member()))
                 .andExpect(status().isOk())
@@ -208,13 +208,14 @@ class TaxiPotControllerTest {
     @DisplayName("매칭을 시작하면 201과 Location, 참여한 택시팟 데이터 응답을 내린다")
     void startMatch() throws Exception {
         given(taxiPotService.start(any(), any()))
-                .willReturn(new CurrentTaxiPot(30L, CompanionStatus.RECRUITING, 2, 4));
+                .willReturn(new CurrentTaxiPot(30L, 501L, CompanionStatus.RECRUITING, 2, 4));
 
         mockMvc.perform(startMatch(startBody()).with(member()))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/taxi-pots/30"))
                 .andExpect(jsonPath("$.message").value("매칭을 시작했습니다"))
                 .andExpect(jsonPath("$.data.id").value(30))
+                .andExpect(jsonPath("$.data.chat_room_id").value(501))
                 .andExpect(jsonPath("$.data.current_count").value(2));
     }
 
@@ -222,7 +223,7 @@ class TaxiPotControllerTest {
     @DisplayName("요청 값을 제자리의 명령 필드로 옮긴다")
     void startMatchCommand() throws Exception {
         given(taxiPotService.start(any(), any()))
-                .willReturn(new CurrentTaxiPot(30L, CompanionStatus.RECRUITING, 1, 4));
+                .willReturn(new CurrentTaxiPot(30L, 501L, CompanionStatus.RECRUITING, 1, 4));
 
         mockMvc.perform(startMatch(startBody()).with(member()));
 

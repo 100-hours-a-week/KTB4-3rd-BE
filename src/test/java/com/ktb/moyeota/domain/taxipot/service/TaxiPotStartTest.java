@@ -6,7 +6,11 @@ import static com.ktb.moyeota.fixture.TaxiPotFixture.startCommand;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
@@ -15,6 +19,7 @@ import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +30,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, TaxiPotStartTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotStartTest.FixedClock.class})
 class TaxiPotStartTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
@@ -65,6 +70,31 @@ class TaxiPotStartTest {
         assertThat(joined.currentCount()).isEqualTo(2);
         assertThat(reload(joined).getCurrentCount()).isEqualTo(2);
         assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(joiner.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("팟을 새로 열면 채팅방이 생기고 방장의 입장 메시지가 남는다")
+    void opensChatRoomWithHostEntry() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+
+        CurrentTaxiPot pot = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+
+        ChatRoom chatRoom = entityManager.find(ChatRoom.class, pot.chatRoomId());
+        assertThat(chatRoom.getCompanion().getId()).isEqualTo(pot.id());
+        assertThat(enteredUserIds(pot.chatRoomId())).containsExactly(host.getId());
+    }
+
+    @Test
+    @DisplayName("합류하면 같은 채팅방에 합류자의 입장 메시지가 남는다")
+    void joinsChatRoomWithEntry() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User joiner = entityManager.persist(bankAccountHolder("합류자"));
+        CurrentTaxiPot opened = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+
+        CurrentTaxiPot joined = taxiPotService.start(joiner.getId(), startCommand(DEPARTURE_AT));
+
+        assertThat(joined.chatRoomId()).isEqualTo(opened.chatRoomId());
+        assertThat(enteredUserIds(joined.chatRoomId())).containsExactly(host.getId(), joiner.getId());
     }
 
     @Test
@@ -122,6 +152,17 @@ class TaxiPotStartTest {
         assertThat(full.currentCount()).isEqualTo(4);
         assertThat(next.id()).isNotEqualTo(full.id());
         assertThat(next.currentCount()).isEqualTo(1);
+    }
+
+    private List<Long> enteredUserIds(Long chatRoomId) {
+        entityManager.flush();
+        return entityManager.getEntityManager()
+                .createQuery("SELECT m FROM Message m WHERE m.chatRoom.id = :roomId ORDER BY m.id", Message.class)
+                .setParameter("roomId", chatRoomId)
+                .getResultList().stream()
+                .filter(m -> m.getMessageType() == MessageType.SYSTEM_JOIN)
+                .map(m -> m.getSender().getId())
+                .toList();
     }
 
     private Companion reload(CurrentTaxiPot pot) {

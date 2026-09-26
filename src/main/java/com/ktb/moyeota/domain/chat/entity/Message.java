@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(name = "messages")
+@Table(
+        name = "messages",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_messages_room_client", columnNames = {"room_id", "client_message_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Message {
 

@@ -1,6 +1,9 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
@@ -35,12 +38,15 @@ public class TaxiPotService {
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
     private final UserRepository userRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatSystemMessageService chatSystemMessageService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
-        return taxiPotParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
+        return taxiPotParticipantRepository.findCurrentTaxiPot(userId)
+                .map(taxiPot -> toCurrentTaxiPot(taxiPot, null));
     }
 
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
@@ -51,7 +57,7 @@ public class TaxiPotService {
 
         for (int attempt = 1; ; attempt++) {
             try {
-                return transactionTemplate.execute(status -> joinOrOpen(userId, command, departureAt, now));
+                return transactionTemplate.execute(status -> joinOrOpen(userId, command, departureAt));
             } catch (CannotAcquireLockException e) {
                 if (attempt == MAX_START_ATTEMPTS) {
                     throw new BusinessException(TaxiPotErrorCode.MATCH_BUSY);
@@ -60,8 +66,7 @@ public class TaxiPotService {
         }
     }
 
-    private CurrentTaxiPot joinOrOpen(
-            Long userId, TaxiPotStartCommand command, LocalDateTime departureAt, LocalDateTime now) {
+    private CurrentTaxiPot joinOrOpen(Long userId, TaxiPotStartCommand command, LocalDateTime departureAt) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
         if (!user.hasBankAccount()) {
@@ -71,11 +76,12 @@ public class TaxiPotService {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
 
-        Companion taxiPot = taxiPotRepository.findMatchableTaxiPotForUpdate(
+        ChatRoom chatRoom = taxiPotRepository.findMatchableTaxiPotForUpdate(
                         command.originLat(), command.originLng(), command.destLat(), command.destLng(), departureAt)
-                .map(matched -> joinTaxiPot(matched, user, now))
-                .orElseGet(() -> openTaxiPot(user, command, departureAt, now));
-        return toCurrentTaxiPot(taxiPot);
+                .map(matched -> joinTaxiPot(matched, user))
+                .orElseGet(() -> openTaxiPot(user, command, departureAt));
+        chatSystemMessageService.enter(chatRoom, user);
+        return toCurrentTaxiPot(chatRoom.getCompanion(), chatRoom.getId());
     }
 
     @Transactional
@@ -114,20 +120,21 @@ public class TaxiPotService {
         return toTaxiPotDetail(companion);
     }
 
-    private Companion joinTaxiPot(Companion taxiPot, User user, LocalDateTime now) {
+    private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
         CompanionParticipant previous = taxiPotParticipantRepository
                 .findByCompanionIdAndUserId(taxiPot.getId(), user.getId())
                 .orElse(null);
         taxiPotParticipantRepository.save(taxiPot.join(user, previous));
-        return taxiPot;
+        return chatRoomRepository.findByCompanionId(taxiPot.getId())
+                .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
     }
 
-    private Companion openTaxiPot(User host, TaxiPotStartCommand command, LocalDateTime departureAt, LocalDateTime now) {
+    private ChatRoom openTaxiPot(User host, TaxiPotStartCommand command, LocalDateTime departureAt) {
         Companion taxiPot = taxiPotRepository.save(Companion.openTaxiPot(host,
                 command.originName(), command.originLat(), command.originLng(),
                 command.destName(), command.destLat(), command.destLng(), departureAt));
         taxiPotParticipantRepository.save(CompanionParticipant.join(taxiPot, host));
-        return taxiPot;
+        return chatRoomRepository.save(ChatRoom.create(taxiPot));
     }
 
     private static void validateDeparture(LocalDateTime departureAt, LocalDateTime now) {
@@ -146,9 +153,9 @@ public class TaxiPotService {
         }
     }
 
-    private static CurrentTaxiPot toCurrentTaxiPot(Companion companion) {
+    private static CurrentTaxiPot toCurrentTaxiPot(Companion companion, Long chatRoomId) {
         return new CurrentTaxiPot(
-                companion.getId(), companion.getStatus(), companion.getCurrentCount(), companion.getCapacity());
+                companion.getId(), chatRoomId, companion.getStatus(), companion.getCurrentCount(), companion.getCapacity());
     }
 
     private static TaxiPotDetail toTaxiPotDetail(Companion companion) {

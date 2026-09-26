@@ -6,6 +6,7 @@ import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
@@ -26,7 +27,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, TaxiPotLeaveTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotLeaveTest.FixedClock.class})
 class TaxiPotLeaveTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
