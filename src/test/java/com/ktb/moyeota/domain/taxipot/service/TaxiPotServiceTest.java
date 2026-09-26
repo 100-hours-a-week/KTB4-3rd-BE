@@ -160,8 +160,9 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("진행 중인 택시팟이 있으면 조회된다")
         void findsCurrent() {
-            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID))
-                    .willReturn(Optional.of(taxiPot(user("길동이"), RECRUITING)));
+            Companion current = taxiPot(user("길동이"), RECRUITING);
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.of(current));
+            given(chatRoomRepository.findByCompanionId(any())).willReturn(Optional.of(ChatRoom.create(current)));
 
             assertThat(service.findMyCurrent(USER_ID)).isPresent();
         }

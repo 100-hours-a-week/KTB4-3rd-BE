@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
+import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
@@ -95,6 +96,19 @@ class TaxiPotStartTest {
 
         assertThat(joined.chatRoomId()).isEqualTo(opened.chatRoomId());
         assertThat(enteredUserIds(joined.chatRoomId())).containsExactly(host.getId(), joiner.getId());
+    }
+
+    @Test
+    @DisplayName("매칭한 뒤 진행 중인 택시팟 조회와 상세 조회에 같은 채팅방 id가 담긴다")
+    void lookupsShowChatRoom() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        CurrentTaxiPot pot = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+
+        CurrentTaxiPot current = taxiPotService.findMyCurrent(host.getId()).orElseThrow();
+        TaxiPotDetail detail = taxiPotService.find(host.getId(), pot.id());
+
+        assertThat(current.chatRoomId()).isEqualTo(pot.chatRoomId());
+        assertThat(detail.chatRoomId()).isEqualTo(pot.chatRoomId());
     }
 
     @Test

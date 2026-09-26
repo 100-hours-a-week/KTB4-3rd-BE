@@ -7,6 +7,7 @@ import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -70,6 +71,7 @@ class TaxiPotStatusTransitionTest {
 
     private Companion persistTaxiPot(User host, CompanionStatus status) {
         Companion pot = entityManager.persist(taxiPot(host, status, 2));
+        entityManager.persist(ChatRoom.create(pot));
         OutcomeStatus outcome =
                 status == CompanionStatus.CANCELED ? OutcomeStatus.INCOMPLETE : OutcomeStatus.PENDING;
         entityManager.persistAndFlush(participant(pot, host, outcome));

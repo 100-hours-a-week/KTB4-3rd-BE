@@ -9,6 +9,7 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -39,6 +40,7 @@ class TaxiPotStatusChangeTest {
     void responseShowsNewStatus() {
         User host = entityManager.persist(user("방장"));
         Companion pot = entityManager.persist(taxiPot(host, RECRUITING, 2));
+        entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));
 
         assertThat(taxiPotService.changeStatus(host.getId(), pot.getId(), IN_PROGRESS).status())
@@ -50,6 +52,7 @@ class TaxiPotStatusChangeTest {
     void touchesUpdatedAt() {
         User host = entityManager.persist(user("방장"));
         Companion pot = entityManager.persist(taxiPot(host, RECRUITING, 2));
+        entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));
         LocalDateTime createdUpdatedAt = pot.getUpdatedAt();
 

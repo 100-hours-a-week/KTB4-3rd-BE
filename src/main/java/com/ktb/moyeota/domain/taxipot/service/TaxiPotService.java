@@ -46,7 +46,7 @@ public class TaxiPotService {
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
         return taxiPotParticipantRepository.findCurrentTaxiPot(userId)
-                .map(taxiPot -> toCurrentTaxiPot(taxiPot, null));
+                .map(taxiPot -> toCurrentTaxiPot(taxiPot, findChatRoom(taxiPot).getId()));
     }
 
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
@@ -100,7 +100,7 @@ public class TaxiPotService {
     @Transactional(readOnly = true)
     public TaxiPotDetail find(Long userId, Long taxiPotId) {
         return taxiPotRepository.findTaxiPotForParticipant(taxiPotId, userId)
-                .map(TaxiPotService::toTaxiPotDetail)
+                .map(this::toTaxiPotDetail)
                 .orElseThrow(() -> new BusinessException(TaxiPotErrorCode.TAXI_POT_NOT_FOUND));
     }
 
@@ -125,6 +125,10 @@ public class TaxiPotService {
                 .findByCompanionIdAndUserId(taxiPot.getId(), user.getId())
                 .orElse(null);
         taxiPotParticipantRepository.save(taxiPot.join(user, previous));
+        return findChatRoom(taxiPot);
+    }
+
+    private ChatRoom findChatRoom(Companion taxiPot) {
         return chatRoomRepository.findByCompanionId(taxiPot.getId())
                 .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
     }
@@ -158,9 +162,10 @@ public class TaxiPotService {
                 companion.getId(), chatRoomId, companion.getStatus(), companion.getCurrentCount(), companion.getCapacity());
     }
 
-    private static TaxiPotDetail toTaxiPotDetail(Companion companion) {
+    private TaxiPotDetail toTaxiPotDetail(Companion companion) {
         return new TaxiPotDetail(
                 companion.getId(),
+                findChatRoom(companion).getId(),
                 companion.getStatus(),
                 companion.getOriginName(),
                 companion.getDestName(),

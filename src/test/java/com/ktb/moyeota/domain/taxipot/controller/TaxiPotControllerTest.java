@@ -80,7 +80,7 @@ class TaxiPotControllerTest {
     @DisplayName("진행 중인 택시팟이 있으면 요약을 내린다")
     void current() throws Exception {
         given(taxiPotService.findMyCurrent(42L))
-                .willReturn(Optional.of(new CurrentTaxiPot(30L, null, CompanionStatus.RECRUITING, 2, 4)));
+                .willReturn(Optional.of(new CurrentTaxiPot(30L, 501L, CompanionStatus.RECRUITING, 2, 4)));
 
         mockMvc.perform(get(CURRENT_TAXI_POT).with(member()))
                 .andExpect(status().isOk())
@@ -89,7 +89,7 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.status").value("RECRUITING"))
                 .andExpect(jsonPath("$.data.current_count").value(2))
                 .andExpect(jsonPath("$.data.capacity").value(4))
-                .andExpect(content().string(containsString("\"chat_room_id\":null")));
+                .andExpect(jsonPath("$.data.chat_room_id").value(501));
     }
 
     @Test
@@ -117,7 +117,7 @@ class TaxiPotControllerTest {
     @Test
     @DisplayName("참여 중인 택시팟이면 200과 상세 정보를 내린다")
     void detail() throws Exception {
-        given(taxiPotService.find(42L, 30L)).willReturn(new TaxiPotDetail(30L, CompanionStatus.IN_PROGRESS,
+        given(taxiPotService.find(42L, 30L)).willReturn(new TaxiPotDetail(30L, 501L, CompanionStatus.IN_PROGRESS,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 7L));
 
         mockMvc.perform(get("/api/taxi-pots/30").with(member()))
@@ -131,7 +131,7 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.current_count").value(3))
                 .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.host_id").value(7))
-                .andExpect(content().string(containsString("\"chat_room_id\":null")));
+                .andExpect(jsonPath("$.data.chat_room_id").value(501));
     }
 
     @Test
@@ -148,7 +148,7 @@ class TaxiPotControllerTest {
     @Test
     @DisplayName("운행을 시작하면 200과 바뀐 상세 정보를 내린다")
     void startRide() throws Exception {
-        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.IN_PROGRESS)).willReturn(new TaxiPotDetail(30L,
+        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.IN_PROGRESS)).willReturn(new TaxiPotDetail(30L, 501L,
                 CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
 
         mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
@@ -160,7 +160,7 @@ class TaxiPotControllerTest {
     @Test
     @DisplayName("운행을 종료하면 200과 바뀐 상세 정보를 내린다")
     void completeRide() throws Exception {
-        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.COMPLETED)).willReturn(new TaxiPotDetail(30L,
+        given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.COMPLETED)).willReturn(new TaxiPotDetail(30L, 501L,
                 CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
 
         mockMvc.perform(changeStatus("COMPLETED").with(member()))
