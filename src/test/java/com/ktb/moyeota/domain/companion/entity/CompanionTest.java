@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.companion.entity;
 
+import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.CANCELED;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.COMPLETED;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS;
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
@@ -116,6 +117,82 @@ class CompanionTest {
 
             assertThatThrownBy(() -> pot.join(returning, left)).isInstanceOf(IllegalStateException.class);
             assertThat(left.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+        }
+    }
+
+    @Nested
+    @DisplayName("나가기")
+    class Leave {
+
+        private final User host = user(1L, "방장");
+        private final User member = user(2L, "동승자");
+
+        @Test
+        @DisplayName("동승자가 나가면 인원이 줄고 참여가 끝나며 방장은 그대로다")
+        void memberLeaves() {
+            Companion pot = taxiPot(host, RECRUITING, 4);
+            CompanionParticipant leaving = participant(pot, member, PENDING);
+
+            pot.leave(leaving, null);
+
+            assertThat(pot.getCurrentCount()).isEqualTo(3);
+            assertThat(pot.getStatus()).isEqualTo(RECRUITING);
+            assertThat(pot.getHost()).isSameAs(host);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+        }
+
+        @Test
+        @DisplayName("방장이 나가면 다음 방장에게 넘긴다")
+        void hostLeaves() {
+            Companion pot = taxiPot(host, RECRUITING, 2);
+
+            pot.leave(participant(pot, host, PENDING), participant(pot, member, PENDING));
+
+            assertThat(pot.getHost()).isSameAs(member);
+            assertThat(pot.getCurrentCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("마지막 한 명이 나가면 취소된다")
+        void lastOneLeaves() {
+            Companion pot = taxiPot(host, RECRUITING, 1);
+
+            pot.leave(participant(pot, host, PENDING), null);
+
+            assertThat(pot.getStatus()).isEqualTo(CANCELED);
+            assertThat(pot.getCurrentCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("운행 중이면 RIDE_IN_PROGRESS이고 아무것도 바뀌지 않는다")
+        void rideInProgress() {
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            CompanionParticipant leaving = participant(pot, member, PENDING);
+
+            assertErrorCode(() -> pot.leave(leaving, null), CompanionErrorCode.RIDE_IN_PROGRESS);
+            assertThat(pot.getCurrentCount()).isEqualTo(2);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+
+        @Test
+        @DisplayName("운행이 끝나고 정산 전이면 SETTLEMENT_IN_PROGRESS다")
+        void settlementInProgress() {
+            Companion pot = taxiPot(host, COMPLETED, 2);
+
+            assertErrorCode(() -> pot.leave(participant(pot, member, PENDING), null),
+                    CompanionErrorCode.SETTLEMENT_IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("정산까지 끝난 참여는 나가도 아무것도 바뀌지 않는다")
+        void afterSettlement() {
+            Companion pot = taxiPot(host, COMPLETED, 2);
+            CompanionParticipant settled = participant(pot, member, OutcomeStatus.COMPLETED);
+
+            pot.leave(settled, null);
+
+            assertThat(pot.getCurrentCount()).isEqualTo(2);
+            assertThat(settled.getOutcomeStatus()).isEqualTo(OutcomeStatus.COMPLETED);
         }
     }
 

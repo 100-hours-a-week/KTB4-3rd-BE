@@ -69,6 +69,10 @@ public class CompanionParticipant {
         return previous;
     }
 
+    public boolean isSettled() {
+        return outcomeStatus == OutcomeStatus.COMPLETED;
+    }
+
     public void leave() {
         if (outcomeStatus != OutcomeStatus.PENDING) {
             throw new IllegalStateException("진행 중이 아닌 참여는 나갈 수 없다: " + id);
