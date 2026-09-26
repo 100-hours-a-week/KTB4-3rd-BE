@@ -17,6 +17,7 @@ import java.net.URI;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +50,12 @@ public class TaxiPotController {
         CurrentTaxiPot taxiPot = taxiPotService.start(userId, toCommand(request));
         return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id()))
                 .body(ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot)));
+    }
+
+    @DeleteMapping("/taxi-pots/{companion_id}/participants/me")
+    public ResponseEntity<Void> leave(@AuthUser Long userId, @PathVariable("companion_id") Long taxiPotId) {
+        taxiPotService.leave(userId, taxiPotId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/taxi-pots/{companion_id}")
