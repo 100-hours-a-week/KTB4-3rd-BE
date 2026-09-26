@@ -88,6 +88,16 @@ class CompanionParticipantRepositoryTest {
         assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
+    @Test
+    @DisplayName("잠금 조회도 진행 중인 택시팟 참여만 찾는다")
+    void findsPendingParticipationsForUpdate() {
+        persist(participant(persist(taxiPot(me, RECRUITING)), me, PENDING));
+        persist(participant(persist(taxiPot(me, CANCELED)), me, INCOMPLETE));
+        persist(participant(persist(companionPost(me)), me, PENDING));
+
+        assertThat(companionParticipantRepository.findPendingTaxiPotParticipationsForUpdate(me.getId())).hasSize(1);
+    }
+
     private <T> T persist(T entity) {
         return entityManager.persistAndFlush(entity);
     }
