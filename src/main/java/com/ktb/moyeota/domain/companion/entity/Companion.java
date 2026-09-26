@@ -93,6 +93,7 @@ public class Companion {
     private static final int CAR_MAX_CAPACITY = 4;       // TAXI, OWNED_CAR
     private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10; // SUBWAY, BUS
     private static final int MIN_RIDE_PARTICIPANTS = 2;
+    private static final int TAXI_POT_CAPACITY = 4;
 
     private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
@@ -136,6 +137,13 @@ public class Companion {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public static Companion openTaxiPot(User host, String originName, BigDecimal originLat, BigDecimal originLng,
+                                        String destName, BigDecimal destLat, BigDecimal destLng,
+                                        LocalDateTime departureAt) {
+        return new Companion(host, host, CompanionKind.TAXI_POT, TransportType.TAXI, null,
+                originName, originLat, originLng, destName, destLat, destLng, departureAt, TAXI_POT_CAPACITY);
+    }
+
     public boolean isDepartureAtFuture() {
         return departureAt != null && departureAt.isAfter(LocalDateTime.now());
     }
@@ -154,6 +162,14 @@ public class Companion {
             case TAXI, OWNED_CAR -> CAR_MAX_CAPACITY;
             case SUBWAY, BUS -> PUBLIC_TRANSPORT_MAX_CAPACITY;
         };
+    }
+
+    public CompanionParticipant join(User user, LocalDateTime joinedAt) {
+        if (status != CompanionStatus.RECRUITING || currentCount >= capacity) {
+            throw new IllegalStateException("모집 중인 자리가 없는 동행에 합류할 수 없다: " + id);
+        }
+        this.currentCount++;
+        return CompanionParticipant.join(this, user, joinedAt);
     }
 
     public void startRide(LocalDateTime now) {

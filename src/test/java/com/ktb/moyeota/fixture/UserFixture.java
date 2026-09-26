@@ -18,4 +18,16 @@ public final class UserFixture {
         ReflectionTestUtils.setField(user, "id", id);
         return user;
     }
+
+    public static User bankAccountHolder(String nickname) {
+        User user = user(nickname);
+        user.registerBankAccount("kb", new byte[] {1});
+        return user;
+    }
+
+    public static User bankAccountHolder(Long id, String nickname) {
+        User user = user(id, nickname);
+        user.registerBankAccount("kb", new byte[] {1});
+        return user;
+    }
 }
