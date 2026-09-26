@@ -7,9 +7,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record CorsProperties(List<String> allowedOrigins) {
 
     public CorsProperties {
-        if (allowedOrigins == null || allowedOrigins.isEmpty()) {
+        allowedOrigins = allowedOrigins == null
+                ? List.of()
+                : allowedOrigins.stream().filter(origin -> !origin.isBlank()).toList();
+        if (allowedOrigins.isEmpty()) {
             throw new IllegalStateException("moyeota.cors.allowed-origins가 최소 하나 필요합니다.");
         }
-        allowedOrigins = List.copyOf(allowedOrigins);
     }
 }
