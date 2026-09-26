@@ -1,9 +1,9 @@
 package com.ktb.moyeota.domain.companion.repository;
 
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.COMPLETED;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.INCOMPLETE;
-import static com.ktb.moyeota.domain.companion.entity.ParticipantOutcome.PENDING;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.INCOMPLETE;
+import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;

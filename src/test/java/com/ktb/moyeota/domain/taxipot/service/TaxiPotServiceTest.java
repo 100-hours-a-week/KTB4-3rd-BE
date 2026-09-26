@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
-import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
+import com.ktb.moyeota.domain.companion.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -30,7 +30,7 @@ class TaxiPotServiceTest {
     private CompanionRepository companionRepository;
 
     @Mock
-    private CompanionParticipantRepository companionParticipantRepository;
+    private TaxiPotParticipantRepository companionParticipantRepository;
 
     @InjectMocks
     private TaxiPotService service;

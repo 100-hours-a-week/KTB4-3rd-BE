@@ -1,7 +1,7 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
-import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
+import com.ktb.moyeota.domain.companion.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
@@ -17,11 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class TaxiPotService {
 
     private final CompanionRepository companionRepository;
-    private final CompanionParticipantRepository companionParticipantRepository;
+    private final TaxiPotParticipantRepository taxiPotParticipantRepository;
 
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
-        return companionParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
+        return taxiPotParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
     }
 
     @Transactional(readOnly = true)
