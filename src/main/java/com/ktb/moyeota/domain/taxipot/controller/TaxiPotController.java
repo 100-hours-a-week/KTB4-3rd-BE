@@ -3,19 +3,24 @@ package com.ktb.moyeota.domain.taxipot.controller;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.dto.CurrentTaxiPotResponse;
 import com.ktb.moyeota.domain.taxipot.dto.TaxiPotDetailResponse;
+import com.ktb.moyeota.domain.taxipot.dto.TaxiPotStartRequest;
 import com.ktb.moyeota.domain.taxipot.dto.TaxiPotStatusChangeRequest;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
+import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotService;
 import com.ktb.moyeota.domain.taxipot.success.TaxiPotSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
 import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +43,14 @@ public class TaxiPotController {
                 current);
     }
 
+    @PostMapping("/taxi-pots")
+    public ResponseEntity<ApiResponse<CurrentTaxiPotResponse>> start(
+            @AuthUser Long userId, @Valid @RequestBody TaxiPotStartRequest request) {
+        CurrentTaxiPot taxiPot = taxiPotService.start(userId, toCommand(request));
+        return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id()))
+                .body(ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot)));
+    }
+
     @GetMapping("/taxi-pots/{companion_id}")
     public ApiResponse<TaxiPotDetailResponse> get(
             @AuthUser Long userId, @PathVariable("companion_id") Long taxiPotId) {
@@ -53,6 +66,17 @@ public class TaxiPotController {
         CompanionStatus target = CompanionStatus.valueOf(request.status());
         TaxiPotDetail detail = taxiPotService.changeStatus(userId, taxiPotId, target);
         return ApiResponse.of(TaxiPotSuccessCode.STATUS_CHANGED, toResponse(detail));
+    }
+
+    private static TaxiPotStartCommand toCommand(TaxiPotStartRequest request) {
+        return new TaxiPotStartCommand(
+                request.originName(),
+                request.originLat(),
+                request.originLng(),
+                request.destName(),
+                request.destLat(),
+                request.destLng(),
+                request.departureAt());
     }
 
     private static CurrentTaxiPotResponse toResponse(CurrentTaxiPot taxiPot) {
