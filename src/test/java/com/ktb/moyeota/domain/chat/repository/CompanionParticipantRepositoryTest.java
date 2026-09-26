@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.chat.repository;
 import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
@@ -36,6 +38,16 @@ class CompanionParticipantRepositoryTest {
     void setUp() {
         host = persist(user("방장"));
         companion = persist(companionPost(host));
+    }
+
+    @Test
+    @DisplayName("같은 동행에 같은 사람의 참여 행은 하나뿐이다")
+    void oneParticipationPerUser() {
+        User guest = persist(user("게스트"));
+        companionParticipantRepository.saveAndFlush(CompanionParticipant.join(companion, guest));
+
+        assertThatThrownBy(() -> companionParticipantRepository.saveAndFlush(CompanionParticipant.join(companion, guest)))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Nested

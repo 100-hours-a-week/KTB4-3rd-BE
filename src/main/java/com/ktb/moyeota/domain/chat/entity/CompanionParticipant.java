@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@Table(name = "companion_participants")
+@Table(
+        name = "companion_participants",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_participants_companion_user", columnNames = {"companion_id", "user_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CompanionParticipant {
 
@@ -19,11 +22,11 @@ public class CompanionParticipant {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "companion_id", nullable = false)
     private Companion companion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -58,8 +61,28 @@ public class CompanionParticipant {
         return new CompanionParticipant(companion, user);
     }
 
+    public static CompanionParticipant join(Companion companion, User user, CompanionParticipant previous) {
+        if (previous == null) {
+            return join(companion, user);
+        }
+        previous.rejoin();
+        return previous;
+    }
+
     public void leave() {
+        if (outcomeStatus != OutcomeStatus.PENDING) {
+            throw new IllegalStateException("진행 중이 아닌 참여는 나갈 수 없다: " + id);
+        }
+        this.outcomeStatus = OutcomeStatus.INCOMPLETE;
         this.leftAt = LocalDateTime.now();
     }
 
+    private void rejoin() {
+        if (outcomeStatus != OutcomeStatus.INCOMPLETE) {
+            throw new IllegalStateException("나간 참여만 다시 참여할 수 있다: " + id);
+        }
+        this.outcomeStatus = OutcomeStatus.PENDING;
+        this.leftAt = null;
+        this.joinedAt = LocalDateTime.now();
+    }
 }
