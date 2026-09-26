@@ -4,18 +4,21 @@ import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRES
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
-import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.TaxiPotFixture.startCommand;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.companion.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
-import com.ktb.moyeota.domain.companion.entity.ParticipantOutcome;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -23,7 +26,6 @@ import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Optional;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +36,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class TaxiPotServiceTest {
@@ -52,6 +57,9 @@ class TaxiPotServiceTest {
 
     @Spy
     private Clock clock = Clock.fixed(DEPARTURE_AT.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
+
+    @Spy
+    private TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     @InjectMocks
     private TaxiPotService service;
@@ -88,7 +96,7 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("정산 계좌가 없으면 BANK_ACCOUNT_REQUIRED다")
         void bankAccountRequired() {
-            given(userRepository.findById(USER_ID)).willReturn(Optional.of(user(USER_ID, "계좌없음")));
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(user(USER_ID, "계좌없음")));
 
             assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)),
                     TaxiPotErrorCode.BANK_ACCOUNT_REQUIRED);
@@ -97,12 +105,39 @@ class TaxiPotServiceTest {
         @Test
         @DisplayName("진행 중인 택시팟 참여가 있으면 MATCH_ALREADY_IN_PROGRESS다")
         void alreadyInProgress() {
-            given(userRepository.findById(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "참여중")));
-            given(companionParticipantRepository.findPendingTaxiPotParticipationsForUpdate(USER_ID)).willReturn(
-                    List.of(participant(taxiPot(user("방장"), RECRUITING), user("참여중"), ParticipantOutcome.PENDING)));
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "참여중")));
+            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID))
+                    .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING)));
 
             assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)),
                     TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
+        }
+
+        @Test
+        @DisplayName("데드락으로 튕기면 새 트랜잭션으로 다시 시도한다")
+        void retriesOnDeadlock() {
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
+            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(companionRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
+                    .willThrow(new CannotAcquireLockException("Deadlock found"))
+                    .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING, 1)));
+
+            CurrentTaxiPot joined = service.start(USER_ID, startCommand(DEPARTURE_AT));
+
+            assertThat(joined.currentCount()).isEqualTo(2);
+            verify(transactionTemplate, times(2)).execute(any());
+        }
+
+        @Test
+        @DisplayName("세 번 모두 데드락이면 MATCH_BUSY다")
+        void givesUpAfterThreeDeadlocks() {
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "포기")));
+            given(companionParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(companionRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
+                    .willThrow(new CannotAcquireLockException("Deadlock found"));
+
+            assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)), TaxiPotErrorCode.MATCH_BUSY);
+            verify(transactionTemplate, times(3)).execute(any());
         }
     }
 

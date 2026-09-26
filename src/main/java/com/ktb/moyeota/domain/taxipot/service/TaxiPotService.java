@@ -18,20 +18,24 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import org.springframework.dao.CannotAcquireLockException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
 public class TaxiPotService {
 
     private static final Duration MAX_DEPARTURE_LEAD_TIME = Duration.ofHours(3);
+    private static final int MAX_START_ATTEMPTS = 3;
 
     private final CompanionRepository companionRepository;
     private final CompanionParticipantRepository companionParticipantRepository;
     private final UserRepository userRepository;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -39,19 +43,31 @@ public class TaxiPotService {
         return companionParticipantRepository.findCurrentTaxiPot(userId).map(TaxiPotService::toCurrentTaxiPot);
     }
 
-    @Transactional
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime departureAt = command.departureAt().truncatedTo(ChronoUnit.MINUTES);
         validateDeparture(departureAt, now);
         validateRoute(command);
 
-        User user = userRepository.findById(userId)
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return transactionTemplate.execute(status -> joinOrOpen(userId, command, departureAt, now));
+            } catch (CannotAcquireLockException e) {
+                if (attempt == MAX_START_ATTEMPTS) {
+                    throw new BusinessException(TaxiPotErrorCode.MATCH_BUSY);
+                }
+            }
+        }
+    }
+
+    private CurrentTaxiPot joinOrOpen(
+            Long userId, TaxiPotStartCommand command, LocalDateTime departureAt, LocalDateTime now) {
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
         if (!user.hasBankAccount()) {
             throw new BusinessException(TaxiPotErrorCode.BANK_ACCOUNT_REQUIRED);
         }
-        if (!companionParticipantRepository.findPendingTaxiPotParticipationsForUpdate(userId).isEmpty()) {
+        if (companionParticipantRepository.findCurrentTaxiPot(userId).isPresent()) {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
 

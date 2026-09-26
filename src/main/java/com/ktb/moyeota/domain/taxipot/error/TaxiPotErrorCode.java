@@ -21,7 +21,9 @@ public enum TaxiPotErrorCode implements ErrorCode {
 
     BANK_ACCOUNT_REQUIRED(HttpStatus.CONFLICT, "정산 계좌를 먼저 등록해주세요"),
 
-    MATCH_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 매칭이 있어요");
+    MATCH_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 매칭이 있어요"),
+
+    MATCH_BUSY(HttpStatus.CONFLICT, "요청이 몰려 매칭하지 못했어요. 잠시 후 다시 시도해주세요");
 
     private final HttpStatus status;
     private final String message;
