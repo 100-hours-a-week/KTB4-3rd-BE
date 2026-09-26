@@ -15,6 +15,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
+import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
@@ -54,6 +58,12 @@ class TaxiPotServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+
+    @Mock
+    private ChatSystemMessageService chatSystemMessageService;
 
     @Spy
     private Clock clock = Clock.fixed(DEPARTURE_AT.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
@@ -118,9 +128,11 @@ class TaxiPotServiceTest {
         void retriesOnDeadlock() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
             given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            Companion matched = taxiPot(user("방장"), RECRUITING, 1);
             given(taxiPotRepository.findMatchableTaxiPotForUpdate(any(), any(), any(), any(), any()))
                     .willThrow(new CannotAcquireLockException("Deadlock found"))
-                    .willReturn(Optional.of(taxiPot(user("방장"), RECRUITING, 1)));
+                    .willReturn(Optional.of(matched));
+            given(chatRoomRepository.findByCompanionId(any())).willReturn(Optional.of(ChatRoom.create(matched)));
 
             CurrentTaxiPot joined = service.start(USER_ID, startCommand(DEPARTURE_AT));
 

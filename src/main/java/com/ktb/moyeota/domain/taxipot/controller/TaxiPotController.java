@@ -88,7 +88,7 @@ public class TaxiPotController {
 
     private static CurrentTaxiPotResponse toResponse(CurrentTaxiPot taxiPot) {
         return new CurrentTaxiPotResponse(
-                taxiPot.id(), null, taxiPot.status().name(), taxiPot.currentCount(), taxiPot.capacity());
+                taxiPot.id(), taxiPot.chatRoomId(), taxiPot.status().name(), taxiPot.currentCount(), taxiPot.capacity());
     }
 
     private static TaxiPotDetailResponse toResponse(TaxiPotDetail detail) {

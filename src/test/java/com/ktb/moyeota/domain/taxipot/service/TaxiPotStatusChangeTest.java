@@ -9,6 +9,7 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
@@ -24,7 +25,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, TaxiPotStatusChangeTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotStatusChangeTest.FixedClock.class})
 class TaxiPotStatusChangeTest {
 
     @Autowired
