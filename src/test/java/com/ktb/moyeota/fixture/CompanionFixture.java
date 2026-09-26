@@ -11,6 +11,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 public final class CompanionFixture {
 
+    public static final String ORIGIN_NAME = "판교역";
+    public static final BigDecimal ORIGIN_LAT = new BigDecimal("37.394500");
+    public static final BigDecimal ORIGIN_LNG = new BigDecimal("127.111200");
+    public static final String DEST_NAME = "강남역";
+    public static final BigDecimal DEST_LAT = new BigDecimal("37.497900");
+    public static final BigDecimal DEST_LNG = new BigDecimal("127.027600");
     public static final LocalDateTime DEPARTURE_AT = LocalDateTime.of(2026, 9, 5, 8, 30);
 
     private CompanionFixture() {
@@ -35,8 +41,6 @@ public final class CompanionFixture {
     private static Companion recruiting(
             User host, CompanionKind kind, TransportType transportType, int capacity) {
         return Companion.createCompanionPost(host, kind, transportType, null,
-                "판교역", new BigDecimal("37.394500"), new BigDecimal("127.111200"),
-                "강남역", new BigDecimal("37.497900"), new BigDecimal("127.027600"),
-                DEPARTURE_AT, capacity);
+                ORIGIN_NAME, ORIGIN_LAT, ORIGIN_LNG, DEST_NAME, DEST_LAT, DEST_LNG, DEPARTURE_AT, capacity);
     }
 }

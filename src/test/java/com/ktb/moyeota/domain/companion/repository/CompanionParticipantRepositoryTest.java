@@ -88,6 +88,7 @@ class CompanionParticipantRepositoryTest {
         assertThat(companionParticipantRepository.findCurrentTaxiPot(me.getId())).isEmpty();
     }
 
+
     private <T> T persist(T entity) {
         return entityManager.persistAndFlush(entity);
     }
