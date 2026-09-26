@@ -102,7 +102,10 @@ public class TaxiPotService {
     }
 
     private Companion joinTaxiPot(Companion taxiPot, User user, LocalDateTime now) {
-        taxiPotParticipantRepository.save(taxiPot.join(user));
+        CompanionParticipant previous = taxiPotParticipantRepository
+                .findByCompanionIdAndUserId(taxiPot.getId(), user.getId())
+                .orElse(null);
+        taxiPotParticipantRepository.save(taxiPot.join(user, previous));
         return taxiPot;
     }
 

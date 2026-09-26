@@ -1,10 +1,12 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
+import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.TaxiPotFixture.startCommand;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
@@ -76,6 +78,21 @@ class TaxiPotStartTest {
 
         assertThat(joined.id()).isEqualTo(opened.id());
         assertThat(reload(opened).getDepartureAt()).isEqualTo(DEPARTURE_AT);
+    }
+
+    @Test
+    @DisplayName("나갔던 팟에 같은 조건으로 다시 매칭되면 예전 참여를 되살려 합류한다")
+    void rejoinsPotLeftBefore() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User returning = entityManager.persist(bankAccountHolder("돌아온사람"));
+        CurrentTaxiPot opened = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+        entityManager.persistAndFlush(participant(reload(opened), returning, OutcomeStatus.INCOMPLETE));
+
+        CurrentTaxiPot joined = taxiPotService.start(returning.getId(), startCommand(DEPARTURE_AT));
+
+        assertThat(joined.id()).isEqualTo(opened.id());
+        assertThat(joined.currentCount()).isEqualTo(2);
+        assertThat(taxiPotParticipantRepository.findCurrentTaxiPot(returning.getId())).isPresent();
     }
 
     @Test

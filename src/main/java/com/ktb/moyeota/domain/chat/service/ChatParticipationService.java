@@ -46,17 +46,23 @@ public class ChatParticipationService {
             throw new BusinessException(ChatErrorCode.COMPANION_NOT_JOINABLE);
         }
 
-        CompanionParticipant participant;
-        try {
-            participant = companionParticipantRepository.save(CompanionParticipant.join(companion, user));
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ChatErrorCode.ALREADY_PARTICIPATING);
-        }
+        CompanionParticipant previous = companionParticipantRepository
+                .findByCompanionIdAndUserId(companionId, userId)
+                .orElse(null);
+        CompanionParticipant participant = saveParticipant(CompanionParticipant.join(companion, user, previous));
 
         ChatRoom chatRoom = chatRoomRepository.findByCompanionId(companionId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
 
         return new ChatParticipateResponse(participant.getId(), chatRoom.getId());
+    }
+
+    private CompanionParticipant saveParticipant(CompanionParticipant participant) {
+        try {
+            return companionParticipantRepository.save(participant);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ChatErrorCode.ALREADY_PARTICIPATING);
+        }
     }
 
     @Transactional

@@ -13,10 +13,12 @@ import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_NAME;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.UserFixture.user;
+import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -61,7 +63,7 @@ class CompanionTest {
             Companion pot = taxiPot(user("방장"), RECRUITING, 2);
             User joiner = user("합류자");
 
-            CompanionParticipant participant = pot.join(joiner);
+            CompanionParticipant participant = pot.join(joiner, null);
 
             assertThat(pot.getCurrentCount()).isEqualTo(3);
             assertThat(participant.getUser()).isSameAs(joiner);
@@ -73,7 +75,7 @@ class CompanionTest {
         void full() {
             Companion pot = taxiPot(user("방장"), RECRUITING, 4);
 
-            assertThatThrownBy(() -> pot.join(user("합류자"))).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> pot.join(user("합류자"), null)).isInstanceOf(IllegalStateException.class);
             assertThat(pot.getCurrentCount()).isEqualTo(4);
         }
 
@@ -83,7 +85,37 @@ class CompanionTest {
         void notRecruiting(CompanionStatus status) {
             Companion pot = taxiPot(user("방장"), status, 2);
 
-            assertThatThrownBy(() -> pot.join(user("합류자"))).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> pot.join(user("합류자"), null)).isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("다시 합류")
+    class Rejoin {
+
+        @Test
+        @DisplayName("예전 참여가 있으면 새로 만들지 않고 되살리며 인원은 1명 늘어난다")
+        void rejoins() {
+            Companion pot = taxiPot(user("방장"), RECRUITING, 1);
+            User returning = user("다시온사람");
+            CompanionParticipant left = participant(pot, returning, OutcomeStatus.INCOMPLETE);
+
+            CompanionParticipant joined = pot.join(returning, left);
+
+            assertThat(joined).isSameAs(left);
+            assertThat(pot.getCurrentCount()).isEqualTo(2);
+            assertThat(left.getOutcomeStatus()).isEqualTo(OutcomeStatus.PENDING);
+        }
+
+        @Test
+        @DisplayName("정원이 찼으면 재참여도 동일하게 허용되지 않는다")
+        void full() {
+            Companion pot = taxiPot(user("방장"), RECRUITING, 4);
+            User returning = user("다시온사람");
+            CompanionParticipant left = participant(pot, returning, OutcomeStatus.INCOMPLETE);
+
+            assertThatThrownBy(() -> pot.join(returning, left)).isInstanceOf(IllegalStateException.class);
+            assertThat(left.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
         }
     }
 

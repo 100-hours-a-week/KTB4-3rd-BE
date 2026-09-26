@@ -156,12 +156,12 @@ public class Companion {
         };
     }
 
-    public CompanionParticipant join(User user) {
+    public CompanionParticipant join(User user, CompanionParticipant previous) {
         if (status != CompanionStatus.RECRUITING || currentCount >= capacity) {
             throw new IllegalStateException("모집 중인 자리가 없는 동행에 합류할 수 없다: " + id);
         }
         this.currentCount++;
-        return CompanionParticipant.join(this, user);
+        return CompanionParticipant.join(this, user, previous);
     }
 
     public void startRide(LocalDateTime now) {

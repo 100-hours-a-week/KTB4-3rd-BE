@@ -46,4 +46,6 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
 
     Optional<CompanionParticipant> findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(
             Long companionId, Long userId);
+
+    Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 }
