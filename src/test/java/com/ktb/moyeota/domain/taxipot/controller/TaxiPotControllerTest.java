@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
@@ -187,7 +188,7 @@ class TaxiPotControllerTest {
     @DisplayName("전이할 수 없는 상태면 409다")
     void conflict() throws Exception {
         given(taxiPotService.changeStatus(any(), any(), any()))
-                .willThrow(new BusinessException(TaxiPotErrorCode.DEPARTURE_NOT_REACHED));
+                .willThrow(new BusinessException(CompanionErrorCode.DEPARTURE_NOT_REACHED));
 
         mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
                 .andExpect(status().isConflict())

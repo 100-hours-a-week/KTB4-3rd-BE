@@ -1,7 +1,9 @@
 package com.ktb.moyeota.domain.companion.entity;
 
 // import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -90,6 +92,7 @@ public class Companion {
     private static final int MIN_CAPACITY = 1;
     private static final int CAR_MAX_CAPACITY = 4;       // TAXI, OWNED_CAR
     private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10; // SUBWAY, BUS
+    private static final int MIN_RIDE_PARTICIPANTS = 2;
 
     private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
@@ -151,6 +154,26 @@ public class Companion {
             case TAXI, OWNED_CAR -> CAR_MAX_CAPACITY;
             case SUBWAY, BUS -> PUBLIC_TRANSPORT_MAX_CAPACITY;
         };
+    }
+
+    public void startRide(LocalDateTime now) {
+        if (status != CompanionStatus.RECRUITING) {
+            throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
+        }
+        if (currentCount < MIN_RIDE_PARTICIPANTS) {
+            throw new BusinessException(CompanionErrorCode.NOT_ENOUGH_PARTICIPANTS);
+        }
+        if (departureAt.isAfter(now)) {
+            throw new BusinessException(CompanionErrorCode.DEPARTURE_NOT_REACHED);
+        }
+        this.status = CompanionStatus.IN_PROGRESS;
+    }
+
+    public void completeRide() {
+        if (status != CompanionStatus.IN_PROGRESS) {
+            throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
+        }
+        this.status = CompanionStatus.COMPLETED;
     }
 
     public void transferHost(User newHost) {
