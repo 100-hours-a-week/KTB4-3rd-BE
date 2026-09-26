@@ -17,4 +17,14 @@ public interface TaxiPotParticipantRepository extends JpaRepository<CompanionPar
     Optional<Companion> findCurrentTaxiPot(Long userId);
 
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
+
+    @Query("""
+            select p from CompanionParticipant p
+             where p.companion.id = :companionId
+               and p.user.id <> :leaverId
+               and p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
+             order by p.joinedAt, p.id
+             limit 1
+            """)
+    Optional<CompanionParticipant> findNextHost(Long companionId, Long leaverId);
 }
