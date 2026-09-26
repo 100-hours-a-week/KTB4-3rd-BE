@@ -29,6 +29,7 @@ public record MessageItem(
             case SYSTEM_JOIN -> join(message);
             case SYSTEM_LEAVE -> leave(message);
             case SYSTEM_RIDE_START_REQUESTED -> rideStartRequested(message);
+            case SYSTEM_RIDE_ENDED -> rideEnded(message);
         };
     }
 
@@ -72,6 +73,18 @@ public record MessageItem(
     }
 
     private static MessageItem rideStartRequested(Message message) {
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                null,
+                message.getCreatedAt()
+        );
+    }
+
+    private static MessageItem rideEnded(Message message) {
         return new MessageItem(
                 message.getId(),
                 message.getMessageType(),
