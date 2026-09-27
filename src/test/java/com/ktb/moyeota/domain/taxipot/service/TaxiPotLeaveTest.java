@@ -152,8 +152,8 @@ class TaxiPotLeaveTest {
     }
 
     @Test
-    @DisplayName("정산까지 마친 사람이 나가면 퇴장 메시지가 남지 않는다")
-    void noLeaveMessageWhenSettled() {
+    @DisplayName("완주한 사람이 나가면 퇴장 메시지가 남지 않는다")
+    void noLeaveMessageWhenCompleted() {
         User host = entityManager.persist(bankAccountHolder("방장"));
         User member = entityManager.persist(bankAccountHolder("동승자"));
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 2));

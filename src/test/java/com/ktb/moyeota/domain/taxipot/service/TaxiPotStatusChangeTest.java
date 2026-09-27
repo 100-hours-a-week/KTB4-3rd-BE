@@ -7,11 +7,13 @@ import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
+import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
@@ -131,6 +133,40 @@ class TaxiPotStatusChangeTest {
         assertThatThrownBy(() -> taxiPotService.changeStatus(host.getId(), pot.getId(), IN_PROGRESS))
                 .isInstanceOf(BusinessException.class);
         assertThat(messageTypes(pot)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("운행을 종료하면 함께 탄 참여자가 모두 완주하고 진행 중인 택시팟이 없어진다")
+    void completesRidersOnRideEnd() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User member = entityManager.persist(bankAccountHolder("동승자"));
+        Companion pot = persistRidingPot(host, member);
+
+        taxiPotService.changeStatus(host.getId(), pot.getId(), COMPLETED);
+
+        entityManager.flush();
+        assertThat(participantsOf(pot))
+                .allSatisfy(p -> {
+                    assertThat(p.isCompleted()).isTrue();
+                    assertThat(p.getLeftAt()).isNotNull();
+                });
+        assertThat(taxiPotService.findMyCurrent(member.getId())).isEmpty();
+    }
+
+    private Companion persistRidingPot(User host, User member) {
+        Companion pot = entityManager.persist(taxiPot(host, IN_PROGRESS, 2));
+        entityManager.persist(ChatRoom.create(pot));
+        entityManager.persist(participant(pot, host, PENDING));
+        entityManager.persistAndFlush(participant(pot, member, PENDING));
+        return pot;
+    }
+
+    private List<CompanionParticipant> participantsOf(Companion pot) {
+        return entityManager.getEntityManager()
+                .createQuery("SELECT p FROM CompanionParticipant p WHERE p.companion.id = :potId",
+                        CompanionParticipant.class)
+                .setParameter("potId", pot.getId())
+                .getResultList();
     }
 
     private List<MessageType> messageTypes(Companion pot) {
