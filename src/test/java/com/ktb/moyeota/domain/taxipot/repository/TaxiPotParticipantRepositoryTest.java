@@ -92,6 +92,21 @@ class TaxiPotParticipantRepositoryTest {
     }
 
 
+    @Test
+    @DisplayName("팟의 진행 중 참여자만 찾는다")
+    void findsPendingParticipantsOfPot() {
+        User other = persist(user("임꺽정"));
+        User gone = persist(user("나간사람"));
+        Companion pot = persist(taxiPot(me, CompanionStatus.IN_PROGRESS));
+        CompanionParticipant mine = persist(participant(pot, me, PENDING));
+        CompanionParticipant others = persist(participant(pot, other, PENDING));
+        persist(participant(pot, gone, INCOMPLETE));
+        persist(participant(persist(taxiPot(me, RECRUITING)), other, PENDING));
+
+        assertThat(taxiPotParticipantRepository.findPendingParticipants(pot.getId()))
+                .containsExactlyInAnyOrder(mine, others);
+    }
+
     @Nested
     @DisplayName("다음 방장 찾기")
     class FindNextHost {

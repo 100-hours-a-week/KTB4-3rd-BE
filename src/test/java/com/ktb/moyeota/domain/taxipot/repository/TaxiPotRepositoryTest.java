@@ -57,7 +57,7 @@ class TaxiPotRepositoryTest {
     }
 
     @Test
-    @DisplayName("정산까지 마친 참여자도 찾을 수 있다")
+    @DisplayName("완주한 참여자도 찾을 수 있다")
     void findsAfterCompleted() {
         Companion pot = persist(taxiPot(me, RECRUITING));
         persist(participant(pot, me, COMPLETED));

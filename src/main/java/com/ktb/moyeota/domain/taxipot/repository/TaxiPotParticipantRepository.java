@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.taxipot.repository;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +18,13 @@ public interface TaxiPotParticipantRepository extends JpaRepository<CompanionPar
     Optional<Companion> findCurrentTaxiPot(Long userId);
 
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
+
+    @Query("""
+            select p from CompanionParticipant p
+             where p.companion.id = :companionId
+               and p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
+            """)
+    List<CompanionParticipant> findPendingParticipants(Long companionId);
 
     @Query("""
             select p from CompanionParticipant p

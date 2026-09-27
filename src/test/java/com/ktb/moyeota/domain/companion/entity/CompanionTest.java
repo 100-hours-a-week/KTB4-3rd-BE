@@ -23,6 +23,7 @@ import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
+import java.util.List;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -184,15 +185,15 @@ class CompanionTest {
         }
 
         @Test
-        @DisplayName("정산까지 끝난 참여는 나가도 아무것도 바뀌지 않는다")
-        void afterSettlement() {
+        @DisplayName("완주한 참여는 나가도 아무것도 바뀌지 않는다")
+        void afterCompletion() {
             Companion pot = taxiPot(host, COMPLETED, 2);
-            CompanionParticipant settled = participant(pot, member, OutcomeStatus.COMPLETED);
+            CompanionParticipant completed = participant(pot, member, OutcomeStatus.COMPLETED);
 
-            pot.leave(settled, null);
+            pot.leave(completed, null);
 
             assertThat(pot.getCurrentCount()).isEqualTo(2);
-            assertThat(settled.getOutcomeStatus()).isEqualTo(OutcomeStatus.COMPLETED);
+            assertThat(completed.getOutcomeStatus()).isEqualTo(OutcomeStatus.COMPLETED);
         }
     }
 
@@ -260,24 +261,43 @@ class CompanionTest {
     @DisplayName("운행 종료")
     class CompleteRide {
 
+        private final User host = user(1L, "방장");
+        private final User member = user(2L, "동승자");
+
         @Test
         @DisplayName("운행 중이면 완료된다")
         void completes() {
-            Companion pot = taxiPot(user("방장"), IN_PROGRESS, 2);
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
 
-            pot.completeRide();
+            pot.completeRide(List.of());
 
             assertThat(pot.getStatus()).isEqualTo(COMPLETED);
+        }
+
+        @Test
+        @DisplayName("운행한 참여자는 모두 완주한 참여가 된다")
+        void completesRiders() {
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            CompanionParticipant hostRider = participant(pot, host, PENDING);
+            CompanionParticipant memberRider = participant(pot, member, PENDING);
+
+            pot.completeRide(List.of(hostRider, memberRider));
+
+            assertThat(List.of(hostRider, memberRider))
+                    .extracting(CompanionParticipant::getOutcomeStatus)
+                    .containsOnly(OutcomeStatus.COMPLETED);
         }
 
         @ParameterizedTest(name = "{0}", quoteTextArguments = false)
         @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("운행 중이 아니면 INVALID_STATE_TRANSITION이다")
         void notInProgress(CompanionStatus status) {
-            Companion pot = taxiPot(user("방장"), status, 2);
+            Companion pot = taxiPot(host, status, 2);
+            CompanionParticipant rider = participant(pot, member, PENDING);
 
-            assertErrorCode(pot::completeRide, CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertErrorCode(() -> pot.completeRide(List.of(rider)), CompanionErrorCode.INVALID_STATE_TRANSITION);
             assertThat(pot.getStatus()).isEqualTo(status);
+            assertThat(rider.getOutcomeStatus()).isEqualTo(PENDING);
         }
     }
 

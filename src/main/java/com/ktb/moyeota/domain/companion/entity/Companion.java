@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "companions")
@@ -171,7 +172,7 @@ public class Companion {
     }
 
     public void leave(CompanionParticipant leaver, CompanionParticipant nextHost) {
-        if (leaver.isSettled()) {
+        if (leaver.isCompleted()) {
             return;
         }
         if (status == CompanionStatus.IN_PROGRESS) {
@@ -214,11 +215,12 @@ public class Companion {
         }
     }
 
-    public void completeRide() {
+    public void completeRide(List<CompanionParticipant> riders) {
         if (status != CompanionStatus.IN_PROGRESS) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         this.status = CompanionStatus.COMPLETED;
+        riders.forEach(CompanionParticipant::complete);
     }
 
     public void transferHost(User newHost) {

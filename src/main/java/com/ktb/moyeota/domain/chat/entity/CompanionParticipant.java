@@ -69,8 +69,16 @@ public class CompanionParticipant {
         return previous;
     }
 
-    public boolean isSettled() {
+    public boolean isCompleted() {
         return outcomeStatus == OutcomeStatus.COMPLETED;
+    }
+
+    public void complete() {
+        if (outcomeStatus != OutcomeStatus.PENDING) {
+            throw new IllegalStateException("진행 중이 아닌 참여는 완주할 수 없다: " + id);
+        }
+        this.outcomeStatus = OutcomeStatus.COMPLETED;
+        this.leftAt = LocalDateTime.now();
     }
 
     public void leave() {

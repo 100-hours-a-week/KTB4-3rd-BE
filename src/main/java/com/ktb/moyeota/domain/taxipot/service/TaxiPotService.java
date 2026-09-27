@@ -99,7 +99,7 @@ public class TaxiPotService {
                 : null;
 
         taxiPot.leave(leaver, nextHost);
-        if (!leaver.isSettled()) {
+        if (!leaver.isCompleted()) {
             chatSystemMessageService.leave(findChatRoom(taxiPot), leaver.getUser());
         }
     }
@@ -163,7 +163,7 @@ public class TaxiPotService {
     }
 
     private void completeRide(Companion taxiPot) {
-        taxiPot.completeRide();
+        taxiPot.completeRide(taxiPotParticipantRepository.findPendingParticipants(taxiPot.getId()));
         chatSystemMessageService.rideEnded(findChatRoom(taxiPot));
     }
 
