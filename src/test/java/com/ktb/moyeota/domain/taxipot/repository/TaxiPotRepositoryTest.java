@@ -165,6 +165,73 @@ class TaxiPotRepositoryTest {
     }
 
     @Nested
+    @DisplayName("운행 시작 확인이 필요한 팟 찾기")
+    class FindRideStartDue {
+
+        private static final LocalDateTime NOW = DEPARTURE_AT.plusMinutes(1);
+
+        @Test
+        @DisplayName("모집 중이고 2명 이상이며 출발 시각이 지났으면 찾는다")
+        void findsWhenDeparturePassed() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 2));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(NOW)).containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("출발 시각이 딱 지금이어도 찾는다")
+        void findsAtDeparture() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 2));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(DEPARTURE_AT)).containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("출발 시각 전이면 찾지 않는다")
+        void skipsBeforeDeparture() {
+            persist(taxiPot(me, RECRUITING, 2));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(DEPARTURE_AT.minusMinutes(1))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("혼자면 찾지 않는다")
+        void skipsWhenAlone() {
+            persist(taxiPot(me, RECRUITING, 1));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("모집 중이 아니면 찾지 않는다")
+        void skipsWhenNotRecruiting() {
+            persist(taxiPot(me, IN_PROGRESS, 2));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이미 운행 시작 확인 카드가 있으면 찾지 않는다")
+        void skipsWhenAlreadyRequested() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 2));
+            ChatRoom chatRoom = persist(ChatRoom.create(pot));
+            persist(Message.rideStartRequestedSystemMessage(chatRoom, -1L, null));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("다른 시스템 메시지만 있으면 찾는다")
+        void findsWithOtherMessages() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 2));
+            ChatRoom chatRoom = persist(ChatRoom.create(pot));
+            persist(Message.joinSystemMessage(chatRoom, me, -2L, null));
+
+            assertThat(taxiPotRepository.findRideStartDueIds(NOW)).containsExactly(pot.getId());
+        }
+    }
+
+    @Nested
     @DisplayName("운행 종료 확인이 필요한 팟 찾기")
     class FindRideEndDue {
 
