@@ -35,9 +35,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
-// [주의] 이번 단계는 메시지 신고(reported_message_id 필수)만 다룬다.
-// 유저 단독 신고는 uk_reports_message 유니크 제약의 NULL 중복 문제(레이스 컨디션)가 해결되지 않아
-// 이번 커밋 범위에서 제외했다 — SQL 보완 방식 확인 후 별도로 다시 추가할 예정이다.
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 

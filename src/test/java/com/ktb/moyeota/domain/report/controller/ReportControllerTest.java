@@ -43,8 +43,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-// [주의] 이번 단계는 메시지 신고(reported_message_id 필수)만 다룬다.
-// 유저 단독 신고는 레이스 컨디션 이슈로 이번 커밋 범위에서 제외했다.
 @WebMvcTest(controllers = ReportController.class)
 @Import({SecurityConfig.class, CorsConfig.class, JwtConfig.class, ClockConfig.class, WebConfig.class,
         AuthUserArgumentResolver.class, SignupPrincipalArgumentResolver.class, UploadScopeArgumentResolver.class,

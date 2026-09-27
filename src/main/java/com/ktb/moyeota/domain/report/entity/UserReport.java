@@ -1,6 +1,5 @@
 package com.ktb.moyeota.domain.report.entity;
 
-import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,11 +22,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @Table(
-        name = "reports",
+        name = "user_reports",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_reports_message", columnNames = {"reporter_id", "reported_message_id"}))
+                name = "uk_user_reports_target", columnNames = {"reporter_id", "reported_user_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Report {
+public class UserReport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,10 +40,6 @@ public class Report {
     @JoinColumn(name = "reported_user_id", nullable = false)
     private User reportedUser;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "reported_message_id", nullable = false)
-    private Message reportedMessage;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "reason", nullable = false, length = 20)
     private ReportReason reason;
@@ -55,18 +50,15 @@ public class Report {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private Report(User reporter, User reportedUser, Message reportedMessage,
-                    ReportReason reason, String reasonText) {
+    private UserReport(User reporter, User reportedUser, ReportReason reason, String reasonText) {
         this.reporter = reporter;
         this.reportedUser = reportedUser;
-        this.reportedMessage = reportedMessage;
         this.reason = reason;
         this.reasonText = reasonText;
     }
 
-    public static Report createMessageReport(User reporter, User reportedUser, Message reportedMessage,
-                                              ReportReason reason, String reasonText) {
-        return new Report(reporter, reportedUser, reportedMessage, reason, reasonText);
+    public static UserReport create(User reporter, User reportedUser, ReportReason reason, String reasonText) {
+        return new UserReport(reporter, reportedUser, reason, reasonText);
     }
 
     @PrePersist
