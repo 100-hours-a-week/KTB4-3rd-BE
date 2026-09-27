@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.report.entity;
 
+import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,7 +25,8 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "user_reports",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_user_reports_target", columnNames = {"reporter_id", "reported_user_id"}))
+                name = "uk_user_reports_target",
+                columnNames = {"reporter_id", "reported_user_id", "companion_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserReport {
 
@@ -40,6 +42,10 @@ public class UserReport {
     @JoinColumn(name = "reported_user_id", nullable = false)
     private User reportedUser;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "companion_id", nullable = false)
+    private Companion companion;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reason", nullable = false, length = 20)
     private ReportReason reason;
@@ -50,15 +56,18 @@ public class UserReport {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private UserReport(User reporter, User reportedUser, ReportReason reason, String reasonText) {
+    private UserReport(User reporter, User reportedUser, Companion companion,
+                        ReportReason reason, String reasonText) {
         this.reporter = reporter;
         this.reportedUser = reportedUser;
+        this.companion = companion;
         this.reason = reason;
         this.reasonText = reasonText;
     }
 
-    public static UserReport create(User reporter, User reportedUser, ReportReason reason, String reasonText) {
-        return new UserReport(reporter, reportedUser, reason, reasonText);
+    public static UserReport create(User reporter, User reportedUser, Companion companion,
+                                     ReportReason reason, String reasonText) {
+        return new UserReport(reporter, reportedUser, companion, reason, reasonText);
     }
 
     @PrePersist

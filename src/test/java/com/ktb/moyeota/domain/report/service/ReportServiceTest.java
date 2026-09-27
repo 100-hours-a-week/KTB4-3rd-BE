@@ -17,15 +17,16 @@ import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.report.dto.ReportCreateRequest;
 import com.ktb.moyeota.domain.report.dto.ReportCreateResponse;
-import com.ktb.moyeota.domain.report.entity.Report;
+import com.ktb.moyeota.domain.report.entity.MessageReport;
 import com.ktb.moyeota.domain.report.entity.ReportReason;
 import com.ktb.moyeota.domain.report.entity.UserReport;
 import com.ktb.moyeota.domain.report.error.ReportErrorCode;
-import com.ktb.moyeota.domain.report.repository.ReportRepository;
+import com.ktb.moyeota.domain.report.repository.MessageReportRepository;
 import com.ktb.moyeota.domain.report.repository.UserReportRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
+import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,9 +46,10 @@ class ReportServiceTest {
     private static final Long REPORTED_USER_ID = 7L;
     private static final Long MESSAGE_ID = 1441L;
     private static final Long ROOM_ID = 501L;
+    private static final Long COMPANION_ID = 20L;
 
     @Mock
-    private ReportRepository reportRepository;
+    private MessageReportRepository messageReportRepository;
 
     @Mock
     private UserReportRepository userReportRepository;
@@ -61,11 +63,15 @@ class ReportServiceTest {
     @Mock
     private CompanionParticipantRepository companionParticipantRepository;
 
+    @Mock
+    private EntityManager entityManager;
+
     @InjectMocks
     private ReportService service;
 
     private User reporter;
     private User reportedUser;
+    private Companion companion;
     private Message reportedMessage;
     private CompanionParticipant participant;
 
@@ -74,7 +80,9 @@ class ReportServiceTest {
         reporter = user(REPORTER_ID, "우림");
         reportedUser = user(REPORTED_USER_ID, "상대방");
 
-        Companion companion = companionPost(reportedUser);
+        companion = companionPost(reportedUser);
+        ReflectionTestUtils.setField(companion, "id", COMPANION_ID);
+
         ChatRoom chatRoom = ChatRoom.create(companion);
         ReflectionTestUtils.setField(chatRoom, "id", ROOM_ID);
 
@@ -85,11 +93,11 @@ class ReportServiceTest {
     }
 
     private ReportCreateRequest messageReportRequest(ReportReason reason, String reasonText) {
-        return new ReportCreateRequest(REPORTED_USER_ID, MESSAGE_ID, reason, reasonText);
+        return new ReportCreateRequest(REPORTED_USER_ID, MESSAGE_ID, null, reason, reasonText);
     }
 
     private ReportCreateRequest userReportRequest(ReportReason reason, String reasonText) {
-        return new ReportCreateRequest(REPORTED_USER_ID, null, reason, reasonText);
+        return new ReportCreateRequest(REPORTED_USER_ID, null, COMPANION_ID, reason, reasonText);
     }
 
     private void stubHappyPath() {
@@ -100,19 +108,27 @@ class ReportServiceTest {
         given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
     }
 
+    private void stubUserReportHappyPath() {
+        given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+                .willReturn(Optional.of(participant));
+        given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
+        given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
+        given(entityManager.getReference(Companion.class, COMPANION_ID)).willReturn(companion);
+    }
+
     @Nested
     @DisplayName("메시지 신고")
-    class MessageReport {
+    class MessageReportCase {
 
         @Test
         @DisplayName("참여자가 방의 메시지를 신고하면 저장된다")
         void createsReport() {
             stubHappyPath();
 
-            Report saved = Report.createMessageReport(
+            MessageReport saved = MessageReport.create(
                     reporter, reportedUser, reportedMessage, ReportReason.ABUSE, null);
             ReflectionTestUtils.setField(saved, "id", 900L);
-            given(reportRepository.save(any(Report.class))).willReturn(saved);
+            given(messageReportRepository.save(any(MessageReport.class))).willReturn(saved);
 
             ReportCreateResponse result = service.create(REPORTER_ID, messageReportRequest(ReportReason.ABUSE, null));
 
@@ -129,7 +145,7 @@ class ReportServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ReportErrorCode.REPORT_TARGET_INVALID);
 
-            verify(reportRepository, never()).save(any());
+            verify(messageReportRepository, never()).save(any());
         }
 
         @Test
@@ -164,7 +180,7 @@ class ReportServiceTest {
         @DisplayName("같은 메시지를 다시 신고하면 DB 유니크 제약 위반을 DUPLICATE_MESSAGE_REPORT로 변환한다")
         void duplicateMessageReport() {
             stubHappyPath();
-            given(reportRepository.save(any(Report.class)))
+            given(messageReportRepository.save(any(MessageReport.class)))
                     .willThrow(new DataIntegrityViolationException("uk_reports_message"));
 
             assertThatThrownBy(() -> service.create(REPORTER_ID, messageReportRequest(ReportReason.ABUSE, null)))
@@ -176,15 +192,14 @@ class ReportServiceTest {
 
     @Nested
     @DisplayName("유저 단독 신고")
-    class UserReport {
+    class UserReportCase {
 
         @Test
-        @DisplayName("메시지 없이 유저만 신고하면 저장된다")
+        @DisplayName("동행 참여자가 유저만 신고하면 저장된다")
         void createsReport() {
-            given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
-            given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
+            stubUserReportHappyPath();
 
-            UserReport saved = UserReport.create(reporter, reportedUser, ReportReason.NO_SHOW, null);
+            UserReport saved = UserReport.create(reporter, reportedUser, companion, ReportReason.NO_SHOW, null);
             ReflectionTestUtils.setField(saved, "id", 901L);
             given(userReportRepository.save(any(UserReport.class))).willReturn(saved);
 
@@ -195,8 +210,24 @@ class ReportServiceTest {
         }
 
         @Test
+        @DisplayName("신고자가 그 동행 참여자가 아니면 REPORT_TARGET_INVALID다")
+        void notParticipant() {
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.create(REPORTER_ID, userReportRequest(ReportReason.NO_SHOW, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ReportErrorCode.REPORT_TARGET_INVALID);
+
+            verify(userReportRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("신고 대상 유저가 없으면 REPORTED_USER_NOT_FOUND다")
         void reportedUserNotFound() {
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+                    .willReturn(Optional.of(participant));
             given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
             given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.empty());
 
@@ -209,10 +240,9 @@ class ReportServiceTest {
         }
 
         @Test
-        @DisplayName("이미 같은 유저를 신고했으면 DB 유니크 제약 위반을 DUPLICATE_USER_REPORT로 변환한다")
+        @DisplayName("같은 동행에서 이미 같은 유저를 신고했으면 DB 유니크 제약 위반을 DUPLICATE_USER_REPORT로 변환한다")
         void duplicateUserReport() {
-            given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
-            given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
+            stubUserReportHappyPath();
             given(userReportRepository.save(any(UserReport.class)))
                     .willThrow(new DataIntegrityViolationException("uk_user_reports_target"));
 
@@ -252,10 +282,10 @@ class ReportServiceTest {
         void etcWithReasonTextPasses() {
             stubHappyPath();
 
-            Report saved = Report.createMessageReport(
+            MessageReport saved = MessageReport.create(
                     reporter, reportedUser, reportedMessage, ReportReason.ETC, "기타 사유입니다");
             ReflectionTestUtils.setField(saved, "id", 902L);
-            given(reportRepository.save(any(Report.class))).willReturn(saved);
+            given(messageReportRepository.save(any(MessageReport.class))).willReturn(saved);
 
             ReportCreateResponse result = service.create(REPORTER_ID, messageReportRequest(ReportReason.ETC, "기타 사유입니다"));
 

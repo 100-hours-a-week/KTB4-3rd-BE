@@ -27,7 +27,7 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_reports_message", columnNames = {"reporter_id", "reported_message_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Report {
+public class MessageReport {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,8 +55,8 @@ public class Report {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private Report(User reporter, User reportedUser, Message reportedMessage,
-                    ReportReason reason, String reasonText) {
+    private MessageReport(User reporter, User reportedUser, Message reportedMessage,
+                           ReportReason reason, String reasonText) {
         this.reporter = reporter;
         this.reportedUser = reportedUser;
         this.reportedMessage = reportedMessage;
@@ -64,9 +64,9 @@ public class Report {
         this.reasonText = reasonText;
     }
 
-    public static Report createMessageReport(User reporter, User reportedUser, Message reportedMessage,
-                                              ReportReason reason, String reasonText) {
-        return new Report(reporter, reportedUser, reportedMessage, reason, reasonText);
+    public static MessageReport create(User reporter, User reportedUser, Message reportedMessage,
+                                        ReportReason reason, String reasonText) {
+        return new MessageReport(reporter, reportedUser, reportedMessage, reason, reasonText);
     }
 
     @PrePersist

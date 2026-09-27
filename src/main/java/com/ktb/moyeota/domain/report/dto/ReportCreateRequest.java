@@ -10,6 +10,8 @@ public record ReportCreateRequest(
 
         Long reportedMessageId,
 
+        Long companionId,
+
         @NotNull
         ReportReason reason,
 
