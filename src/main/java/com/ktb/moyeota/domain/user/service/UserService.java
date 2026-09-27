@@ -14,18 +14,21 @@ import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.entity.UserAgreement;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.domain.user.model.BankAccountCommand;
+import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
 import com.ktb.moyeota.domain.user.repository.UserAgreementRepository;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
@@ -59,6 +62,14 @@ public class UserService {
 
     public boolean isNicknameAvailable(String nickname) {
         return !userRepository.existsByNickname(nickname);
+    }
+
+    @Transactional(readOnly = true)
+    public MyProfile findMe(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
+        return new MyProfile(user.getId(), user.getNickname(),
+                imageUrlResolver.toUrl(user.getProfileImageUrl()), user.hasBankAccount());
     }
 
     private String promoteProfileImage(SignupSessionView signupSession, String tmpKey) {
