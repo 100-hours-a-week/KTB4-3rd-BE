@@ -62,6 +62,14 @@ public class Message {
         return new Message(chatRoom, leaver, clientMessageId, MessageType.SYSTEM_LEAVE, content);
     }
 
+    public static Message rideStartedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_STARTED, content);
+    }
+
+    public static Message rideEndedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_ENDED, content);
+    }
+
     public static Message rideStartRequestedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_START_REQUESTED, content);
     }

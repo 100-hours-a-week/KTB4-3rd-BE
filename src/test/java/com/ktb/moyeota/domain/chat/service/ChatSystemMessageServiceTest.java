@@ -75,6 +75,22 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
+    @DisplayName("운행 시작 알림을 보낸 사람 없이 저장하고 구독자에게 보낼 이벤트로 발행한다")
+    void savesAndPublishesRideStarted() {
+        service.rideStarted(chatRoom);
+
+        assertSavedAndPublished(MessageType.SYSTEM_RIDE_STARTED);
+    }
+
+    @Test
+    @DisplayName("운행 종료 알림을 보낸 사람 없이 저장하고 구독자에게 보낼 이벤트로 발행한다")
+    void savesAndPublishesRideEnded() {
+        service.rideEnded(chatRoom);
+
+        assertSavedAndPublished(MessageType.SYSTEM_RIDE_ENDED);
+    }
+
+    @Test
     @DisplayName("운행 시작 확인 카드를 보낸 사람 없이 음수 멱등키로 저장한다")
     void savesRideStartRequestWithNegativeKey() {
         service.requestRideStart(chatRoom);
@@ -130,5 +146,17 @@ class ChatSystemMessageServiceTest {
         assertThat(event.getValue().roomId()).isEqualTo(ROOM_ID);
         assertThat(event.getValue().message().id()).isEqualTo(MESSAGE_ID);
         assertThat(event.getValue().message().joiner().id()).isEqualTo(7L);
+    }
+
+    private void assertSavedAndPublished(MessageType type) {
+        ArgumentCaptor<Message> saved = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(saved.capture());
+        assertThat(saved.getValue().getMessageType()).isEqualTo(type);
+        assertThat(saved.getValue().getSender()).isNull();
+        assertThat(saved.getValue().getClientMessageId()).isNegative();
+
+        ArgumentCaptor<ChatMessageCreatedEvent> event = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().message().type()).isEqualTo(type);
     }
 }
