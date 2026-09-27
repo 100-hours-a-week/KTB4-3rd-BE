@@ -39,10 +39,35 @@ class CompanionParticipantTest {
         @Test
         @DisplayName("이미 끝난 참여는 나갈 수 없다")
         void notPending() {
-            CompanionParticipant settled = participant(pot, member, COMPLETED);
+            CompanionParticipant completed = participant(pot, member, COMPLETED);
 
-            assertThatThrownBy(settled::leave).isInstanceOf(IllegalStateException.class);
-            assertThat(settled.getOutcomeStatus()).isEqualTo(COMPLETED);
+            assertThatThrownBy(completed::leave).isInstanceOf(IllegalStateException.class);
+            assertThat(completed.getOutcomeStatus()).isEqualTo(COMPLETED);
+        }
+    }
+
+    @Nested
+    @DisplayName("완주")
+    class Complete {
+
+        @Test
+        @DisplayName("완주하면 나간 시각과 함께 완주한 참여가 된다")
+        void completes() {
+            CompanionParticipant participant = participant(pot, member, PENDING);
+
+            participant.complete();
+
+            assertThat(participant.isCompleted()).isTrue();
+            assertThat(participant.getLeftAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("이미 나간 참여는 완주할 수 없다")
+        void notPending() {
+            CompanionParticipant left = participant(pot, member, INCOMPLETE);
+
+            assertThatThrownBy(left::complete).isInstanceOf(IllegalStateException.class);
+            assertThat(left.getOutcomeStatus()).isEqualTo(INCOMPLETE);
         }
     }
 
