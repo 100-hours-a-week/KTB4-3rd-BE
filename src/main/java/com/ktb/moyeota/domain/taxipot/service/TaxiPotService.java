@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -121,6 +122,17 @@ public class TaxiPotService {
             default -> throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         return toTaxiPotDetail(companion);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findRideEndDueIds() {
+        return taxiPotRepository.findRideEndDueIds(LocalDateTime.now(clock));
+    }
+
+    @Transactional
+    public void requestRideEnd(Long taxiPotId) {
+        Companion taxiPot = taxiPotRepository.getReferenceById(taxiPotId);
+        chatSystemMessageService.requestRideEnd(findChatRoom(taxiPot));
     }
 
     @Transactional
