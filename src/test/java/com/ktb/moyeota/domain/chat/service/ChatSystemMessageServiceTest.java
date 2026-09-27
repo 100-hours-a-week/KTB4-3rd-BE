@@ -75,6 +75,22 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
+    @DisplayName("나가면 나간 사람의 퇴장 메시지를 저장하고 구독자에게 보낼 이벤트로 발행한다")
+    void savesAndPublishesLeave() {
+        service.leave(chatRoom, joiner);
+
+        ArgumentCaptor<Message> saved = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(saved.capture());
+        assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_LEAVE);
+        assertThat(saved.getValue().getSender()).isEqualTo(joiner);
+        assertThat(saved.getValue().getClientMessageId()).isNegative();
+
+        ArgumentCaptor<ChatMessageCreatedEvent> event = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().message().leaver().id()).isEqualTo(7L);
+    }
+
+    @Test
     @DisplayName("운행 시작 알림을 보낸 사람 없이 저장하고 구독자에게 보낼 이벤트로 발행한다")
     void savesAndPublishesRideStarted() {
         service.rideStarted(chatRoom);
