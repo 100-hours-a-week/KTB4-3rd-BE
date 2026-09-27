@@ -55,7 +55,13 @@ public class SecurityConfig {
                         .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
                         .requestMatchers(HttpMethod.POST, "/api/images/presigned-url")
                         .hasAnyAuthority(Authority.SIGNUP_NAME, Authority.USER_NAME)
-                        .requestMatchers(HttpMethod.GET, "/api/map-pins", "/api/nearby-posts").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                            "/api/map-pins",
+                            "/api/nearby-posts",
+                            "/api/community-posts/*/comments",
+                            "/api/companion-posts/*",
+                            "/api/community-posts/*"
+                        ).permitAll()
                         .requestMatchers("/api/ws/**").permitAll()
                         .anyRequest().hasAuthority(Authority.USER_NAME))
                 .oauth2ResourceServer(oauth2 -> oauth2
