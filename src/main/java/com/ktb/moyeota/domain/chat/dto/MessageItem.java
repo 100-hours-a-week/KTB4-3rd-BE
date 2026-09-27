@@ -30,6 +30,8 @@ public record MessageItem(
             case SYSTEM_LEAVE -> leave(message);
             case SYSTEM_RIDE_START_REQUESTED -> rideStartRequested(message);
             case SYSTEM_RIDE_END_REQUESTED -> rideEndRequested(message);
+            case SYSTEM_RIDE_STARTED -> rideStarted(message);
+            case SYSTEM_RIDE_ENDED -> rideEnded(message);
         };
     }
 
@@ -85,6 +87,30 @@ public record MessageItem(
     }
 
     private static MessageItem rideEndRequested(Message message) {
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                null,
+                message.getCreatedAt()
+        );
+    }
+
+    private static MessageItem rideStarted(Message message) {
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                null,
+                message.getCreatedAt()
+        );
+    }
+
+    private static MessageItem rideEnded(Message message) {
         return new MessageItem(
                 message.getId(),
                 message.getMessageType(),
