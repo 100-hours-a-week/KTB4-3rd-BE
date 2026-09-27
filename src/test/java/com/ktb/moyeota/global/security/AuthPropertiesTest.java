@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.web.server.Cookie.SameSite;
 
 class AuthPropertiesTest {
 
@@ -48,5 +49,27 @@ class AuthPropertiesTest {
         assertThatThrownBy(() -> new AuthProperties.Jwt(VALID_SECRET, "moyeota", Duration.ZERO))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("access-token-ttl");
+    }
+
+    @Test
+    @DisplayName("SameSite가 none인데 secure가 꺼져 있으면 거부한다")
+    void rejectsSameSiteNoneWithoutSecure() {
+        assertThatThrownBy(() -> new AuthProperties.Cookie(false, SameSite.NONE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("same-site");
+    }
+
+    @Test
+    @DisplayName("SameSite가 none이고 secure가 켜져 있으면 통과한다")
+    void acceptsSameSiteNoneWithSecure() {
+        assertThatCode(() -> new AuthProperties.Cookie(true, SameSite.NONE)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("SameSite가 비어 있으면 거부한다")
+    void rejectsMissingSameSite() {
+        assertThatThrownBy(() -> new AuthProperties.Cookie(true, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("same-site");
     }
 }

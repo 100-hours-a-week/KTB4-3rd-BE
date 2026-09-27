@@ -33,6 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.boot.web.server.Cookie.SameSite;
 
 class OAuthLoginServiceTest {
 
@@ -67,7 +68,7 @@ class OAuthLoginServiceTest {
                             Duration.ofMinutes(30)),
                     new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
                     new AuthProperties.Signup(SIGNUP_TTL),
-                    new AuthProperties.Cookie(false)),
+                    new AuthProperties.Cookie(false, SameSite.LAX)),
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Nested

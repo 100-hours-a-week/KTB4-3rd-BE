@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
@@ -100,7 +101,7 @@ class AccessTokenProviderTest {
                 new AuthProperties.Jwt(secret, issuer, TTL),
                 new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
                 new AuthProperties.Signup(Duration.ofMinutes(15)),
-                new AuthProperties.Cookie(false));
+                new AuthProperties.Cookie(false, SameSite.LAX));
     }
 
     private Clock fixedAt(Instant now) {

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.web.server.Cookie.SameSite;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 
@@ -27,7 +28,7 @@ class AuthCookiesTest {
             new AuthProperties.Jwt("0123456789abcdef0123456789abcdef", "moyeota", Duration.ofMinutes(30)),
             new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
             new AuthProperties.Signup(Duration.ofMinutes(15)),
-            new AuthProperties.Cookie(false)));
+            new AuthProperties.Cookie(false, SameSite.LAX)));
 
     @ParameterizedTest
     @ValueSource(strings = {"/api/users", "/api/users/nickname-availability", "/api/images/presigned-url"})
@@ -64,6 +65,37 @@ class AuthCookiesTest {
 
         assertThat(cookieNamesSentTo(browser, "/api/auth/kakao/callback")).contains(AuthCookies.OAUTH_FRONT);
         assertThat(cookieNamesSentTo(browser, "/api/users")).doesNotContain(AuthCookies.OAUTH_FRONT);
+    }
+
+    @Test
+    @DisplayName("기본 설정이면 인증 쿠키는 SameSite=Lax다")
+    void laxByDefault() {
+        assertThat(authCookies.refreshToken("refresh-value", Duration.ofDays(7)).getSameSite()).isEqualTo("Lax");
+    }
+
+    @Test
+    @DisplayName("SameSite를 none으로 설정하면 모든 인증 쿠키가 SameSite=None; Secure로 나간다")
+    void noneAppliesToEveryCookie() {
+        AuthCookies crossSite = new AuthCookies(new AuthProperties(
+                new AuthProperties.Jwt("0123456789abcdef0123456789abcdef", "moyeota", Duration.ofMinutes(30)),
+                new AuthProperties.Refresh(Duration.ofDays(7), Duration.ofSeconds(10)),
+                new AuthProperties.Signup(Duration.ofMinutes(15)),
+                new AuthProperties.Cookie(true, SameSite.NONE)));
+
+        List<ResponseCookie> cookies = List.of(
+                crossSite.refreshToken("refresh-value", Duration.ofDays(7)),
+                crossSite.expiredRefreshToken(),
+                crossSite.oauthState("state-value"),
+                crossSite.expiredOauthState(),
+                crossSite.oauthFront("http://localhost:3000"),
+                crossSite.expiredOauthFront(),
+                crossSite.signupToken("signup-value", Duration.ofMinutes(15)),
+                crossSite.expiredSignupToken());
+
+        assertThat(cookies).allSatisfy(cookie -> {
+            assertThat(cookie.getSameSite()).isEqualTo("None");
+            assertThat(cookie.isSecure()).isTrue();
+        });
     }
 
     private CookieManager browserWith(ResponseCookie cookie) throws IOException {
