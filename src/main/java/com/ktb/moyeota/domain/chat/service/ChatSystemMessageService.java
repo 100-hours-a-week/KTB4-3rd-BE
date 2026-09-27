@@ -35,6 +35,16 @@ public class ChatSystemMessageService {
         publish(chatRoom, Message.rideEndRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void rideStarted(ChatRoom chatRoom) {
+        publish(chatRoom, Message.rideStartedSystemMessage(chatRoom, newSystemMessageKey(), null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void rideEnded(ChatRoom chatRoom) {
+        publish(chatRoom, Message.rideEndedSystemMessage(chatRoom, newSystemMessageKey(), null));
+    }
+
     private void publish(ChatRoom chatRoom, Message message) {
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
