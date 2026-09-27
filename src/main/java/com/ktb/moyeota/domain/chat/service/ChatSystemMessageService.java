@@ -26,6 +26,11 @@ public class ChatSystemMessageService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public void leave(ChatRoom chatRoom, User leaver) {
+        publish(chatRoom, Message.leaveSystemMessage(chatRoom, leaver, newSystemMessageKey(), null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void requestRideStart(ChatRoom chatRoom) {
         publish(chatRoom, Message.rideStartRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }

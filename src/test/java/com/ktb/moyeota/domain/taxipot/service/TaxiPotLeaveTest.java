@@ -1,11 +1,17 @@
 package com.ktb.moyeota.domain.taxipot.service;
 
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
+import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
+import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.TaxiPotFixture.startCommand;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.chat.entity.MessageType;
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -17,6 +23,7 @@ import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +136,61 @@ class TaxiPotLeaveTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(TaxiPotErrorCode.TAXI_POT_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("나가면 채팅방에 나간 사람의 퇴장 메시지가 남는다")
+    void leavesLeaveMessage() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User member = entityManager.persist(bankAccountHolder("동승자"));
+        CurrentTaxiPot pot = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+        taxiPotService.start(member.getId(), startCommand(DEPARTURE_AT));
+
+        taxiPotService.leave(member.getId(), pot.id());
+
+        assertThat(leaverIds(pot.id())).containsExactly(member.getId());
+    }
+
+    @Test
+    @DisplayName("정산까지 마친 사람이 나가면 퇴장 메시지가 남지 않는다")
+    void noLeaveMessageWhenSettled() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User member = entityManager.persist(bankAccountHolder("동승자"));
+        Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(pot));
+        entityManager.persist(participant(pot, host, OutcomeStatus.PENDING));
+        entityManager.persistAndFlush(participant(pot, member, OutcomeStatus.COMPLETED));
+
+        taxiPotService.leave(member.getId(), pot.getId());
+
+        assertThat(leaverIds(pot.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("운행 중이라 나가기가 거절되면 퇴장 메시지가 남지 않는다")
+    void noLeaveMessageWhenRejected() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User member = entityManager.persist(bankAccountHolder("동승자"));
+        Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.IN_PROGRESS, 2));
+        entityManager.persist(ChatRoom.create(pot));
+        entityManager.persist(participant(pot, host, OutcomeStatus.PENDING));
+        entityManager.persistAndFlush(participant(pot, member, OutcomeStatus.PENDING));
+
+        assertThatThrownBy(() -> taxiPotService.leave(member.getId(), pot.getId()))
+                .isInstanceOf(BusinessException.class);
+        assertThat(leaverIds(pot.getId())).isEmpty();
+    }
+
+    private List<Long> leaverIds(Long taxiPotId) {
+        entityManager.flush();
+        return entityManager.getEntityManager()
+                .createQuery("SELECT m FROM Message m WHERE m.chatRoom.companion.id = :potId"
+                        + " AND m.messageType = :type ORDER BY m.id", Message.class)
+                .setParameter("potId", taxiPotId)
+                .setParameter("type", MessageType.SYSTEM_LEAVE)
+                .getResultList().stream()
+                .map(m -> m.getSender().getId())
+                .toList();
     }
 
     private Companion reload(CurrentTaxiPot pot) {
