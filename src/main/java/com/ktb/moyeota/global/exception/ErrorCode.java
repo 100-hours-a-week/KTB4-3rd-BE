@@ -9,4 +9,12 @@ public interface ErrorCode {
     HttpStatus getStatus();
 
     String getMessage();
+
+    default String getCode() {
+        return name();
+    }
+
+    default String getField() {
+        return null;
+    }
 }

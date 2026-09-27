@@ -115,14 +115,15 @@ public class GlobalExceptionHandler {
 
     private static ResponseEntity<ApiResponse<Void>> fail(ErrorCode errorCode) {
         return ResponseEntity.status(errorCode.getStatus())
-                .body(ApiResponse.fail(errorCode.getMessage(), ErrorResponse.of(errorCode.name())));
+                .body(ApiResponse.fail(errorCode.getMessage(),
+                        ErrorResponse.of(errorCode.getCode(), errorCode.getField())));
     }
 
     private static ResponseEntity<ApiResponse<Void>> fail(
             ErrorCode errorCode, List<FieldErrorDetail> details) {
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ApiResponse.fail(errorCode.getMessage(),
-                        ErrorResponse.of(errorCode.name(), representativeFieldOf(details), details)));
+                        ErrorResponse.of(errorCode.getCode(), representativeFieldOf(details), details)));
     }
 
     private static ResponseEntity<ApiResponse<Void>> validationFailed(
