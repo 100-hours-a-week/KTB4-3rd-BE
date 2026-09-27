@@ -86,7 +86,7 @@ class ReportServiceTest {
         ChatRoom chatRoom = ChatRoom.create(companion);
         ReflectionTestUtils.setField(chatRoom, "id", ROOM_ID);
 
-        reportedMessage = Message.createGeneralMessage(chatRoom, reportedUser, 1L, "부적절한 내용");
+        reportedMessage = Message.createGeneralMessage(chatRoom, reportedUser, "1", "부적절한 내용");
         ReflectionTestUtils.setField(reportedMessage, "id", MESSAGE_ID);
 
         participant = CompanionParticipant.join(companion, reporter);

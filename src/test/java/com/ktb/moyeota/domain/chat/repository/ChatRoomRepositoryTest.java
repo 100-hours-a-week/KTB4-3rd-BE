@@ -230,7 +230,7 @@ class ChatRoomRepositoryTest {
         private ChatRoomJoinResult joinRoomWithMessage(Companion companion, User participantUser, String content) {
             ChatRoom chatRoom = persist(ChatRoom.create(companion));
             CompanionParticipant participant = persist(CompanionParticipant.join(companion, participantUser));
-            Message message = persist(Message.createGeneralMessage(chatRoom, participantUser, 1L, content));
+            Message message = persist(Message.createGeneralMessage(chatRoom, participantUser, "1", content));
             chatRoom.updateLastMessageId(message.getId());
             entityManager.persistAndFlush(chatRoom);
             return new ChatRoomJoinResult(chatRoom, participant, message);

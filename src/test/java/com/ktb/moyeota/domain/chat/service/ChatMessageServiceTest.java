@@ -173,7 +173,7 @@ class ChatMessageServiceTest {
     }
 
     private Message message(long id) {
-        Message message = Message.createGeneralMessage(chatRoom, sender, id, "content-" + id);
+        Message message = Message.createGeneralMessage(chatRoom, sender, String.valueOf(id), "content-" + id);
         ReflectionTestUtils.setField(message, "id", id);
         return message;
     }

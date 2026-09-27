@@ -29,8 +29,8 @@ public class Message {
     @JoinColumn(name = "sender_id")
     private User sender;
 
-    @Column(name = "client_message_id", nullable = false)
-    private Long clientMessageId; // 멱등키
+    @Column(name = "client_message_id", nullable = false, length = 36)
+    private String clientMessageId; // 멱등키(UUID)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
@@ -42,7 +42,7 @@ public class Message {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private Message(ChatRoom chatRoom, User sender, Long clientMessageId, MessageType messageType, String content){
+    private Message(ChatRoom chatRoom, User sender, String clientMessageId, MessageType messageType, String content){
         this.chatRoom = chatRoom;
         this.sender = sender;
         this.clientMessageId = clientMessageId;
@@ -50,31 +50,31 @@ public class Message {
         this.content = content;
     }
 
-    public static Message createGeneralMessage(ChatRoom chatRoom, User sender, Long clientMessageId, String content) {
+    public static Message createGeneralMessage(ChatRoom chatRoom, User sender, String clientMessageId, String content) {
         return new Message(chatRoom, sender, clientMessageId, MessageType.TEXT, content);
     }
 
-    public static Message joinSystemMessage(ChatRoom chatRoom, User joiner, Long clientMessageId, String content) {
+    public static Message joinSystemMessage(ChatRoom chatRoom, User joiner, String clientMessageId, String content) {
         return new Message(chatRoom, joiner, clientMessageId, MessageType.SYSTEM_JOIN, content);
     }
 
-    public static Message leaveSystemMessage(ChatRoom chatRoom, User leaver, Long clientMessageId, String content) {
+    public static Message leaveSystemMessage(ChatRoom chatRoom, User leaver, String clientMessageId, String content) {
         return new Message(chatRoom, leaver, clientMessageId, MessageType.SYSTEM_LEAVE, content);
     }
 
-    public static Message rideStartedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+    public static Message rideStartedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_STARTED, content);
     }
 
-    public static Message rideEndedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+    public static Message rideEndedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_ENDED, content);
     }
 
-    public static Message rideStartRequestedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+    public static Message rideStartRequestedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_START_REQUESTED, content);
     }
 
-    public static Message rideEndRequestedSystemMessage(ChatRoom chatRoom, Long clientMessageId, String content) {
+    public static Message rideEndRequestedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_END_REQUESTED, content);
     }
 

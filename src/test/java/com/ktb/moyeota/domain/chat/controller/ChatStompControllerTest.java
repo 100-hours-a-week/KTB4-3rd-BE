@@ -50,7 +50,7 @@ class ChatStompControllerTest {
     @Test
     @DisplayName("메시지가 저장되면 방 구독 destination으로 브로드캐스트한다")
     void broadcastsWhenSaved() {
-        ChatMessageSendRequest request = new ChatMessageSendRequest(1L, "안녕하세요");
+        ChatMessageSendRequest request = new ChatMessageSendRequest("1", "안녕하세요");
         MessageItem item = new MessageItem(
                 900L, MessageType.TEXT,
                 new MessageItem.Sender(USER_ID, "우림", null),
@@ -65,7 +65,7 @@ class ChatStompControllerTest {
     @Test
     @DisplayName("저장되지 않으면(멱등 재처리 등) 브로드캐스트하지 않는다")
     void doesNotBroadcastWhenEmpty() {
-        ChatMessageSendRequest request = new ChatMessageSendRequest(1L, "안녕하세요");
+        ChatMessageSendRequest request = new ChatMessageSendRequest("1", "안녕하세요");
         given(chatMessageSendService.send(USER_ID, ROOM_ID, request)).willReturn(Optional.empty());
 
         controller.send(ROOM_ID, request, principal);
@@ -76,7 +76,7 @@ class ChatStompControllerTest {
     @Test
     @DisplayName("principal의 이름을 userId로 변환해서 서비스에 전달한다")
     void parsesUserIdFromPrincipal() {
-        ChatMessageSendRequest request = new ChatMessageSendRequest(1L, "안녕하세요");
+        ChatMessageSendRequest request = new ChatMessageSendRequest("1", "안녕하세요");
         given(chatMessageSendService.send(USER_ID, ROOM_ID, request)).willReturn(Optional.empty());
 
         controller.send(ROOM_ID, request, principal);

@@ -108,7 +108,7 @@ class CompanionParticipantRepositoryTest {
         @Test
         @DisplayName("읽은 메시지가 없으면(NULL) 갱신된다")
         void updatesWhenNeverRead() {
-            Message message = persist(Message.createGeneralMessage(chatRoom, host, 1L, "hi"));
+            Message message = persist(Message.createGeneralMessage(chatRoom, host, "1", "hi"));
 
             int updated = companionParticipantRepository.updateLastReadMessageIfNewer(
                     participant.getId(), message, message.getId());
@@ -122,10 +122,10 @@ class CompanionParticipantRepositoryTest {
         @Test
         @DisplayName("더 최신 메시지면 갱신된다")
         void updatesWhenNewer() {
-            Message first = persist(Message.createGeneralMessage(chatRoom, host, 1L, "1"));
+            Message first = persist(Message.createGeneralMessage(chatRoom, host, "1", "1"));
             ReflectionTestUtils.setField(participant, "message", first);
             persist(participant);
-            Message second = persist(Message.createGeneralMessage(chatRoom, host, 2L, "2"));
+            Message second = persist(Message.createGeneralMessage(chatRoom, host, "2", "2"));
 
             int updated = companionParticipantRepository.updateLastReadMessageIfNewer(
                     participant.getId(), second, second.getId());
@@ -138,8 +138,8 @@ class CompanionParticipantRepositoryTest {
         void doesNotRegressToOlder() {
             // id는 persist 순서(자동 증가)로 매겨지므로, "이미 읽은 메시지"가 더 큰 id를 갖도록
             // older -> newer 순서로 먼저 persist한다.
-            Message older = persist(Message.createGeneralMessage(chatRoom, host, 1L, "1"));
-            Message newer = persist(Message.createGeneralMessage(chatRoom, host, 2L, "2"));
+            Message older = persist(Message.createGeneralMessage(chatRoom, host, "1", "1"));
+            Message newer = persist(Message.createGeneralMessage(chatRoom, host, "2", "2"));
             ReflectionTestUtils.setField(participant, "message", newer);
             persist(participant);
 

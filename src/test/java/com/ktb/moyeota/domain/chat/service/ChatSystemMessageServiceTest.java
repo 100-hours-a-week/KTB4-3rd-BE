@@ -55,7 +55,7 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
-    @DisplayName("입장하면 입장한 사람의 시스템 메시지를 음수 멱등키로 저장한다")
+    @DisplayName("입장하면 입장한 사람의 시스템 메시지를 UUID 멱등키로 저장한다")
     void savesJoinMessageWithNegativeKey() {
         service.enter(chatRoom, joiner);
 
@@ -63,7 +63,7 @@ class ChatSystemMessageServiceTest {
         verify(messageRepository).save(saved.capture());
         assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_JOIN);
         assertThat(saved.getValue().getSender()).isEqualTo(joiner);
-        assertThat(saved.getValue().getClientMessageId()).isNegative();
+        assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     }
 
     @Test
@@ -83,7 +83,7 @@ class ChatSystemMessageServiceTest {
         verify(messageRepository).save(saved.capture());
         assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_LEAVE);
         assertThat(saved.getValue().getSender()).isEqualTo(joiner);
-        assertThat(saved.getValue().getClientMessageId()).isNegative();
+        assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
         ArgumentCaptor<ChatMessageCreatedEvent> event = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
@@ -107,7 +107,7 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
-    @DisplayName("운행 시작 확인 카드를 보낸 사람 없이 음수 멱등키로 저장한다")
+    @DisplayName("운행 시작 확인 카드를 보낸 사람 없이 UUID 멱등키로 저장한다")
     void savesRideStartRequestWithNegativeKey() {
         service.requestRideStart(chatRoom);
 
@@ -115,7 +115,7 @@ class ChatSystemMessageServiceTest {
         verify(messageRepository).save(saved.capture());
         assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_RIDE_START_REQUESTED);
         assertThat(saved.getValue().getSender()).isNull();
-        assertThat(saved.getValue().getClientMessageId()).isNegative();
+        assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     }
 
     @Test
@@ -130,7 +130,7 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
-    @DisplayName("운행 종료 확인 카드를 보낸 사람 없이 음수 멱등키로 저장한다")
+    @DisplayName("운행 종료 확인 카드를 보낸 사람 없이 UUID 멱등키로 저장한다")
     void savesRideEndRequestWithNegativeKey() {
         service.requestRideEnd(chatRoom);
 
@@ -138,7 +138,7 @@ class ChatSystemMessageServiceTest {
         verify(messageRepository).save(saved.capture());
         assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_RIDE_END_REQUESTED);
         assertThat(saved.getValue().getSender()).isNull();
-        assertThat(saved.getValue().getClientMessageId()).isNegative();
+        assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     }
 
     @Test
@@ -169,7 +169,7 @@ class ChatSystemMessageServiceTest {
         verify(messageRepository).save(saved.capture());
         assertThat(saved.getValue().getMessageType()).isEqualTo(type);
         assertThat(saved.getValue().getSender()).isNull();
-        assertThat(saved.getValue().getClientMessageId()).isNegative();
+        assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
         ArgumentCaptor<ChatMessageCreatedEvent> event = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
