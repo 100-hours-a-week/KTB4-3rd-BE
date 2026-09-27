@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.entity.UserAgreement;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.domain.user.model.BankAccountCommand;
+import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
@@ -70,6 +71,14 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
         return new MyProfile(user.getId(), user.getNickname(),
                 imageUrlResolver.toUrl(user.getProfileImageUrl()), user.hasBankAccount());
+    }
+
+    @Transactional
+    public MaskedBankAccount replaceBankAccount(Long userId, BankAccountCommand bankAccount) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
+        registerBankAccount(user, bankAccount);
+        return MaskedBankAccount.of(bankAccount.bankName(), bankAccount.accountNo());
     }
 
     private String promoteProfileImage(SignupSessionView signupSession, String tmpKey) {
