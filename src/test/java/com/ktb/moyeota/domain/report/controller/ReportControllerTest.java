@@ -10,8 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ktb.moyeota.domain.report.entity.Report;
-import com.ktb.moyeota.domain.report.entity.ReportReason;
+import com.ktb.moyeota.domain.report.dto.ReportCreateResponse;
 import com.ktb.moyeota.domain.report.error.ReportErrorCode;
 import com.ktb.moyeota.domain.report.service.ReportService;
 import com.ktb.moyeota.global.config.ClockConfig;
@@ -39,7 +38,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -73,17 +71,14 @@ class ReportControllerTest {
         return objectMapper.writeValueAsString(map);
     }
 
-    private static Report reportWithId(Long id) {
-        Report saved = Report.createMessageReport(null, null, null, ReportReason.ABUSE, null);
-        ReflectionTestUtils.setField(saved, "id", id);
-        ReflectionTestUtils.setField(saved, "createdAt", LocalDateTime.of(2026, 9, 6, 9, 0, 0));
-        return saved;
+    private static ReportCreateResponse responseWithId(Long id) {
+        return new ReportCreateResponse(id, LocalDateTime.of(2026, 9, 6, 9, 0, 0));
     }
 
     @Test
-    @DisplayName("신고하면 201과 id/created_at을 응답한다")
+    @DisplayName("메시지 신고하면 201과 id/created_at을 응답한다")
     void create() throws Exception {
-        given(reportService.create(eq(42L), any())).willReturn(reportWithId(4L));
+        given(reportService.create(eq(42L), any())).willReturn(responseWithId(4L));
 
         mockMvc.perform(post("/api/reports").with(member())
                         .contentType("application/json")
@@ -92,6 +87,19 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.message").value("신고가 접수되었습니다"))
                 .andExpect(jsonPath("$.data.id").value(4))
                 .andExpect(jsonPath("$.data.created_at").exists());
+    }
+
+    @Test
+    @DisplayName("유저 단독 신고하면(reported_message_id=null) 201과 id/created_at을 응답한다")
+    void createUserReport() throws Exception {
+        given(reportService.create(eq(42L), any())).willReturn(responseWithId(5L));
+
+        mockMvc.perform(post("/api/reports").with(member())
+                        .contentType("application/json")
+                        .content(body(7L, null, "NO_SHOW", null)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("신고가 접수되었습니다"))
+                .andExpect(jsonPath("$.data.id").value(5));
     }
 
     @Test
@@ -106,7 +114,7 @@ class ReportControllerTest {
     }
 
     @Test
-    @DisplayName("필수 필드(reported_user_id/reported_message_id/reason)가 없으면 422 VALIDATION_ERROR다 (공통 Bean Validation 컨벤션)")
+    @DisplayName("필수 필드(reported_user_id/reason)가 없으면 422 VALIDATION_ERROR다 (공통 Bean Validation 컨벤션)")
     void missingRequiredField() throws Exception {
         mockMvc.perform(post("/api/reports").with(member())
                         .contentType("application/json")
@@ -145,6 +153,21 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.message").value("이미 신고한 메시지입니다"))
                 .andExpect(jsonPath("$.error.code").value("DUPLICATE_REPORT"))
                 .andExpect(jsonPath("$.error.field").value("reported_message_id"));
+    }
+
+    @Test
+    @DisplayName("이미 신고한 유저면 409 DUPLICATE_REPORT(field: reported_user_id)다 (API 명세서 기준)")
+    void duplicateUserReport() throws Exception {
+        given(reportService.create(eq(42L), any()))
+                .willThrow(new BusinessException(ReportErrorCode.DUPLICATE_USER_REPORT));
+
+        mockMvc.perform(post("/api/reports").with(member())
+                        .contentType("application/json")
+                        .content(body(7L, null, "NO_SHOW", null)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("이미 신고한 유저입니다"))
+                .andExpect(jsonPath("$.error.code").value("DUPLICATE_REPORT"))
+                .andExpect(jsonPath("$.error.field").value("reported_user_id"));
     }
 
     private static RequestPostProcessor member() {
