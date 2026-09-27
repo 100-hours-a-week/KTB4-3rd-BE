@@ -43,6 +43,7 @@ moyeota:
   kakao-navi:
     directions-uri: https://apis-navi.kakaomobility.com/v1/directions
   taxi-pot:
+    ride-start-sweep-delay: 1m
     ride-end-sweep-delay: 10m
   storage:
     s3:

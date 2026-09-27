@@ -125,6 +125,17 @@ public class TaxiPotService {
     }
 
     @Transactional(readOnly = true)
+    public List<Long> findRideStartDueIds() {
+        return taxiPotRepository.findRideStartDueIds(LocalDateTime.now(clock));
+    }
+
+    @Transactional
+    public void requestRideStart(Long taxiPotId) {
+        Companion taxiPot = taxiPotRepository.getReferenceById(taxiPotId);
+        chatSystemMessageService.requestRideStart(findChatRoom(taxiPot));
+    }
+
+    @Transactional(readOnly = true)
     public List<Long> findRideEndDueIds() {
         return taxiPotRepository.findRideEndDueIds(LocalDateTime.now(clock));
     }

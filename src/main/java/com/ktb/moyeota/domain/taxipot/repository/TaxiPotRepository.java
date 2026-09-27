@@ -33,6 +33,19 @@ public interface TaxiPotRepository extends JpaRepository<Companion, Long> {
     @Query("""
             select c.id from Companion c
              where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING
+               and c.currentCount >= 2
+               and c.departureAt <= :now
+               and not exists (
+                   select m from Message m
+                    where m.chatRoom.companion = c
+                      and m.messageType = com.ktb.moyeota.domain.chat.entity.MessageType.SYSTEM_RIDE_START_REQUESTED)
+            """)
+    List<Long> findRideStartDueIds(LocalDateTime now);
+
+    @Query("""
+            select c.id from Companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
                and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS
                and c.etaAt <= :now
                and not exists (
