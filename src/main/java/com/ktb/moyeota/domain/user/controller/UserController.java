@@ -2,10 +2,13 @@ package com.ktb.moyeota.domain.user.controller;
 
 import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.SignupSessionView;
+import com.ktb.moyeota.domain.user.dto.BankAccountRequest;
+import com.ktb.moyeota.domain.user.dto.BankAccountResponse;
 import com.ktb.moyeota.domain.user.dto.MyProfileResponse;
 import com.ktb.moyeota.domain.user.dto.NicknameAvailabilityResponse;
 import com.ktb.moyeota.domain.user.dto.SignupRequest;
 import com.ktb.moyeota.domain.user.dto.SignupResponse;
+import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.service.UserService;
 import com.ktb.moyeota.domain.user.success.UserSuccessCode;
@@ -23,6 +26,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,6 +59,13 @@ public class UserController {
     @GetMapping("/users/me")
     public ApiResponse<MyProfileResponse> getMe(@AuthUser Long userId) {
         return ApiResponse.of(UserSuccessCode.MY_PROFILE_FOUND, MyProfileResponse.from(userService.findMe(userId)));
+    }
+
+    @PutMapping("/users/me/bank-account")
+    public ApiResponse<BankAccountResponse> replaceBankAccount(
+            @AuthUser Long userId, @Valid @RequestBody BankAccountRequest request) {
+        MaskedBankAccount saved = userService.replaceBankAccount(userId, request.toCommand());
+        return ApiResponse.of(UserSuccessCode.BANK_ACCOUNT_SAVED, BankAccountResponse.from(saved));
     }
 
     @GetMapping("/users/nickname-availability")

@@ -14,7 +14,9 @@ public enum UserSuccessCode implements SuccessCode {
 
     NICKNAME_TAKEN("이미 사용 중인 닉네임이에요"),
 
-    MY_PROFILE_FOUND("내 정보 조회에 성공했습니다");
+    MY_PROFILE_FOUND("내 정보 조회에 성공했습니다"),
+
+    BANK_ACCOUNT_SAVED("정산 계좌가 저장되었습니다");
 
     private final String message;
 }
