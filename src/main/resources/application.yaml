@@ -27,6 +27,7 @@ moyeota:
       ttl: 15m
     cookie:
       secure: true
+      same-site: lax
   oauth:
     kakao:
       authorize-uri: https://kauth.kakao.com/oauth/authorize

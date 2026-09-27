@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.web.server.Cookie.SameSite;
 
 class AuthSessionServiceTest {
 
@@ -41,7 +42,7 @@ class AuthSessionServiceTest {
                         Duration.ofMinutes(30)),
                 new AuthProperties.Refresh(REFRESH_TTL, GRACE),
                 new AuthProperties.Signup(Duration.ofMinutes(15)),
-                new AuthProperties.Cookie(false));
+                new AuthProperties.Cookie(false, SameSite.LAX));
         JwtConfig jwtConfig = new JwtConfig();
         AccessTokenProvider accessTokenProvider = new AccessTokenProvider(
                 jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties)), properties, clock);

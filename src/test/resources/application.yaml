@@ -29,6 +29,7 @@ moyeota:
       ttl: 15m
     cookie:
       secure: false
+      same-site: lax
   crypto:
     account-key: bG9jYWwtb25seS1tb3llb3RhLWFjY291bnQta2V5ISE=
   oauth:

@@ -3,6 +3,7 @@ package com.ktb.moyeota.global.security;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.web.server.Cookie.SameSite;
 
 @ConfigurationProperties(prefix = "moyeota.auth")
 public record AuthProperties(Jwt jwt, Refresh refresh, Signup signup, Cookie cookie) {
@@ -64,6 +65,15 @@ public record AuthProperties(Jwt jwt, Refresh refresh, Signup signup, Cookie coo
         }
     }
 
-    public record Cookie(boolean secure) {
+    public record Cookie(boolean secure, SameSite sameSite) {
+
+        public Cookie {
+            if (sameSite == null) {
+                throw new IllegalStateException("moyeota.auth.cookie.same-site가 필요합니다.");
+            }
+            if (sameSite == SameSite.NONE && !secure) {
+                throw new IllegalStateException("moyeota.auth.cookie.same-site가 none이면 secure도 true여야 합니다.");
+            }
+        }
     }
 }

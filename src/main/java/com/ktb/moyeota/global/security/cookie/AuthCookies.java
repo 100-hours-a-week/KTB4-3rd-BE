@@ -19,7 +19,6 @@ public class AuthCookies {
     private static final String OAUTH_STATE_PATH = "/api/auth";
     private static final String SIGNUP_TOKEN_PATH = "/";
     private static final Duration OAUTH_STATE_MAX_AGE = Duration.ofMinutes(5);
-    private static final String SAME_SITE = "Lax";
 
     private final AuthProperties authProperties;
 
@@ -59,7 +58,7 @@ public class AuthCookies {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(authProperties.cookie().secure())
-                .sameSite(SAME_SITE)
+                .sameSite(authProperties.cookie().sameSite().attributeValue())
                 .path(path);
     }
 }
