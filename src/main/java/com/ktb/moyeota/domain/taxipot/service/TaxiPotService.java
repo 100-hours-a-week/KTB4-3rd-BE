@@ -99,6 +99,9 @@ public class TaxiPotService {
                 : null;
 
         taxiPot.leave(leaver, nextHost);
+        if (!leaver.isSettled()) {
+            chatSystemMessageService.leave(findChatRoom(taxiPot), leaver.getUser());
+        }
     }
 
     @Transactional(readOnly = true)
