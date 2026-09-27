@@ -118,7 +118,7 @@ public class TaxiPotService {
 
         switch (target) {
             case IN_PROGRESS -> startRide(companion);
-            case COMPLETED -> companion.completeRide();
+            case COMPLETED -> completeRide(companion);
             default -> throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         return toTaxiPotDetail(companion);
@@ -154,8 +154,14 @@ public class TaxiPotService {
     private void startRide(Companion taxiPot) {
         LocalDateTime startedAt = LocalDateTime.now(clock);
         taxiPot.startRide(startedAt);
+        chatSystemMessageService.rideStarted(findChatRoom(taxiPot));
         eventPublisher.publishEvent(new TaxiPotRideStartedEvent(taxiPot.getId(), startedAt,
                 taxiPot.getOriginLat(), taxiPot.getOriginLng(), taxiPot.getDestLat(), taxiPot.getDestLng()));
+    }
+
+    private void completeRide(Companion taxiPot) {
+        taxiPot.completeRide();
+        chatSystemMessageService.rideEnded(findChatRoom(taxiPot));
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
