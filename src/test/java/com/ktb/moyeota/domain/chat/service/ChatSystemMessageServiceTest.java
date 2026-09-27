@@ -75,6 +75,29 @@ class ChatSystemMessageServiceTest {
     }
 
     @Test
+    @DisplayName("운행 종료 확인 카드를 보낸 사람 없이 음수 멱등키로 저장한다")
+    void savesRideEndRequestWithNegativeKey() {
+        service.requestRideEnd(chatRoom);
+
+        ArgumentCaptor<Message> saved = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(saved.capture());
+        assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_RIDE_END_REQUESTED);
+        assertThat(saved.getValue().getSender()).isNull();
+        assertThat(saved.getValue().getClientMessageId()).isNegative();
+    }
+
+    @Test
+    @DisplayName("운행 종료 확인 카드를 채팅방 구독자에게 보낼 이벤트로 발행한다")
+    void publishesRideEndRequest() {
+        service.requestRideEnd(chatRoom);
+
+        ArgumentCaptor<ChatMessageCreatedEvent> event = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().roomId()).isEqualTo(ROOM_ID);
+        assertThat(event.getValue().message().type()).isEqualTo(MessageType.SYSTEM_RIDE_END_REQUESTED);
+    }
+
+    @Test
     @DisplayName("입장 메시지를 채팅방 구독자에게 보낼 이벤트로 발행한다")
     void publishesCreatedEvent() {
         service.enter(chatRoom, joiner);

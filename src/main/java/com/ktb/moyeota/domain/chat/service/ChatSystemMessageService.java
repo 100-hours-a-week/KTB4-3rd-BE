@@ -22,8 +22,16 @@ public class ChatSystemMessageService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void enter(ChatRoom chatRoom, User joiner) {
-        Message saved = messageRepository.save(
-                Message.joinSystemMessage(chatRoom, joiner, newSystemMessageKey(), null));
+        publish(chatRoom, Message.joinSystemMessage(chatRoom, joiner, newSystemMessageKey(), null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestRideEnd(ChatRoom chatRoom) {
+        publish(chatRoom, Message.rideEndRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
+    }
+
+    private void publish(ChatRoom chatRoom, Message message) {
+        Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
         eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved)));
     }
