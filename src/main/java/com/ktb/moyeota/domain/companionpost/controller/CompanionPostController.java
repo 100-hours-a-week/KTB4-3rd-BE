@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.companionpost.dto.CompanionPostDetailResponse;
 import com.ktb.moyeota.domain.companionpost.service.CompanionPostService;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
+import com.ktb.moyeota.global.security.resolver.AuthUserOptional;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +38,7 @@ public class CompanionPostController {
 
     @GetMapping("/{companion_id}")
     public ResponseEntity<ApiResponse<CompanionPostDetailResponse>> get(
-            @AuthUser Long userId,
+            @AuthUserOptional Long userId,
             @PathVariable("companion_id") Long companionId
     ) {
         CompanionPostDetailResponse response = companionPostService.find(userId, companionId);

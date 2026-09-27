@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.companionpost.service;
 
+import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
@@ -25,6 +26,7 @@ public class CompanionPostService {
 
     private final CompanionPostRepository companionPostRepository;
     private final ChatRoomService chatRoomService;
+    private final CompanionParticipantRepository companionParticipantRepository;
     private final EntityManager entityManager;
 
     @Transactional
@@ -63,10 +65,17 @@ public class CompanionPostService {
 
         boolean isExpired = companion.getDepartureAt().isBefore(LocalDateTime.now());
         boolean isFull = companion.getCurrentCount() >= companion.getCapacity();
-        boolean joined = companion.getHost().getId().equals(userId);
+        boolean joined = isJoined(userId, companionId);
         String authorNickname = companion.getHost().getNickname();
 
         return CompanionPostDetailResponse.of(companion, isExpired, isFull, joined, authorNickname);
+    }
+
+    private boolean isJoined(Long userId, Long companionId) {
+        if (userId == null) {
+            return false;
+        }
+        return companionParticipantRepository.findActiveByCompanionIdAndUserId(companionId, userId).isPresent();
     }
 
     private Companion createCompanionPost(User host, CompanionPostCreateRequest request, int capacity) {

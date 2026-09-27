@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -48,13 +50,17 @@ class CompanionPostServiceTest {
     private ChatRoomService chatRoomService;
 
     @Mock
+    private CompanionParticipantRepository companionParticipantRepository;
+
+    @Mock
     private EntityManager entityManager;
 
     private CompanionPostService service;
 
     @BeforeEach
     void setUp() {
-        service = new CompanionPostService(companionPostRepository, chatRoomService, entityManager);
+        service = new CompanionPostService(
+                companionPostRepository, chatRoomService, companionParticipantRepository, entityManager);
     }
 
     private User activeUser() {
@@ -205,9 +211,8 @@ class CompanionPostServiceTest {
                     .isEqualTo(CompanionPostErrorCode.COMPANION_POST_CANCELED);
         }
 
-        private Companion companionWith(LocalDateTime departureAt, int currentCount, int capacity, Long hostId) {
+        private Companion companionWith(LocalDateTime departureAt, int currentCount, int capacity) {
             User host = mock(User.class);
-            given(host.getId()).willReturn(hostId);
             given(host.getNickname()).willReturn("호스트닉네임");
 
             Companion companion = mock(Companion.class);
@@ -227,7 +232,7 @@ class CompanionPostServiceTest {
         @Test
         @DisplayName("출발 전이고 정원이 남았으면 isExpired=false, isFull=false다")
         void beforeDepartureWithRoomLeft() {
-            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4);
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
@@ -240,7 +245,7 @@ class CompanionPostServiceTest {
         @Test
         @DisplayName("정원이 다 찼으면 isFull=true다")
         void full() {
-            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 4, 4, 99L);
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 4, 4);
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
@@ -251,7 +256,7 @@ class CompanionPostServiceTest {
         @Test
         @DisplayName("출발 시각이 지났으면 isExpired=true다")
         void afterDepartureIsExpired() {
-            Companion companion = companionWith(LocalDateTime.now().minusHours(1), 2, 4, 99L);
+            Companion companion = companionWith(LocalDateTime.now().minusHours(1), 2, 4);
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
@@ -260,10 +265,12 @@ class CompanionPostServiceTest {
         }
 
         @Test
-        @DisplayName("방장이 조회하면 joined=true다")
-        void hostSeesJoinedTrue() {
-            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, USER_ID);
+        @DisplayName("활성 참여자면 joined=true다")
+        void participantSeesJoinedTrue() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4);
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, USER_ID))
+                    .willReturn(Optional.of(mock(CompanionParticipant.class)));
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
@@ -271,14 +278,28 @@ class CompanionPostServiceTest {
         }
 
         @Test
-        @DisplayName("방장이 아니면 joined=false다")
-        void nonHostSeesJoinedFalse() {
-            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4, 99L);
+        @DisplayName("참여 중이 아니면 joined=false다")
+        void nonParticipantSeesJoinedFalse() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4);
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, USER_ID))
+                    .willReturn(Optional.empty());
 
             CompanionPostDetailResponse response = service.find(USER_ID, COMPANION_ID);
 
             assertThat(response.joined()).isFalse();
+        }
+
+        @Test
+        @DisplayName("비로그인 조회면 참여자 조회 없이 joined=false다")
+        void anonymousSeesJoinedFalseWithoutLookup() {
+            Companion companion = companionWith(LocalDateTime.now().plusHours(1), 2, 4);
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
+
+            CompanionPostDetailResponse response = service.find(null, COMPANION_ID);
+
+            assertThat(response.joined()).isFalse();
+            verify(companionParticipantRepository, never()).findActiveByCompanionIdAndUserId(any(), any());
         }
     }
 }
