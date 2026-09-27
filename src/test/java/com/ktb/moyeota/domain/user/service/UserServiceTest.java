@@ -27,13 +27,16 @@ import com.ktb.moyeota.domain.user.entity.UserAgreement;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.domain.user.model.AgreementsCommand;
 import com.ktb.moyeota.domain.user.model.BankAccountCommand;
+import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
 import com.ktb.moyeota.domain.user.repository.UserAgreementRepository;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
+import com.ktb.moyeota.fixture.UserFixture;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import com.ktb.moyeota.global.security.jwt.AccessToken;
 import java.nio.charset.StandardCharsets;
@@ -282,6 +285,38 @@ class UserServiceTest {
         userRepository.saveAndFlush(user);
 
         assertThat(service.isNicknameAvailable("길동이")).isTrue();
+    }
+
+    @Test
+    @DisplayName("내 정보는 프로필 이미지 키를 URL로 바꾸고 계좌 등록 여부를 함께 내린다")
+    void findMe() {
+        User user = UserFixture.bankAccountHolder("길동이");
+        user.changeProfileImage(FINAL_KEY);
+        userRepository.saveAndFlush(user);
+
+        MyProfile profile = service.findMe(user.getId());
+
+        assertThat(profile).isEqualTo(new MyProfile(
+                user.getId(), "길동이", "https://cdn.moyeota.test/" + FINAL_KEY, true));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지가 없으면 URL은 null, 계좌가 없으면 계좌 등록 여부는 false다")
+    void findMeWithoutImageAndBankAccount() {
+        User user = userRepository.saveAndFlush(UserFixture.user("길동이"));
+
+        MyProfile profile = service.findMe(user.getId());
+
+        assertThat(profile.profileImageUrl()).isNull();
+        assertThat(profile.hasBankAccount()).isFalse();
+    }
+
+    @Test
+    @DisplayName("토큰의 사용자가 없으면 401 UNAUTHORIZED다")
+    void findMeWithUnknownUser() {
+        assertThatThrownBy(() -> service.findMe(999L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
     }
 
     private SignupSessionView signupSession(String kakaoName) {

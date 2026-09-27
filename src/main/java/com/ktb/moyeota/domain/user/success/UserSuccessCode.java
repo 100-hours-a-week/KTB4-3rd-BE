@@ -12,7 +12,9 @@ public enum UserSuccessCode implements SuccessCode {
 
     NICKNAME_AVAILABLE("사용할 수 있는 닉네임이에요"),
 
-    NICKNAME_TAKEN("이미 사용 중인 닉네임이에요");
+    NICKNAME_TAKEN("이미 사용 중인 닉네임이에요"),
+
+    MY_PROFILE_FOUND("내 정보 조회에 성공했습니다");
 
     private final String message;
 }

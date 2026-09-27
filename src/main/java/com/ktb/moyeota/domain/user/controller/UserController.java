@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.user.controller;
 
 import com.ktb.moyeota.domain.auth.model.IssuedSession;
 import com.ktb.moyeota.domain.auth.model.SignupSessionView;
+import com.ktb.moyeota.domain.user.dto.MyProfileResponse;
 import com.ktb.moyeota.domain.user.dto.NicknameAvailabilityResponse;
 import com.ktb.moyeota.domain.user.dto.SignupRequest;
 import com.ktb.moyeota.domain.user.dto.SignupResponse;
@@ -11,6 +12,7 @@ import com.ktb.moyeota.domain.user.success.UserSuccessCode;
 import com.ktb.moyeota.domain.user.validation.NicknameRules;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.cookie.AuthCookies;
+import com.ktb.moyeota.global.security.resolver.AuthUser;
 import com.ktb.moyeota.global.security.resolver.SignupPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -48,6 +50,11 @@ public class UserController {
                                 .toString(),
                         authCookies.expiredSignupToken().toString())
                 .body(ApiResponse.of(UserSuccessCode.SIGNED_UP, SignupResponse.from(registered)));
+    }
+
+    @GetMapping("/users/me")
+    public ApiResponse<MyProfileResponse> getMe(@AuthUser Long userId) {
+        return ApiResponse.of(UserSuccessCode.MY_PROFILE_FOUND, MyProfileResponse.from(userService.findMe(userId)));
     }
 
     @GetMapping("/users/nickname-availability")
