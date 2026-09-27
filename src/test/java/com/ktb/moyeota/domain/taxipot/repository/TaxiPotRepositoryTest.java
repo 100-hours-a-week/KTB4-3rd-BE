@@ -16,8 +16,12 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 class TaxiPotRepositoryTest {
@@ -156,6 +161,73 @@ class TaxiPotRepositoryTest {
             assertThat(taxiPotRepository.findMatchableTaxiPotForUpdate(
                     ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG, DEPARTURE_AT))
                     .get().extracting(Companion::getId).isEqualTo(first.getId());
+        }
+    }
+
+    @Nested
+    @DisplayName("운행 종료 확인이 필요한 팟 찾기")
+    class FindRideEndDue {
+
+        private static final LocalDateTime NOW = DEPARTURE_AT.plusHours(1);
+
+        @Test
+        @DisplayName("운행 중이고 도착 예정 시각이 지났으면 찾는다")
+        void findsWhenEtaPassed() {
+            Companion pot = riding(NOW.minusMinutes(1));
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("도착 예정 시각이 딱 지금이어도 찾는다")
+        void findsAtEta() {
+            Companion pot = riding(NOW);
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("도착 예정 시각 전이면 찾지 않는다")
+        void skipsBeforeEta() {
+            riding(NOW.plusMinutes(1));
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("운행 중이 아니면 찾지 않는다")
+        void skipsWhenNotRiding() {
+            Companion pot = riding(NOW.minusMinutes(1));
+            ReflectionTestUtils.setField(pot, "status", CompanionStatus.COMPLETED);
+            persist(pot);
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("이미 운행 종료 확인 카드가 있으면 찾지 않는다")
+        void skipsWhenAlreadyRequested() {
+            Companion pot = riding(NOW.minusMinutes(1));
+            ChatRoom chatRoom = persist(ChatRoom.create(pot));
+            persist(Message.rideEndRequestedSystemMessage(chatRoom, -1L, null));
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("다른 시스템 메시지만 있으면 찾는다")
+        void findsWithOtherMessages() {
+            Companion pot = riding(NOW.minusMinutes(1));
+            ChatRoom chatRoom = persist(ChatRoom.create(pot));
+            persist(Message.joinSystemMessage(chatRoom, me, -2L, null));
+
+            assertThat(taxiPotRepository.findRideEndDueIds(NOW)).containsExactly(pot.getId());
+        }
+
+        private Companion riding(LocalDateTime etaAt) {
+            Companion pot = taxiPot(me, IN_PROGRESS, 2);
+            ReflectionTestUtils.setField(pot, "etaAt", etaAt);
+            return persist(pot);
         }
     }
 

@@ -34,6 +34,8 @@ moyeota:
       user-info-uri: https://kapi.kakao.com/v2/user/me
   kakao-navi:
     directions-uri: https://apis-navi.kakaomobility.com/v1/directions
+  taxi-pot:
+    ride-end-sweep-delay: 10m
   storage:
     s3:
       region: ap-northeast-2

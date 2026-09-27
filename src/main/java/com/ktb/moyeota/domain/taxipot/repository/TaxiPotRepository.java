@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -28,6 +29,18 @@ public interface TaxiPotRepository extends JpaRepository<Companion, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(TAXI_POT_FOR_PARTICIPANT)
     Optional<Companion> findTaxiPotForParticipantForUpdate(Long id, Long userId);
+
+    @Query("""
+            select c.id from Companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS
+               and c.etaAt <= :now
+               and not exists (
+                   select m from Message m
+                    where m.chatRoom.companion = c
+                      and m.messageType = com.ktb.moyeota.domain.chat.entity.MessageType.SYSTEM_RIDE_END_REQUESTED)
+            """)
+    List<Long> findRideEndDueIds(LocalDateTime now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
