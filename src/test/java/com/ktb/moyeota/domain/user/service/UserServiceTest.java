@@ -27,6 +27,7 @@ import com.ktb.moyeota.domain.user.entity.UserAgreement;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.domain.user.model.AgreementsCommand;
 import com.ktb.moyeota.domain.user.model.BankAccountCommand;
+import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
@@ -315,6 +316,40 @@ class UserServiceTest {
     @DisplayName("토큰의 사용자가 없으면 401 UNAUTHORIZED다")
     void findMeWithUnknownUser() {
         assertThatThrownBy(() -> service.findMe(999L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
+    }
+
+    @Test
+    @DisplayName("계좌가 없던 사용자는 계좌를 암호화해 등록하고 마스킹한 값을 돌려준다")
+    void registersBankAccount() {
+        User user = userRepository.saveAndFlush(UserFixture.user("길동이"));
+
+        MaskedBankAccount saved = service.replaceBankAccount(
+                user.getId(), new BankAccountCommand("shinhan", "11012345678"));
+
+        assertThat(saved).isEqualTo(new MaskedBankAccount("shinhan", "*******5678"));
+        User found = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(found.getBankName()).isEqualTo("shinhan");
+        assertThat(accountNoCipher.decrypt(found.getAccountNo())).isEqualTo("11012345678");
+    }
+
+    @Test
+    @DisplayName("이미 계좌가 있으면 새 계좌로 교체한다")
+    void replacesBankAccount() {
+        User user = userRepository.saveAndFlush(UserFixture.bankAccountHolder("길동이"));
+
+        service.replaceBankAccount(user.getId(), new BankAccountCommand("toss", "100012345678"));
+
+        User found = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(found.getBankName()).isEqualTo("toss");
+        assertThat(accountNoCipher.decrypt(found.getAccountNo())).isEqualTo("100012345678");
+    }
+
+    @Test
+    @DisplayName("계좌를 저장할 사용자가 없으면 401 UNAUTHORIZED다")
+    void replaceBankAccountWithUnknownUser() {
+        assertThatThrownBy(() -> service.replaceBankAccount(999L, new BankAccountCommand("shinhan", "11012345678")))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(CommonErrorCode.UNAUTHORIZED));
     }
