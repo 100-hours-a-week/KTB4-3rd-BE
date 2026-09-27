@@ -80,12 +80,12 @@ class ChatMessageSendServiceTest {
             given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
 
-            Message saved = Message.createGeneralMessage(chatRoom, sender, 1L, "안녕하세요");
+            Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
             ReflectionTestUtils.setField(saved, "id", 900L);
             given(messageRepository.save(any(Message.class))).willReturn(saved);
 
             Optional<MessageItem> result = service.send(USER_ID, ROOM_ID,
-                    new ChatMessageSendRequest(1L, "안녕하세요"));
+                    new ChatMessageSendRequest("1", "안녕하세요"));
 
             assertThat(result).isPresent();
             assertThat(result.get().content()).isEqualTo("안녕하세요");
@@ -104,7 +104,7 @@ class ChatMessageSendServiceTest {
                     .willReturn(Optional.empty());
 
             Optional<MessageItem> result = service.send(USER_ID, ROOM_ID,
-                    new ChatMessageSendRequest(1L, "안녕하세요"));
+                    new ChatMessageSendRequest("1", "안녕하세요"));
 
             assertThat(result).isEmpty();
             verify(messageRepository, never()).save(any());
@@ -125,13 +125,13 @@ class ChatMessageSendServiceTest {
             given(messageRepository.save(any(Message.class)))
                     .willThrow(new DataIntegrityViolationException("uk_messages_room_client"));
 
-            Message existing = Message.createGeneralMessage(chatRoom, sender, 1L, "먼저 보낸 메시지");
+            Message existing = Message.createGeneralMessage(chatRoom, sender, "1", "먼저 보낸 메시지");
             ReflectionTestUtils.setField(existing, "id", 800L);
-            given(messageRepository.findByChatRoomIdAndClientMessageId(ROOM_ID, 1L))
+            given(messageRepository.findByChatRoomIdAndClientMessageId(ROOM_ID, "1"))
                     .willReturn(Optional.of(existing));
 
             Optional<MessageItem> result = service.send(USER_ID, ROOM_ID,
-                    new ChatMessageSendRequest(1L, "재전송된 내용"));
+                    new ChatMessageSendRequest("1", "재전송된 내용"));
 
             assertThat(result).isPresent();
             assertThat(result.get().content()).isEqualTo("먼저 보낸 메시지");

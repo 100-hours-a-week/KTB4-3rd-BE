@@ -46,9 +46,9 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("채팅방의 메시지를 최신순(id 내림차순)으로 조회한다")
         void ordersByIdDesc() {
-            Message m1 = persist(message(1L, "첫번째"));
-            Message m2 = persist(message(2L, "두번째"));
-            Message m3 = persist(message(3L, "세번째"));
+            Message m1 = persist(message("1", "첫번째"));
+            Message m2 = persist(message("2", "두번째"));
+            Message m3 = persist(message("3", "세번째"));
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
                     chatRoom.getId(), null, defaultPage());
@@ -60,9 +60,9 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("cursor가 있으면 그보다 작은 id의 메시지만 조회한다")
         void filtersByCursor() {
-            Message m1 = persist(message(1L, "첫번째"));
-            Message m2 = persist(message(2L, "두번째"));
-            persist(message(3L, "세번째"));
+            Message m1 = persist(message("1", "첫번째"));
+            Message m2 = persist(message("2", "두번째"));
+            persist(message("3", "세번째"));
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
                     chatRoom.getId(), m2.getId(), defaultPage());
@@ -73,8 +73,8 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("cursor가 없으면 전체를 조회한다")
         void nullCursorReturnsAll() {
-            persist(message(1L, "첫번째"));
-            persist(message(2L, "두번째"));
+            persist(message("1", "첫번째"));
+            persist(message("2", "두번째"));
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
                     chatRoom.getId(), null, defaultPage());
@@ -85,10 +85,10 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("다른 채팅방의 메시지는 섞이지 않는다")
         void isolatesByRoom() {
-            persist(message(1L, "이 방 메시지"));
+            persist(message("1", "이 방 메시지"));
             Companion otherCompanion = persist(companionPost(persist(user("다른방장"))));
             ChatRoom otherRoom = persist(ChatRoom.create(otherCompanion));
-            persist(Message.createGeneralMessage(otherRoom, sender, 1L, "다른 방 메시지"));
+            persist(Message.createGeneralMessage(otherRoom, sender, "1", "다른 방 메시지"));
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
                     chatRoom.getId(), null, defaultPage());
@@ -100,7 +100,7 @@ class MessageRepositoryTest {
         @DisplayName("Pageable로 개수를 제한한다")
         void limitsByPageable() {
             for (long i = 1; i <= 5; i++) {
-                persist(message(i, "메시지" + i));
+                persist(message(String.valueOf(i), "메시지" + i));
             }
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
@@ -112,7 +112,7 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("발신자를 함께 가져온다")
         void fetchesSender() {
-            persist(message(1L, "안녕"));
+            persist(message("1", "안녕"));
 
             List<Message> result = messageRepository.findByChatRoomIdWithSender(
                     chatRoom.getId(), null, defaultPage());
@@ -132,10 +132,10 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("존재하면 찾는다")
         void found() {
-            Message message = persist(message(42L, "멱등키로 조회"));
+            Message message = persist(message("42", "멱등키로 조회"));
 
             Optional<Message> result = messageRepository.findByChatRoomIdAndClientMessageId(
-                    chatRoom.getId(), 42L);
+                    chatRoom.getId(), "42");
 
             assertThat(result).get().extracting(Message::getId).isEqualTo(message.getId());
         }
@@ -143,24 +143,24 @@ class MessageRepositoryTest {
         @Test
         @DisplayName("없으면 찾을 수 없다")
         void notFound() {
-            assertThat(messageRepository.findByChatRoomIdAndClientMessageId(chatRoom.getId(), 42L)).isEmpty();
+            assertThat(messageRepository.findByChatRoomIdAndClientMessageId(chatRoom.getId(), "42")).isEmpty();
         }
 
         @Test
         @DisplayName("다른 채팅방의 같은 clientMessageId는 찾지 않는다")
         void isolatesByRoom() {
-            persist(message(42L, "이 방 메시지"));
+            persist(message("42", "이 방 메시지"));
             Companion otherCompanion = persist(companionPost(persist(user("다른방장"))));
             ChatRoom otherRoom = persist(ChatRoom.create(otherCompanion));
 
             Optional<Message> result = messageRepository.findByChatRoomIdAndClientMessageId(
-                    otherRoom.getId(), 42L);
+                    otherRoom.getId(), "42");
 
             assertThat(result).isEmpty();
         }
     }
 
-    private Message message(long clientMessageId, String content) {
+    private Message message(String clientMessageId, String content) {
         return Message.createGeneralMessage(chatRoom, sender, clientMessageId, content);
     }
 

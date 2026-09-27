@@ -6,7 +6,7 @@ import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -56,7 +56,7 @@ public class ChatSystemMessageService {
         eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved)));
     }
 
-    private static long newSystemMessageKey() {
-        return -ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
+    private static String newSystemMessageKey() {
+        return UUID.randomUUID().toString();
     }
 }

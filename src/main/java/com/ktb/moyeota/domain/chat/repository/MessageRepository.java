@@ -28,5 +28,5 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
               AND m.clientMessageId = :clientMessageId
             """)
     Optional<Message> findByChatRoomIdAndClientMessageId(
-            @Param("roomId") Long roomId, @Param("clientMessageId") Long clientMessageId);
+            @Param("roomId") Long roomId, @Param("clientMessageId") String clientMessageId);
 }

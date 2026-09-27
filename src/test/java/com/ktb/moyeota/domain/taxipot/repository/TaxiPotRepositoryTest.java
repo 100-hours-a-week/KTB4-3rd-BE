@@ -215,7 +215,7 @@ class TaxiPotRepositoryTest {
         void skipsWhenAlreadyRequested() {
             Companion pot = persist(taxiPot(me, RECRUITING, 2));
             ChatRoom chatRoom = persist(ChatRoom.create(pot));
-            persist(Message.rideStartRequestedSystemMessage(chatRoom, -1L, null));
+            persist(Message.rideStartRequestedSystemMessage(chatRoom, "-1", null));
 
             assertThat(taxiPotRepository.findRideStartDueIds(NOW)).isEmpty();
         }
@@ -225,7 +225,7 @@ class TaxiPotRepositoryTest {
         void findsWithOtherMessages() {
             Companion pot = persist(taxiPot(me, RECRUITING, 2));
             ChatRoom chatRoom = persist(ChatRoom.create(pot));
-            persist(Message.joinSystemMessage(chatRoom, me, -2L, null));
+            persist(Message.joinSystemMessage(chatRoom, me, "-2", null));
 
             assertThat(taxiPotRepository.findRideStartDueIds(NOW)).containsExactly(pot.getId());
         }
@@ -276,7 +276,7 @@ class TaxiPotRepositoryTest {
         void skipsWhenAlreadyRequested() {
             Companion pot = riding(NOW.minusMinutes(1));
             ChatRoom chatRoom = persist(ChatRoom.create(pot));
-            persist(Message.rideEndRequestedSystemMessage(chatRoom, -1L, null));
+            persist(Message.rideEndRequestedSystemMessage(chatRoom, "-1", null));
 
             assertThat(taxiPotRepository.findRideEndDueIds(NOW)).isEmpty();
         }
@@ -286,7 +286,7 @@ class TaxiPotRepositoryTest {
         void findsWithOtherMessages() {
             Companion pot = riding(NOW.minusMinutes(1));
             ChatRoom chatRoom = persist(ChatRoom.create(pot));
-            persist(Message.joinSystemMessage(chatRoom, me, -2L, null));
+            persist(Message.joinSystemMessage(chatRoom, me, "-2", null));
 
             assertThat(taxiPotRepository.findRideEndDueIds(NOW)).containsExactly(pot.getId());
         }
