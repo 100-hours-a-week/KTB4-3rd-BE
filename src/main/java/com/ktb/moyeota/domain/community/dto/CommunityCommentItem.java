@@ -5,15 +5,18 @@ import java.time.LocalDateTime;
 
 public record CommunityCommentItem(
         Long id,
-        String nickname,
+        Author author,
         String content,
         LocalDateTime createdAt
 ) {
 
-    public static CommunityCommentItem from(CommunityComment comment) {
+    public record Author(String nickname, String profileImageUrl) {
+    }
+
+    public static CommunityCommentItem from(CommunityComment comment, String authorProfileImageUrl) {
         return new CommunityCommentItem(
                 comment.getId(),
-                comment.getAuthor().getNickname(),
+                new Author(comment.getAuthor().getNickname(), authorProfileImageUrl),
                 comment.getContent(),
                 comment.getCreatedAt()
         );

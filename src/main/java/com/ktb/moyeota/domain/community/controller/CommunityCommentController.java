@@ -43,6 +43,6 @@ public class CommunityCommentController {
             @RequestParam(value = "cursor", required = false) Long cursor
     ) {
         CommunityCommentListResponse response = communityCommentService.findAll(postId, cursor);
-        return ResponseEntity.ok(ApiResponse.success(null, response));
+        return ResponseEntity.ok(ApiResponse.success("조회에 성공했습니다", response));
     }
 }

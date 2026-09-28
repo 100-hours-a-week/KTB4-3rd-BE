@@ -10,6 +10,7 @@ import com.ktb.moyeota.domain.community.entity.CommunityPost;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityCommentRepository;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -30,6 +31,7 @@ public class CommunityCommentService {
     private final CommunityCommentRepository communityCommentRepository;
     private final CommunityPostRepository communityPostRepository;
     private final EntityManager entityManager;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public CommunityCommentCreateResponse create(Long userId, Long postId, CommunityCommentCreateRequest request) {
@@ -75,7 +77,8 @@ public class CommunityCommentService {
         Long nextCursor = hasNext ? page.get(page.size() - 1).getId() : null;
 
         List<CommunityCommentItem> items = page.stream()
-                .map(CommunityCommentItem::from)
+                .map(comment -> CommunityCommentItem.from(
+                        comment, imageUrlResolver.toUrl(comment.getAuthor().getProfileImageUrl())))
                 .toList();
 
         return new CommunityCommentListResponse(items, nextCursor);
