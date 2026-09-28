@@ -62,7 +62,7 @@ class ChatMessageControllerTest {
     void list() throws Exception {
         MessageItem item = new MessageItem(
                 900L, MessageType.TEXT,
-                new MessageItem.Sender(7L, "우림", "https://img"),
+                new MessageItem.Sender(7L, null, "우림", "https://img"),
                 null, null, "안녕하세요", LocalDateTime.of(2026, 9, 5, 9, 0));
         given(chatMessageService.findMessages(42L, 30L, null))
                 .willReturn(new MessageListResponse(List.of(item), null));
@@ -73,7 +73,25 @@ class ChatMessageControllerTest {
                 .andExpect(jsonPath("$.data.items[0].id").value(900))
                 .andExpect(jsonPath("$.data.items[0].type").value("TEXT"))
                 .andExpect(jsonPath("$.data.items[0].sender.nickname").value("우림"))
+                .andExpect(jsonPath("$.data.items[0].sender.name").doesNotExist())
                 .andExpect(jsonPath("$.data.items[0].content").value("안녕하세요"));
+    }
+
+    @Test
+    @DisplayName("발신자 실명이 있으면 name 으로 내리고 nickname 키는 내리지 않는다")
+    void senderWithRealName() throws Exception {
+        MessageItem item = new MessageItem(
+                900L, MessageType.TEXT,
+                new MessageItem.Sender(7L, "김홍엽", null, null),
+                null, null, "안녕하세요", LocalDateTime.of(2026, 9, 5, 9, 0));
+        given(chatMessageService.findMessages(42L, 30L, null))
+                .willReturn(new MessageListResponse(List.of(item), null));
+
+        mockMvc.perform(get("/api/chat-rooms/30/messages").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].sender.name").value("김홍엽"))
+                .andExpect(jsonPath("$.data.items[0].sender.nickname").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].sender.profile_image_url").isEmpty());
     }
 
     @Test

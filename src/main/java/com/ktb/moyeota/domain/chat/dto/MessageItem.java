@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.chat.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
+import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.LocalDateTime;
 
@@ -17,7 +18,11 @@ public record MessageItem(
         LocalDateTime createdAt
 ) {
 
-    public record Sender(Long id, String nickname, String profileImageUrl) {
+    public record Sender(
+            Long id,
+            @JsonInclude(JsonInclude.Include.NON_NULL) String name,
+            @JsonInclude(JsonInclude.Include.NON_NULL) String nickname,
+            String profileImageUrl) {
     }
 
     public record SystemActor(Long id, String name) {
@@ -36,16 +41,23 @@ public record MessageItem(
     }
 
     private static MessageItem text(Message message) {
-        User sender = message.getSender();
         return new MessageItem(
                 message.getId(),
                 message.getMessageType(),
-                new Sender(sender.getId(), sender.getNickname(), sender.getProfileImageUrl()),
+                sender(message),
                 null,
                 null,
                 message.getContent(),
                 message.getCreatedAt()
         );
+    }
+
+    private static Sender sender(Message message) {
+        User sender = message.getSender();
+        if (message.getChatRoom().getCompanion().getKind() == CompanionKind.TAXI_POT) {
+            return new Sender(sender.getId(), sender.getName(), null, sender.getProfileImageUrl());
+        }
+        return new Sender(sender.getId(), null, sender.getNickname(), sender.getProfileImageUrl());
     }
 
     private static MessageItem join(Message message) {
