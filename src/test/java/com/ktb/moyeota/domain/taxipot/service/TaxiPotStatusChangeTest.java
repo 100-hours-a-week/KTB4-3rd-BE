@@ -123,6 +123,26 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
+    @DisplayName("운행을 종료하면 채팅방이 닫힌다")
+    void closesChatRoomOnRideEnd() {
+        Companion pot = persistTaxiPot(IN_PROGRESS);
+
+        taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), COMPLETED);
+
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("운행을 시작해도 채팅방은 닫히지 않는다")
+    void keepsChatRoomOpenOnRideStart() {
+        Companion pot = persistTaxiPot(RECRUITING);
+
+        taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), IN_PROGRESS);
+
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNull();
+    }
+
+    @Test
     @DisplayName("운행 시작이 거절되면 알림이 남지 않는다")
     void noMessageWhenRejected() {
         User host = entityManager.persist(user("방장"));
@@ -186,6 +206,15 @@ class TaxiPotStatusChangeTest {
         entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));
         return pot;
+    }
+
+    private ChatRoom reloadChatRoom(Companion pot) {
+        entityManager.flush();
+        entityManager.clear();
+        return entityManager.getEntityManager()
+                .createQuery("SELECT c FROM ChatRoom c WHERE c.companion.id = :potId", ChatRoom.class)
+                .setParameter("potId", pot.getId())
+                .getSingleResult();
     }
 
     private Companion reload(Companion pot) {
