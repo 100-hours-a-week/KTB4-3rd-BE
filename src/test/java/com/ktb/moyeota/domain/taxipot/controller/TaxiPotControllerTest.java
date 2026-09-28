@@ -41,6 +41,8 @@ import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -231,6 +233,22 @@ class TaxiPotControllerTest {
                 "판교역", new BigDecimal("37.394500"), new BigDecimal("127.111200"),
                 "강남역", new BigDecimal("37.497900"), new BigDecimal("127.027600"),
                 LocalDateTime.of(2026, 9, 5, 17, 30)));
+    }
+
+    @Test
+    @DisplayName("출발 시각을 UTC로 보내도 같은 순간의 서버 시간대 시각으로 명령에 담는다")
+    void startMatchWithUtcDeparture() throws Exception {
+        given(taxiPotService.start(any(), any()))
+                .willReturn(new CurrentTaxiPot(30L, 501L, CompanionStatus.RECRUITING, 1, 4));
+
+        mockMvc.perform(startMatch(startBody().replace("2026-09-05T17:30:00", "2026-09-05T08:30:00.000Z"))
+                .with(member()));
+
+        verify(taxiPotService).start(42L, new TaxiPotStartCommand(
+                "판교역", new BigDecimal("37.394500"), new BigDecimal("127.111200"),
+                "강남역", new BigDecimal("37.497900"), new BigDecimal("127.027600"),
+                OffsetDateTime.parse("2026-09-05T08:30:00Z").atZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime()));
     }
 
     @ParameterizedTest(name = "{0}", quoteTextArguments = false)
