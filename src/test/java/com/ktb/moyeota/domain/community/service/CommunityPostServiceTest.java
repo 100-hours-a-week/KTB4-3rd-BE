@@ -14,12 +14,15 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
+import com.ktb.moyeota.global.external.s3.S3Properties;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +50,8 @@ class CommunityPostServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CommunityPostService(communityPostRepository, entityManager);
+        service = new CommunityPostService(communityPostRepository, entityManager, new ImageUrlResolver(new S3Properties(
+                "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
     }
 
     private User activeUser() {
@@ -149,6 +153,21 @@ class CommunityPostServiceTest {
             assertThat(response.content()).isEqualTo("내용");
             assertThat(response.commentCount()).isEqualTo(3);
             assertThat(response.createdAt()).isEqualTo(createdAt);
+            assertThat(response.author()).isEqualTo(new CommunityPostDetailResponse.Author("rain", null));
+        }
+
+        @Test
+        @DisplayName("작성자 프로필 이미지는 저장된 키를 URL로 바꿔 내린다")
+        void resolvesAuthorProfileImage() {
+            User author = activeUser();
+            author.changeProfileImage("profile/rain.png");
+            CommunityPost post = CommunityPost.create(author, "제목", "내용", null, null);
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+            CommunityPostDetailResponse response = service.find(POST_ID);
+
+            assertThat(response.author())
+                    .isEqualTo(new CommunityPostDetailResponse.Author("rain", "https://cdn.moyeota.test/profile/rain.png"));
         }
     }
 }

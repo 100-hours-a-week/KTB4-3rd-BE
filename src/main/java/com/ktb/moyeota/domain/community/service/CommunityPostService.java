@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -20,6 +21,7 @@ public class CommunityPostService {
 
     private final CommunityPostRepository communityPostRepository;
     private final EntityManager entityManager;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public CommunityPostCreateResponse create(Long userId, CommunityPostCreateRequest request) {
@@ -44,6 +46,6 @@ public class CommunityPostService {
             throw new BusinessException(CommunityErrorCode.COMMUNITY_POST_DELETED);
         }
 
-        return CommunityPostDetailResponse.from(post);
+        return CommunityPostDetailResponse.from(post, imageUrlResolver.toUrl(post.getAuthor().getProfileImageUrl()));
     }
 }
