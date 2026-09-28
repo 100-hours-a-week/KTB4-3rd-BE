@@ -18,7 +18,7 @@ public record ChatRoomItem(
     public record Host(String profileImageUrl) {
     }
 
-    public static ChatRoomItem of(ChatRoomListProjection row, boolean hasUnread) {
+    public static ChatRoomItem of(ChatRoomListProjection row, String hostProfileImageUrl, boolean hasUnread) {
         String title = row.getDepartureAt().getHour() + "시 " + row.getOriginName();
 
         return new ChatRoomItem(
@@ -26,7 +26,7 @@ public record ChatRoomItem(
                 row.getCompanionId(),
                 CompanionKind.valueOf(row.getKind()),
                 title,
-                new Host(row.getHostProfileImageUrl()),
+                new Host(hostProfileImageUrl),
                 row.getCurrentCount(),
                 row.getCapacity(),
                 hasUnread
