@@ -11,17 +11,21 @@ import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.community.dto.CommunityCommentCreateRequest;
 import com.ktb.moyeota.domain.community.dto.CommunityCommentCreateResponse;
+import com.ktb.moyeota.domain.community.dto.CommunityCommentItem;
 import com.ktb.moyeota.domain.community.dto.CommunityCommentListResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityComment;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityCommentRepository;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
+import com.ktb.moyeota.global.external.s3.S3Properties;
 import jakarta.persistence.EntityManager;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +58,9 @@ class CommunityCommentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CommunityCommentService(communityCommentRepository, communityPostRepository, entityManager);
+        service = new CommunityCommentService(communityCommentRepository, communityPostRepository, entityManager,
+                new ImageUrlResolver(new S3Properties(
+                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
     }
 
     private User activeUser() {
@@ -168,7 +174,6 @@ class CommunityCommentServiceTest {
                     .isEqualTo(CommunityErrorCode.COMMUNITY_POST_DELETED);
         }
 
-        // CommunityCommentItem.from()이 쓰는 필드(id, content, createdAt, author.nickname)만 스텁한다.
         private CommunityComment commentWithId(Long id) {
             CommunityComment comment = mock(CommunityComment.class);
             given(comment.getId()).willReturn(id);
@@ -214,5 +219,24 @@ class CommunityCommentServiceTest {
             assertThat(response.items()).hasSize(5);
             assertThat(response.nextCursor()).isNull();
         }
+        @Test
+        @DisplayName("댓글 작성자를 author로 내리고 프로필 이미지는 키를 URL로 바꾼다")
+        void returnsAuthorWithProfileImageUrl() {
+            CommunityPost post = activePost();
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
+            User withImage = activeUser();
+            withImage.changeProfileImage("profile/rain.png");
+            User withoutImage = User.register("이미지없음", "noimage", Gender.MALE, null);
+            given(communityCommentRepository.findByPostIdWithAuthor(eq(POST_ID), any(), any())).willReturn(List.of(
+                    CommunityComment.create(post, withImage, "첫 댓글"),
+                    CommunityComment.create(post, withoutImage, "둘째 댓글")));
+
+            CommunityCommentListResponse response = service.findAll(POST_ID, null);
+
+            assertThat(response.items()).extracting(CommunityCommentItem::author).containsExactly(
+                    new CommunityCommentItem.Author("rain", "https://cdn.moyeota.test/profile/rain.png"),
+                    new CommunityCommentItem.Author("noimage", null));
+        }
     }
 }
+
