@@ -12,15 +12,15 @@ public record CommunityPostDetailResponse(
         LocalDateTime createdAt
 ) {
 
-    public record Author(String nickname) {
+    public record Author(String nickname, String profileImageUrl) {
     }
 
-    public static CommunityPostDetailResponse from(CommunityPost post) {
+    public static CommunityPostDetailResponse from(CommunityPost post, String authorProfileImageUrl) {
         return new CommunityPostDetailResponse(
                 post.getId(),
                 post.getTitle(),
                 post.getContent(),
-                new Author(post.getAuthor().getNickname()),
+                new Author(post.getAuthor().getNickname(), authorProfileImageUrl),
                 post.getCommentCount(),
                 post.getCreatedAt()
         );
