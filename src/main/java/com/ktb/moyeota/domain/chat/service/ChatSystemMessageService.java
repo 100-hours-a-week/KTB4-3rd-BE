@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.ktb.moyeota.domain.chat.entity.Message.rideStartRequestedSystemMessage;
+
 @Service
 @RequiredArgsConstructor
 public class ChatSystemMessageService {
@@ -32,7 +34,7 @@ public class ChatSystemMessageService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void requestRideStart(ChatRoom chatRoom) {
-        publish(chatRoom, Message.rideStartRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
+        publish(chatRoom, rideStartRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

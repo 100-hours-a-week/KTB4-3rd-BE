@@ -62,7 +62,7 @@ public class SecurityConfig {
                             "/api/companion-posts/*",
                             "/api/community-posts/*"
                         ).permitAll()
-                        .requestMatchers("/api/ws/**").permitAll()
+                        .requestMatchers("/api/wss/**").permitAll()
                         .anyRequest().hasAuthority(Authority.USER_NAME))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(
