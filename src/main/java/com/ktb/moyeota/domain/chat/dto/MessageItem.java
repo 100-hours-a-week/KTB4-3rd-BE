@@ -28,9 +28,9 @@ public record MessageItem(
     public record SystemActor(Long id, String name) {
     }
 
-    public static MessageItem from(Message message) {
+    public static MessageItem from(Message message, String senderProfileImageUrl) {
         return switch (message.getMessageType()) {
-            case TEXT -> text(message);
+            case TEXT -> text(message, senderProfileImageUrl);
             case SYSTEM_JOIN -> join(message);
             case SYSTEM_LEAVE -> leave(message);
             case SYSTEM_RIDE_START_REQUESTED -> rideStartRequested(message);
@@ -40,11 +40,11 @@ public record MessageItem(
         };
     }
 
-    private static MessageItem text(Message message) {
+    private static MessageItem text(Message message, String senderProfileImageUrl) {
         return new MessageItem(
                 message.getId(),
                 message.getMessageType(),
-                sender(message),
+                sender(message, senderProfileImageUrl),
                 null,
                 null,
                 message.getContent(),
@@ -52,12 +52,12 @@ public record MessageItem(
         );
     }
 
-    private static Sender sender(Message message) {
+    private static Sender sender(Message message, String profileImageUrl) {
         User sender = message.getSender();
         if (message.getChatRoom().getCompanion().getKind() == CompanionKind.TAXI_POT) {
-            return new Sender(sender.getId(), sender.getName(), null, sender.getProfileImageUrl());
+            return new Sender(sender.getId(), sender.getName(), null, profileImageUrl);
         }
-        return new Sender(sender.getId(), null, sender.getNickname(), sender.getProfileImageUrl());
+        return new Sender(sender.getId(), null, sender.getNickname(), profileImageUrl);
     }
 
     private static MessageItem join(Message message) {

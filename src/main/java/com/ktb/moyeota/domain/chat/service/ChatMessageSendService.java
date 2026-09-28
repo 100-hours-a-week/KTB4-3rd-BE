@@ -9,6 +9,7 @@ import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -27,6 +28,7 @@ public class ChatMessageSendService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public Optional<MessageItem> send(Long userId, Long roomId, ChatMessageSendRequest request) {
@@ -51,6 +53,6 @@ public class ChatMessageSendService {
                     .orElseThrow(() -> e);
         }
 
-        return Optional.of(MessageItem.from(saved));
+        return Optional.of(MessageItem.from(saved, imageUrlResolver.toUrl(saved.getSender().getProfileImageUrl())));
     }
 }

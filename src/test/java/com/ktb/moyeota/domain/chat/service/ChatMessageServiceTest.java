@@ -19,8 +19,11 @@ import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.external.s3.S3Properties;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +62,9 @@ class ChatMessageServiceTest {
         Companion companion = companionPost(sender);
         chatRoom = ChatRoom.create(companion);
         participant = CompanionParticipant.join(companion, sender);
-        service = new ChatMessageService(messageRepository, companionParticipantRepository, new MessageCursorCodec());
+        service = new ChatMessageService(messageRepository, companionParticipantRepository, new MessageCursorCodec(),
+                new ImageUrlResolver(new S3Properties(
+                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
     }
 
     @Nested
@@ -169,6 +174,43 @@ class ChatMessageServiceTest {
 
             assertThat(response.items()).hasSize(1);
             assertThat(response.nextCursor()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("발신자 프로필 이미지")
+    class SenderProfileImage {
+
+        @Test
+        @DisplayName("저장된 이미지 키를 URL로 바꿔 내린다")
+        void resolvesKeyToUrl() {
+            sender.changeProfileImage("profile/a.png");
+            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
+                    .willReturn(Optional.of(participant));
+            given(messageRepository.findByChatRoomIdWithSender(eq(ROOM_ID), any(), any(Pageable.class)))
+                    .willReturn(List.of(message(1L)));
+
+            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null);
+
+            assertThat(response.items().get(0).sender().profileImageUrl())
+                    .isEqualTo("https://cdn.moyeota.test/profile/a.png");
+        }
+
+        @Test
+        @DisplayName("이미지가 없으면 null이고, 발신자가 없는 시스템 메시지도 함께 조회된다")
+        void noImageAndSystemMessage() {
+            Message rideStarted = Message.rideStartedSystemMessage(chatRoom, "system-key", null);
+            ReflectionTestUtils.setField(rideStarted, "id", 2L);
+            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
+                    .willReturn(Optional.of(participant));
+            given(messageRepository.findByChatRoomIdWithSender(eq(ROOM_ID), any(), any(Pageable.class)))
+                    .willReturn(List.of(rideStarted, message(1L)));
+
+            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null);
+
+            assertThat(response.items()).hasSize(2);
+            assertThat(response.items().get(0).sender()).isNull();
+            assertThat(response.items().get(1).sender().profileImageUrl()).isNull();
         }
     }
 

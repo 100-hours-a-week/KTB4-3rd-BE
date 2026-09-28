@@ -16,6 +16,7 @@ import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
@@ -33,6 +34,7 @@ public class ChatRoomService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final MessageRepository messageRepository;
     private final ChatRoomCursorCodec chatRoomCursorCodec;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public ChatRoomListResponse findMyChatRooms(Long userId, CompanionKind kind, String cursor) {
@@ -52,7 +54,7 @@ public class ChatRoomService {
         }
 
         List<ChatRoomItem> items = page.stream()
-                .map(row -> ChatRoomItem.of(row, hasUnread(row)))
+                .map(row -> ChatRoomItem.of(row, imageUrlResolver.toUrl(row.getHostProfileImageUrl()), hasUnread(row)))
                 .toList();
 
         return new ChatRoomListResponse(items, nextCursor);
