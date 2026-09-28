@@ -53,7 +53,7 @@ class ChatStompControllerTest {
         ChatMessageSendRequest request = new ChatMessageSendRequest("1", "안녕하세요");
         MessageItem item = new MessageItem(
                 900L, MessageType.TEXT,
-                new MessageItem.Sender(USER_ID, "우림", null),
+                new MessageItem.Sender(USER_ID, null, "우림", null),
                 null, null, "안녕하세요", LocalDateTime.of(2026, 9, 5, 9, 0));
         given(chatMessageSendService.send(USER_ID, ROOM_ID, request)).willReturn(Optional.of(item));
 
