@@ -8,6 +8,8 @@ import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class ChatMessageService {
     private final MessageRepository messageRepository;
     private final CompanionParticipantRepository companionParticipantRepository;
     private final MessageCursorCodec messageCursorCodec;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional(readOnly = true)
     public MessageListResponse findMessages(Long userId, Long roomId, String cursor) {
@@ -54,9 +57,14 @@ public class ChatMessageService {
                 : null;
 
         List<MessageItem> items = page.stream()
-                .map(MessageItem::from)
+                .map(message -> MessageItem.from(message, senderProfileImageUrl(message)))
                 .toList();
 
         return new MessageListResponse(items, nextCursor);
+    }
+
+    private String senderProfileImageUrl(Message message) {
+        User sender = message.getSender();
+        return sender == null ? null : imageUrlResolver.toUrl(sender.getProfileImageUrl());
     }
 }

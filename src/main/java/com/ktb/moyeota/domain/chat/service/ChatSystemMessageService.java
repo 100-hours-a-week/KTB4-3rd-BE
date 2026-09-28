@@ -55,7 +55,7 @@ public class ChatSystemMessageService {
     private void publish(ChatRoom chatRoom, Message message) {
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
-        eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved)));
+        eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved, null)));
     }
 
     private static String newSystemMessageKey() {

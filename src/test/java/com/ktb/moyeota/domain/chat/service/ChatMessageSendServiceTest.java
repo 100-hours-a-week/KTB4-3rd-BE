@@ -17,6 +17,7 @@ import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import java.util.Optional;
@@ -48,6 +49,9 @@ class ChatMessageSendServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ImageUrlResolver imageUrlResolver;
 
     @InjectMocks
     private ChatMessageSendService service;
@@ -90,6 +94,28 @@ class ChatMessageSendServiceTest {
             assertThat(result).isPresent();
             assertThat(result.get().content()).isEqualTo("안녕하세요");
             assertThat(chatRoom.getLastMessageId()).isEqualTo(900L);
+        }
+    }
+
+    @Nested
+    @DisplayName("발신자 프로필 이미지")
+    class SenderProfileImage {
+
+        @Test
+        @DisplayName("보낸 메시지의 발신자 이미지는 URL로 바꿔 내린다")
+        void resolvesKeyToUrl() {
+            sender.changeProfileImage("profile/a.png");
+            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
+                    .willReturn(Optional.of(participant));
+            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
+            given(messageRepository.save(any(Message.class)))
+                    .willReturn(Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요"));
+            given(imageUrlResolver.toUrl("profile/a.png")).willReturn("https://cdn.moyeota.test/profile/a.png");
+
+            Optional<MessageItem> result = service.send(USER_ID, ROOM_ID, new ChatMessageSendRequest("1", "안녕하세요"));
+
+            assertThat(result.get().sender().profileImageUrl()).isEqualTo("https://cdn.moyeota.test/profile/a.png");
         }
     }
 

@@ -21,9 +21,9 @@ class MessageItemTest {
     void taxiPotSenderUsesRealName() {
         Companion taxiPot = CompanionFixture.taxiPot(sender, CompanionStatus.RECRUITING);
 
-        MessageItem item = MessageItem.from(textIn(taxiPot));
+        MessageItem item = MessageItem.from(textIn(taxiPot), "https://cdn.moyeota.test/profile/a.png");
 
-        assertThat(item.sender()).isEqualTo(new MessageItem.Sender(7L, "홍길동", null, null));
+        assertThat(item.sender()).isEqualTo(new MessageItem.Sender(7L, "홍길동", null, "https://cdn.moyeota.test/profile/a.png"));
     }
 
     @Test
@@ -31,7 +31,7 @@ class MessageItemTest {
     void companionPostSenderUsesNickname() {
         Companion companionPost = CompanionFixture.companionPost(sender);
 
-        MessageItem item = MessageItem.from(textIn(companionPost));
+        MessageItem item = MessageItem.from(textIn(companionPost), null);
 
         assertThat(item.sender()).isEqualTo(new MessageItem.Sender(7L, null, "제리", null));
     }
