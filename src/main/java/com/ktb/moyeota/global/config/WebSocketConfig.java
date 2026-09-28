@@ -14,7 +14,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private static final String ENDPOINT = "/api/ws";
+    private static final String ENDPOINT = "/api/wss";
     private static final String APPLICATION_DESTINATION_PREFIX = "/pub";
     private static final String BROKER_PREFIX = "/sub";
 
