@@ -89,6 +89,30 @@ class TaxiPotLeaveTest {
     }
 
     @Test
+    @DisplayName("마지막 한 명이 나가 취소되면 채팅방이 닫힌다")
+    void closesChatRoomWhenCanceled() {
+        User host = entityManager.persist(bankAccountHolder("혼자"));
+        CurrentTaxiPot pot = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+
+        taxiPotService.leave(host.getId(), pot.id());
+
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("남은 사람이 있으면 채팅방은 닫히지 않는다")
+    void keepsChatRoomOpenWhileOthersRemain() {
+        User host = entityManager.persist(bankAccountHolder("방장"));
+        User member = entityManager.persist(bankAccountHolder("동승자"));
+        CurrentTaxiPot pot = taxiPotService.start(host.getId(), startCommand(DEPARTURE_AT));
+        taxiPotService.start(member.getId(), startCommand(DEPARTURE_AT));
+
+        taxiPotService.leave(member.getId(), pot.id());
+
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNull();
+    }
+
+    @Test
     @DisplayName("정원이 찬 팟에서 한 명이 나가면 다시 다른 사람이 합류할 수 있다")
     void seatOpensAgain() {
         CurrentTaxiPot full = null;
@@ -191,6 +215,12 @@ class TaxiPotLeaveTest {
                 .getResultList().stream()
                 .map(m -> m.getSender().getId())
                 .toList();
+    }
+
+    private ChatRoom reloadChatRoom(CurrentTaxiPot pot) {
+        entityManager.flush();
+        entityManager.clear();
+        return entityManager.find(ChatRoom.class, pot.chatRoomId());
     }
 
     private Companion reload(CurrentTaxiPot pot) {

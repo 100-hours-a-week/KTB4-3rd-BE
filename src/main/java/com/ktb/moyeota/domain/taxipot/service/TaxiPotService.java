@@ -99,8 +99,13 @@ public class TaxiPotService {
                 : null;
 
         taxiPot.leave(leaver, nextHost);
-        if (!leaver.isCompleted()) {
-            chatSystemMessageService.leave(findChatRoom(taxiPot), leaver.getUser());
+        if (leaver.isCompleted()) {
+            return;
+        }
+        ChatRoom chatRoom = findChatRoom(taxiPot);
+        chatSystemMessageService.leave(chatRoom, leaver.getUser());
+        if (taxiPot.getStatus() == CompanionStatus.CANCELED) {
+            chatRoom.close();
         }
     }
 
@@ -164,7 +169,9 @@ public class TaxiPotService {
 
     private void completeRide(Companion taxiPot) {
         taxiPot.completeRide(taxiPotParticipantRepository.findPendingParticipants(taxiPot.getId()));
-        chatSystemMessageService.rideEnded(findChatRoom(taxiPot));
+        ChatRoom chatRoom = findChatRoom(taxiPot);
+        chatSystemMessageService.rideEnded(chatRoom);
+        chatRoom.close();
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
