@@ -49,3 +49,6 @@ application-secret.y*ml
 ### Logs ###
 *.log
 logs/
+
+### Docs ###
+docs/
