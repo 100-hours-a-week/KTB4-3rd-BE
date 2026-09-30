@@ -95,6 +95,7 @@ jobs:
           IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
           RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
           BUILD_DATE: ${{ steps.meta.outputs.build_date }}
+          SENTRY_AUTH_TOKEN: ${{ steps.meta.outputs.push_image == 'true' && secrets.SENTRY_AUTH_TOKEN || '' }}
         run: |
           set -Eeuo pipefail
 
@@ -104,6 +105,7 @@ jobs:
             --build-arg "BUILD_SHA=${GITHUB_SHA}" \
             --build-arg "RELEASE_VERSION=${RELEASE_VERSION}" \
             --build-arg "BUILD_DATE=${BUILD_DATE}" \
+            --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             --cache-from "type=gha,scope=be-${GITHUB_REF_NAME}" \
             --cache-to "type=gha,mode=max,scope=be-${GITHUB_REF_NAME}" \
