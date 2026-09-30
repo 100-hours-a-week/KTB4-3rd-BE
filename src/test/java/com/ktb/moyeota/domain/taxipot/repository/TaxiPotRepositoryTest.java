@@ -298,6 +298,54 @@ class TaxiPotRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("자동 취소할 팟 찾기")
+    class FindAutoCancelDue {
+
+        @Test
+        @DisplayName("모집 중이고 출발 시각이 기준보다 앞이면 찾는다")
+        void findsBeforeDeadline() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 1));
+
+            assertThat(taxiPotRepository.findAutoCancelDueIds(DEPARTURE_AT.plusMinutes(1)))
+                    .containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("출발 시각이 딱 기준이면 찾지 않는다")
+        void skipsAtDeadline() {
+            persist(taxiPot(me, RECRUITING, 1));
+
+            assertThat(taxiPotRepository.findAutoCancelDueIds(DEPARTURE_AT)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("여러 명이 남아 있어도 찾는다")
+        void findsWithManyParticipants() {
+            Companion pot = persist(taxiPot(me, RECRUITING, 3));
+
+            assertThat(taxiPotRepository.findAutoCancelDueIds(DEPARTURE_AT.plusMinutes(1)))
+                    .containsExactly(pot.getId());
+        }
+
+        @Test
+        @DisplayName("모집 중이 아니면 찾지 않는다")
+        void skipsWhenNotRecruiting() {
+            persist(taxiPot(me, IN_PROGRESS, 2));
+            persist(taxiPot(me, CompanionStatus.CANCELED, 0));
+
+            assertThat(taxiPotRepository.findAutoCancelDueIds(DEPARTURE_AT.plusMinutes(1))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("동행 모집글은 찾지 않는다")
+        void skipsCompanionPost() {
+            persist(companionPost(me));
+
+            assertThat(taxiPotRepository.findAutoCancelDueIds(DEPARTURE_AT.plusMinutes(1))).isEmpty();
+        }
+    }
+
     private <T> T persist(T entity) {
         return entityManager.persistAndFlush(entity);
     }
