@@ -21,6 +21,17 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByChatRoomIdWithSender(
             @Param("roomId") Long roomId, @Param("cursor") Long cursor, Pageable pageable);
 
+    // 최신 방향(아래로 스크롤) 조회. 커서에 가까운 것부터 잘라와야 하므로 ASC로 조회하고, 응답 순서(DESC)는 서비스에서 맞춘다.
+    @Query("""
+            SELECT m FROM Message m
+            LEFT JOIN FETCH m.sender
+            WHERE m.chatRoom.id = :roomId
+              AND m.id > :cursor
+            ORDER BY m.id ASC
+            """)
+    List<Message> findNewerByChatRoomIdWithSender(
+            @Param("roomId") Long roomId, @Param("cursor") Long cursor, Pageable pageable);
+
 
     @Query("""
             SELECT m FROM Message m

@@ -126,6 +126,52 @@ class MessageRepositoryTest {
     }
 
     @Nested
+    @DisplayName("findNewerByChatRoomIdWithSender")
+    class FindNewerByChatRoomIdWithSender {
+
+        @Test
+        @DisplayName("cursor보다 큰 id를 커서에 가까운 순(id 오름차순)으로 조회한다")
+        void ordersByIdAscAfterCursor() {
+            Message m1 = persist(message("1", "첫번째"));
+            Message m2 = persist(message("2", "두번째"));
+            Message m3 = persist(message("3", "세번째"));
+
+            List<Message> result = messageRepository.findNewerByChatRoomIdWithSender(
+                    chatRoom.getId(), m1.getId(), PageRequest.of(0, 20));
+
+            assertThat(result).extracting(Message::getId).containsExactly(m2.getId(), m3.getId());
+        }
+
+        @Test
+        @DisplayName("Pageable로 자르면 커서에 가까운 메시지부터 남는다")
+        void limitsFromNearestToCursor() {
+            Message m1 = persist(message("1", "첫번째"));
+            Message m2 = persist(message("2", "두번째"));
+            persist(message("3", "세번째"));
+
+            List<Message> result = messageRepository.findNewerByChatRoomIdWithSender(
+                    chatRoom.getId(), m1.getId(), PageRequest.of(0, 1));
+
+            assertThat(result).extracting(Message::getId).containsExactly(m2.getId());
+        }
+
+        @Test
+        @DisplayName("다른 채팅방의 메시지는 섞이지 않는다")
+        void isolatesByRoom() {
+            Message m1 = persist(message("1", "이 방 메시지"));
+            Companion otherCompanion = persist(companionPost(persist(user("다른방장"))));
+            ChatRoom otherRoom = persist(ChatRoom.create(otherCompanion));
+            persist(Message.createGeneralMessage(otherRoom, sender, "2", "다른 방 메시지"));
+            Message m3 = persist(message("3", "이 방 메시지2"));
+
+            List<Message> result = messageRepository.findNewerByChatRoomIdWithSender(
+                    chatRoom.getId(), m1.getId(), PageRequest.of(0, 20));
+
+            assertThat(result).extracting(Message::getId).containsExactly(m3.getId());
+        }
+    }
+
+    @Nested
     @DisplayName("findByChatRoomIdAndClientMessageId")
     class FindByChatRoomIdAndClientMessageId {
 
