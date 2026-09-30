@@ -53,6 +53,9 @@ public class ChatMessageSendService {
                     .orElseThrow(() -> e);
         }
 
+        companionParticipantRepository.updateLastReadMessageIfNewer(
+                participant.get().getId(), saved, saved.getId());
+
         return Optional.of(MessageItem.from(saved, imageUrlResolver.toUrl(saved.getSender().getProfileImageUrl())));
     }
 }

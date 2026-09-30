@@ -70,6 +70,7 @@ class ChatMessageSendServiceTest {
         ReflectionTestUtils.setField(chatRoom, "id", ROOM_ID);
 
         participant = CompanionParticipant.join(companion, sender);
+        ReflectionTestUtils.setField(participant, "id", 10L);
     }
 
     @Nested
@@ -94,6 +95,23 @@ class ChatMessageSendServiceTest {
             assertThat(result).isPresent();
             assertThat(result.get().content()).isEqualTo("안녕하세요");
             assertThat(chatRoom.getLastMessageId()).isEqualTo(900L);
+        }
+
+        @Test
+        @DisplayName("보낸 메시지까지 발신자의 last_read가 갱신된다")
+        void updatesSenderLastRead() {
+            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
+                    .willReturn(Optional.of(participant));
+            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
+
+            Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
+            ReflectionTestUtils.setField(saved, "id", 900L);
+            given(messageRepository.save(any(Message.class))).willReturn(saved);
+
+            service.send(USER_ID, ROOM_ID, new ChatMessageSendRequest("1", "안녕하세요"));
+
+            verify(companionParticipantRepository).updateLastReadMessageIfNewer(10L, saved, 900L);
         }
     }
 
@@ -161,7 +179,6 @@ class ChatMessageSendServiceTest {
 
             assertThat(result).isPresent();
             assertThat(result.get().content()).isEqualTo("먼저 보낸 메시지");
-            // 재전송 경로에서는 last_message_id를 다시 갱신하지 않는다(최초 성공 시 이미 갱신됐다고 가정).
             assertThat(chatRoom.getLastMessageId()).isNull();
         }
     }
