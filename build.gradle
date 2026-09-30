@@ -47,6 +47,13 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
+sentry {
+    org = 'moyeota'
+    projectName = 'moyeota'
+    authToken = System.getenv('SENTRY_AUTH_TOKEN')
+    includeSourceContext = authToken.orNull as boolean
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }
