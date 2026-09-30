@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'io.sentry.jvm.gradle' version '6.23.0'
 }
 
 group = 'com.ktb.moyeota'
@@ -44,6 +45,13 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+sentry {
+    org = 'moyeota'
+    projectName = 'moyeota'
+    authToken = System.getenv('SENTRY_AUTH_TOKEN')
+    includeSourceContext = authToken.orNull as boolean
 }
 
 tasks.named('test') {

@@ -17,7 +17,8 @@ ARG RELEASE_VERSION=""
 ARG BUILD_DATE=""
 
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew --no-daemon bootJar
+    --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+    ./gradlew --no-daemon assemble
 
 # Runtime stage: keep the JDK and Gradle out of the final image.
 FROM eclipse-temurin:25-jre-jammy AS runner
