@@ -1,10 +1,12 @@
 package com.ktb.moyeota.domain.chat.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,8 +66,8 @@ class ChatMessageControllerTest {
                 900L, MessageType.TEXT,
                 new MessageItem.Sender(7L, null, "우림", "https://img"),
                 null, null, "안녕하세요", LocalDateTime.of(2026, 9, 5, 9, 0));
-        given(chatMessageService.findMessages(42L, 30L, null))
-                .willReturn(new MessageListResponse(List.of(item), null));
+        given(chatMessageService.findMessages(42L, 30L, null, null, null))
+                .willReturn(new MessageListResponse(List.of(item), null, null));
 
         mockMvc.perform(get("/api/chat-rooms/30/messages").with(member()))
                 .andExpect(status().isOk())
@@ -74,7 +76,9 @@ class ChatMessageControllerTest {
                 .andExpect(jsonPath("$.data.items[0].type").value("TEXT"))
                 .andExpect(jsonPath("$.data.items[0].sender.nickname").value("우림"))
                 .andExpect(jsonPath("$.data.items[0].sender.name").doesNotExist())
-                .andExpect(jsonPath("$.data.items[0].content").value("안녕하세요"));
+                .andExpect(jsonPath("$.data.items[0].content").value("안녕하세요"))
+                .andExpect(content().string(containsString("\"before_cursor\":null")))
+                .andExpect(content().string(containsString("\"after_cursor\":null")));
     }
 
     @Test
@@ -84,8 +88,8 @@ class ChatMessageControllerTest {
                 900L, MessageType.TEXT,
                 new MessageItem.Sender(7L, "김홍엽", null, null),
                 null, null, "안녕하세요", LocalDateTime.of(2026, 9, 5, 9, 0));
-        given(chatMessageService.findMessages(42L, 30L, null))
-                .willReturn(new MessageListResponse(List.of(item), null));
+        given(chatMessageService.findMessages(42L, 30L, null, null, null))
+                .willReturn(new MessageListResponse(List.of(item), null, null));
 
         mockMvc.perform(get("/api/chat-rooms/30/messages").with(member()))
                 .andExpect(status().isOk())
@@ -95,21 +99,66 @@ class ChatMessageControllerTest {
     }
 
     @Test
-    @DisplayName("cursor 쿼리 파라미터를 그대로 서비스에 전달한다")
-    void listWithCursor() throws Exception {
-        given(chatMessageService.findMessages(42L, 30L, "v1.abc"))
-                .willReturn(new MessageListResponse(List.of(), null));
+    @DisplayName("direction=before와 두 커서를 그대로 서비스에 전달하고, 응답에 두 커서가 모두 내려간다")
+    void listBefore() throws Exception {
+        given(chatMessageService.findMessages(42L, 30L, "before", "v1.b", "v1.a"))
+                .willReturn(new MessageListResponse(List.of(), "v1.newBefore", "v1.a"));
 
-        mockMvc.perform(get("/api/chat-rooms/30/messages").queryParam("cursor", "v1.abc").with(member()))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/chat-rooms/30/messages")
+                        .queryParam("direction", "before")
+                        .queryParam("before", "v1.b")
+                        .queryParam("after", "v1.a")
+                        .with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.before_cursor").value("v1.newBefore"))
+                .andExpect(jsonPath("$.data.after_cursor").value("v1.a"));
 
-        verify(chatMessageService).findMessages(42L, 30L, "v1.abc");
+        verify(chatMessageService).findMessages(42L, 30L, "before", "v1.b", "v1.a");
+    }
+
+    @Test
+    @DisplayName("direction=after와 두 커서를 그대로 서비스에 전달하고, 끝에 도달하면 after_cursor가 null로 내려간다")
+    void listAfter() throws Exception {
+        given(chatMessageService.findMessages(42L, 30L, "after", "v1.b", "v1.a"))
+                .willReturn(new MessageListResponse(List.of(), "v1.b", null));
+
+        mockMvc.perform(get("/api/chat-rooms/30/messages")
+                        .queryParam("direction", "after")
+                        .queryParam("before", "v1.b")
+                        .queryParam("after", "v1.a")
+                        .with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.before_cursor").value("v1.b"))
+                .andExpect(content().string(containsString("\"after_cursor\":null")));
+    }
+
+    @Test
+    @DisplayName("잘못된 커서면 400 INVALID_CURSOR다")
+    void invalidCursor() throws Exception {
+        given(chatMessageService.findMessages(42L, 30L, "before", "abc", null))
+                .willThrow(new BusinessException(ChatErrorCode.INVALID_CURSOR));
+
+        mockMvc.perform(get("/api/chat-rooms/30/messages")
+                        .queryParam("direction", "before").queryParam("before", "abc").with(member()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CURSOR"));
+    }
+
+    @Test
+    @DisplayName("잘못된 direction이면 400 INVALID_DIRECTION이다")
+    void invalidDirection() throws Exception {
+        given(chatMessageService.findMessages(42L, 30L, "up", null, null))
+                .willThrow(new BusinessException(ChatErrorCode.INVALID_DIRECTION));
+
+        mockMvc.perform(get("/api/chat-rooms/30/messages").queryParam("direction", "up").with(member()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_DIRECTION"));
     }
 
     @Test
     @DisplayName("참여 중인 채팅방이 아니면 404 CHATROOM_NOT_FOUND다")
     void notParticipating() throws Exception {
-        given(chatMessageService.findMessages(42L, 30L, null))
+        given(chatMessageService.findMessages(42L, 30L, null, null, null))
                 .willThrow(new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
         mockMvc.perform(get("/api/chat-rooms/30/messages").with(member()))
