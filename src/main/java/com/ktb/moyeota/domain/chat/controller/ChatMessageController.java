@@ -23,9 +23,11 @@ public class ChatMessageController {
     public ResponseEntity<ApiResponse<MessageListResponse>> list(
             @AuthUser Long userId,
             @PathVariable("room_id") Long roomId,
-            @RequestParam(value = "cursor", required = false) String cursor
+            @RequestParam(value = "direction", required = false) String direction,
+            @RequestParam(value = "before", required = false) String before,
+            @RequestParam(value = "after", required = false) String after
     ) {
-        MessageListResponse response = chatMessageService.findMessages(userId, roomId, cursor);
+        MessageListResponse response = chatMessageService.findMessages(userId, roomId, direction, before, after);
         return ResponseEntity.ok(ApiResponse.success("조회에 성공했습니다", response));
     }
 }
