@@ -55,6 +55,23 @@ public interface TaxiPotRepository extends JpaRepository<Companion, Long> {
             """)
     List<Long> findRideEndDueIds(LocalDateTime now);
 
+    @Query("""
+            select c.id from Companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING
+               and c.departureAt < :deadline
+            """)
+    List<Long> findAutoCancelDueIds(LocalDateTime deadline);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select c from Companion c
+             where c.id = :id
+               and c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING
+            """)
+    Optional<Companion> findRecruitingTaxiPotForUpdate(Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select c from Companion c

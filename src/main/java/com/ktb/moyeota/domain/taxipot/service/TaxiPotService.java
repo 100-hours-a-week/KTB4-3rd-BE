@@ -37,6 +37,7 @@ public class TaxiPotService {
 
     private static final Duration MAX_DEPARTURE_LEAD_TIME = Duration.ofHours(3);
     private static final int MAX_START_ATTEMPTS = 3;
+    private static final Duration AUTO_CANCEL_AFTER_DEPARTURE = Duration.ofHours(12);
 
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
@@ -152,6 +153,19 @@ public class TaxiPotService {
     public void requestRideEnd(Long taxiPotId) {
         Companion taxiPot = taxiPotRepository.getReferenceById(taxiPotId);
         chatSystemMessageService.requestRideEnd(findChatRoom(taxiPot));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findAutoCancelDueIds() {
+        return taxiPotRepository.findAutoCancelDueIds(LocalDateTime.now(clock).minus(AUTO_CANCEL_AFTER_DEPARTURE));
+    }
+
+    @Transactional
+    public void autoCancel(Long taxiPotId) {
+        taxiPotRepository.findRecruitingTaxiPotForUpdate(taxiPotId).ifPresent(taxiPot -> {
+            taxiPot.cancel(taxiPotParticipantRepository.findPendingParticipants(taxiPotId));
+            findChatRoom(taxiPot).close();
+        });
     }
 
     @Transactional

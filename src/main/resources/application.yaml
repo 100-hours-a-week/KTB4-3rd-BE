@@ -41,6 +41,7 @@ moyeota:
   taxi-pot:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
+    auto-cancel-sweep-delay: 10m
   storage:
     s3:
       region: ap-northeast-2
