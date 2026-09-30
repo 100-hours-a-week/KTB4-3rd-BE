@@ -302,6 +302,51 @@ class CompanionTest {
     }
 
     @Nested
+    @DisplayName("자동 취소")
+    class Cancel {
+
+        private final User host = user(1L, "방장");
+        private final User member = user(2L, "동승자");
+
+        @Test
+        @DisplayName("택시팟 취소는 모집 중 상태를 취소 상태로 만들고, 취소된 이후 택시팟 인원은 0명이 된다")
+        void cancels() {
+            Companion pot = taxiPot(host, RECRUITING, 2);
+
+            pot.cancel(List.of());
+
+            assertThat(pot.getStatus()).isEqualTo(CANCELED);
+            assertThat(pot.getCurrentCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("남아 있던 참여자는 모두 끝나지 않은 참여가 된다")
+        void endsRemaining() {
+            Companion pot = taxiPot(host, RECRUITING, 2);
+            CompanionParticipant hostParticipant = participant(pot, host, PENDING);
+            CompanionParticipant memberParticipant = participant(pot, member, PENDING);
+
+            pot.cancel(List.of(hostParticipant, memberParticipant));
+
+            assertThat(List.of(hostParticipant, memberParticipant))
+                    .extracting(CompanionParticipant::getOutcomeStatus)
+                    .containsOnly(OutcomeStatus.INCOMPLETE);
+        }
+
+        @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+        @EnumSource(value = CompanionStatus.class, names = "RECRUITING", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("모집 중이 아니면 INVALID_STATE_TRANSITION이다")
+        void notRecruiting(CompanionStatus status) {
+            Companion pot = taxiPot(host, status, 2);
+            CompanionParticipant participant = participant(pot, member, PENDING);
+
+            assertErrorCode(() -> pot.cancel(List.of(participant)), CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertThat(pot.getStatus()).isEqualTo(status);
+            assertThat(participant.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+    }
+
+    @Nested
     @DisplayName("도착 예정 시각 갱신")
     class EstimateArrival {
 

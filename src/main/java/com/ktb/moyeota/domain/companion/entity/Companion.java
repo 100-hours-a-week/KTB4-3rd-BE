@@ -223,6 +223,15 @@ public class Companion {
         riders.forEach(CompanionParticipant::complete);
     }
 
+    public void cancel(List<CompanionParticipant> remaining) {
+        if (status != CompanionStatus.RECRUITING) {
+            throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
+        }
+        this.status = CompanionStatus.CANCELED;
+        this.currentCount = 0;
+        remaining.forEach(CompanionParticipant::leave);
+    }
+
     public void transferHost(User newHost) {
         this.host = newHost;
     }
