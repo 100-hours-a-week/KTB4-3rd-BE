@@ -27,6 +27,7 @@ public class ChatParticipationService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
+    private final ChatSystemMessageService chatSystemMessageService;
 
     @Transactional
     public ChatParticipateResponse participate(Long userId, Long companionId) {
@@ -53,6 +54,8 @@ public class ChatParticipationService {
         ChatRoom chatRoom = chatRoomRepository.findByCompanionId(companionId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
 
+        chatSystemMessageService.enter(chatRoom, user);
+
         return new ChatParticipateResponse(participant.getId(), chatRoom.getId());
     }
 
@@ -66,6 +69,7 @@ public class ChatParticipationService {
 
     @Transactional
     public ChatLeaveResponse leave(Long userId, Long companionId) {
+
         CompanionParticipant participant = companionParticipantRepository
                 .findActiveByCompanionIdAndUserId(companionId, userId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.NOT_PARTICIPATING));
@@ -77,23 +81,25 @@ public class ChatParticipationService {
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
 
         boolean isHost = companion.getHost().getId().equals(userId);
-        if (isHost) {
-            boolean isAlone = companion.getCurrentCount() <= 1;
-            if (isAlone) {
-                chatRoom.close();
-            } else {
-                CompanionParticipant nextHost = companionParticipantRepository
-                        .findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(companionId, userId)
-                        .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_NEXT_HOST_NOT_FOUND));
-                companion.transferHost(nextHost.getUser());
-            }
+        boolean isLastParticipant = isHost && companion.getCurrentCount() <= 1;
+        if (isLastParticipant) {
+            chatRoom.close();
+        } else if (isHost) {
+            CompanionParticipant nextHost = companionParticipantRepository
+                    .findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(companionId, userId)
+                    .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_NEXT_HOST_NOT_FOUND));
+            companion.transferHost(nextHost.getUser());
         }
 
         participant.leave();
+
+        if (!isLastParticipant) {
+            chatSystemMessageService.leave(chatRoom, participant.getUser());
+        }
+
         chatRoomRepository.decreaseCurrentCount(companionId);
 
         // TODO: companion_participants.outcome_status 갱신
-        // TODO: [확인 필요] SYSTEM_LEAVE 메시지 생성도 참여하기와 동일한 이유(clientMessageId 미정)로 보류.
 
         return new ChatLeaveResponse(chatRoom.getId());
     }
