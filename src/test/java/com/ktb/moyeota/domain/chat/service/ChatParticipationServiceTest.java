@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -55,6 +56,9 @@ class ChatParticipationServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ChatSystemMessageService chatSystemMessageService;
+
     @InjectMocks
     private ChatParticipationService service;
 
@@ -91,6 +95,7 @@ class ChatParticipationServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NOT_FOUND);
             verify(companionParticipantRepository, never()).findActiveByCompanionIdAndUserId(any(), any());
+            verify(chatSystemMessageService, never()).enter(any(), any());
         }
 
         @Test
@@ -104,6 +109,7 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.ALREADY_PARTICIPATING);
+            verify(chatSystemMessageService, never()).enter(any(), any());
         }
 
         @Test
@@ -120,10 +126,11 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NOT_JOINABLE);
+            verify(chatSystemMessageService, never()).enter(any(), any());
         }
 
         @Test
-        @DisplayName("정상 참여하면 참여자 id와 채팅방 id를 반환한다")
+        @DisplayName("정상 참여하면 참여자 id와 채팅방 id를 반환하고 입장 시스템 메시지를 보낸다")
         void participatesSuccessfully() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
@@ -141,6 +148,25 @@ class ChatParticipationServiceTest {
 
             assertThat(response.companionParticipantId()).isEqualTo(100L);
             assertThat(response.chatRoomId()).isEqualTo(ROOM_ID);
+            verify(chatSystemMessageService).enter(chatRoom, guest);
+        }
+
+        @Test
+        @DisplayName("입장 시스템 메시지 저장이 실패하면 예외가 전파되어 참여도 함께 롤백 대상이 된다")
+        void enterMessageFailurePropagates() {
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
+                    .willReturn(Optional.empty());
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(userRepository.findById(GUEST_ID)).willReturn(Optional.of(guest));
+            given(chatRoomRepository.increaseCurrentCountIfRecruitingAndNotFull(COMPANION_ID, CompanionStatus.RECRUITING))
+                    .willReturn(1);
+            given(companionParticipantRepository.save(any(CompanionParticipant.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+            given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
+            willThrow(new IllegalStateException("메시지 저장 실패")).given(chatSystemMessageService).enter(chatRoom, guest);
+
+            assertThatThrownBy(() -> service.participate(GUEST_ID, COMPANION_ID))
+                    .isInstanceOf(IllegalStateException.class);
         }
 
         @Test
@@ -165,6 +191,7 @@ class ChatParticipationServiceTest {
             assertThat(response.companionParticipantId()).isEqualTo(100L);
             assertThat(previous.getOutcomeStatus()).isEqualTo(OutcomeStatus.PENDING);
             assertThat(previous.getLeftAt()).isNull();
+            verify(chatSystemMessageService).enter(chatRoom, guest);
         }
 
         @Test
@@ -183,6 +210,7 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.ALREADY_PARTICIPATING);
+            verify(chatSystemMessageService, never()).enter(any(), any());
         }
     }
 
@@ -200,10 +228,11 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.NOT_PARTICIPATING);
+            verify(chatSystemMessageService, never()).leave(any(), any());
         }
 
         @Test
-        @DisplayName("방장이 아니면 위임 없이 그냥 나간다")
+        @DisplayName("방장이 아니면 위임 없이 나가고 퇴장 시스템 메시지를 보낸다")
         void nonHostLeavesWithoutTransfer() {
             CompanionParticipant guestParticipation = CompanionParticipant.join(companion, guest);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
@@ -218,10 +247,12 @@ class ChatParticipationServiceTest {
             assertThat(chatRoom.getClosedAt()).isNull();
             verify(companionParticipantRepository, never())
                     .findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(any(), any());
+            assertThat(guestParticipation.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+            verify(chatSystemMessageService).leave(chatRoom, guest);
         }
 
         @Test
-        @DisplayName("방장이고 혼자 남았으면 채팅방을 닫는다")
+        @DisplayName("방장이고 혼자 남았으면 채팅방을 닫고, 알릴 사람이 없으니 퇴장 메시지는 보내지 않는다")
         void closesRoomWhenHostAlone() {
             ReflectionTestUtils.setField(companion, "currentCount", 1);
             CompanionParticipant hostParticipation = CompanionParticipant.join(companion, host);
@@ -233,6 +264,8 @@ class ChatParticipationServiceTest {
             service.leave(HOST_ID, COMPANION_ID);
 
             assertThat(chatRoom.getClosedAt()).isNotNull();
+            assertThat(hostParticipation.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+            verify(chatSystemMessageService, never()).leave(any(), any());
         }
 
         @Test
@@ -253,6 +286,7 @@ class ChatParticipationServiceTest {
             service.leave(HOST_ID, COMPANION_ID);
 
             assertThat(companion.getHost()).isEqualTo(guest);
+            verify(chatSystemMessageService).leave(chatRoom, host);
         }
 
         @Test
@@ -272,6 +306,22 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NEXT_HOST_NOT_FOUND);
+            verify(chatSystemMessageService, never()).leave(any(), any());
+        }
+
+        @Test
+        @DisplayName("퇴장 시스템 메시지 저장이 실패하면 예외가 전파되어 나가기도 함께 롤백 대상이 된다")
+        void leaveMessageFailurePropagates() {
+            CompanionParticipant guestParticipation = CompanionParticipant.join(companion, guest);
+            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
+                    .willReturn(Optional.of(guestParticipation));
+            given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
+            given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
+            willThrow(new IllegalStateException("메시지 저장 실패")).given(chatSystemMessageService).leave(chatRoom, guest);
+
+            assertThatThrownBy(() -> service.leave(GUEST_ID, COMPANION_ID))
+                    .isInstanceOf(IllegalStateException.class);
+            verify(chatRoomRepository, never()).decreaseCurrentCount(any());
         }
     }
 }
