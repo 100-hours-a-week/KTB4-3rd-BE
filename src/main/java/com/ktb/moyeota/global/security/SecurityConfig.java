@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health/**").permitAll()
+                        // The management port is restricted to the monitoring security group.
+                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.GET, OAUTH_LOGIN_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/tokens").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/auth/sessions").permitAll()
