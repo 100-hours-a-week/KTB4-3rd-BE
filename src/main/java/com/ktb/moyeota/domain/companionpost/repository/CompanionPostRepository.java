@@ -27,12 +27,14 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
                     ST_GeomFromText(CONCAT('POLYGON((', :swLat, ' ', :swLng, ',', :neLat, ' ', :swLng, ',', :neLat, ' ', :neLng, ',', :swLat, ' ', :neLng, ',', :swLat, ' ', :swLng, '))'), 4326),
                     c.origin_location
                   )
+            LIMIT :limit
             """)
     List<CompanionPinProjection> findPinsInViewport(
             @Param("swLat") BigDecimal swLat,
             @Param("swLng") BigDecimal swLng,
             @Param("neLat") BigDecimal neLat,
-            @Param("neLng") BigDecimal neLng);
+            @Param("neLng") BigDecimal neLng,
+            @Param("limit") int limit);
 
 
     @Query(nativeQuery = true, value = """
