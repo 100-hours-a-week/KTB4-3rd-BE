@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.report.service;
 
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
@@ -17,6 +18,9 @@ import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import jakarta.persistence.EntityManager;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -26,12 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReportService {
 
+    private static final Duration REPORT_PERIOD_AFTER_RIDE = Duration.ofHours(72);
+
     private final MessageReportRepository messageReportRepository;
     private final UserReportRepository userReportRepository;
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final CompanionParticipantRepository companionParticipantRepository;
     private final EntityManager entityManager;
+    private final Clock clock;
 
     @Transactional
     public ReportCreateResponse create(Long reporterId, ReportCreateRequest request) {
@@ -46,12 +53,14 @@ public class ReportService {
         Message reportedMessage = messageRepository.findById(request.reportedMessageId())
                 .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID));
 
-        Long roomId = reportedMessage.getChatRoom().getId();
-        companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, reporterId)
-                .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID));
+        validateReporter(reportedMessage.getChatRoom().getCompanion().getId(), reporterId);
 
         User reporter = findUser(reporterId);
         User reportedUser = findReportedUser(request.reportedUserId());
+        validateNotSelf(reporter, reportedUser);
+        if (reportedMessage.getSender() == null || !reportedMessage.getSender().getId().equals(reportedUser.getId())) {
+            throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
+        }
 
         try {
             MessageReport saved = messageReportRepository.save(MessageReport.create(
@@ -63,11 +72,14 @@ public class ReportService {
     }
 
     private ReportCreateResponse createUserReport(Long reporterId, ReportCreateRequest request) {
-        companionParticipantRepository.findActiveByCompanionIdAndUserId(request.companionId(), reporterId)
-                .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID));
+        validateReporter(request.companionId(), reporterId);
 
         User reporter = findUser(reporterId);
         User reportedUser = findReportedUser(request.reportedUserId());
+        validateNotSelf(reporter, reportedUser);
+        if (!companionParticipantRepository.existsByCompanionIdAndUserId(request.companionId(), reportedUser.getId())) {
+            throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
+        }
         Companion companion = entityManager.getReference(Companion.class, request.companionId());
 
         try {
@@ -76,6 +88,29 @@ public class ReportService {
             return new ReportCreateResponse(saved.getId(), saved.getCreatedAt());
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ReportErrorCode.DUPLICATE_USER_REPORT);
+        }
+    }
+
+    private void validateReporter(Long companionId, Long reporterId) {
+        CompanionParticipant participation = companionParticipantRepository
+                .findByCompanionIdAndUserId(companionId, reporterId)
+                .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID));
+        switch (participation.getOutcomeStatus()) {
+            case PENDING -> {
+            }
+            case COMPLETED -> {
+                LocalDateTime deadline = participation.getLeftAt().plus(REPORT_PERIOD_AFTER_RIDE);
+                if (!LocalDateTime.now(clock).isBefore(deadline)) {
+                    throw new BusinessException(ReportErrorCode.REPORT_PERIOD_EXPIRED);
+                }
+            }
+            case INCOMPLETE -> throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
+        }
+    }
+
+    private static void validateNotSelf(User reporter, User reportedUser) {
+        if (reporter.getId().equals(reportedUser.getId())) {
+            throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
         }
     }
 

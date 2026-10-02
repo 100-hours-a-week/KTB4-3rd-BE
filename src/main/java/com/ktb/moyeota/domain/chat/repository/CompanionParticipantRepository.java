@@ -48,4 +48,6 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
             Long companionId, Long userId);
 
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
+
+    boolean existsByCompanionIdAndUserId(Long companionId, Long userId);
 }

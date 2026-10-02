@@ -102,17 +102,19 @@ class ReportServiceTest {
 
     private void stubHappyPath() {
         given(messageRepository.findById(MESSAGE_ID)).willReturn(Optional.of(reportedMessage));
-        given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, REPORTER_ID))
+        given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                 .willReturn(Optional.of(participant));
         given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
         given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
     }
 
     private void stubUserReportHappyPath() {
-        given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+        given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                 .willReturn(Optional.of(participant));
         given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
         given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.of(reportedUser));
+        given(companionParticipantRepository.existsByCompanionIdAndUserId(COMPANION_ID, REPORTED_USER_ID))
+                .willReturn(true);
         given(entityManager.getReference(Companion.class, COMPANION_ID)).willReturn(companion);
     }
 
@@ -152,7 +154,7 @@ class ReportServiceTest {
         @DisplayName("신고자가 그 방의 참여자가 아니면 REPORT_TARGET_INVALID다")
         void notParticipant() {
             given(messageRepository.findById(MESSAGE_ID)).willReturn(Optional.of(reportedMessage));
-            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, REPORTER_ID))
+            given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                     .willReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.create(REPORTER_ID, messageReportRequest(ReportReason.ABUSE, null)))
@@ -165,7 +167,7 @@ class ReportServiceTest {
         @DisplayName("신고 대상 유저가 없으면 REPORTED_USER_NOT_FOUND다")
         void reportedUserNotFound() {
             given(messageRepository.findById(MESSAGE_ID)).willReturn(Optional.of(reportedMessage));
-            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, REPORTER_ID))
+            given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                     .willReturn(Optional.of(participant));
             given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
             given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.empty());
@@ -212,7 +214,7 @@ class ReportServiceTest {
         @Test
         @DisplayName("신고자가 그 동행 참여자가 아니면 REPORT_TARGET_INVALID다")
         void notParticipant() {
-            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+            given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                     .willReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.create(REPORTER_ID, userReportRequest(ReportReason.NO_SHOW, null)))
@@ -226,7 +228,7 @@ class ReportServiceTest {
         @Test
         @DisplayName("신고 대상 유저가 없으면 REPORTED_USER_NOT_FOUND다")
         void reportedUserNotFound() {
-            given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
+            given(companionParticipantRepository.findByCompanionIdAndUserId(COMPANION_ID, REPORTER_ID))
                     .willReturn(Optional.of(participant));
             given(userRepository.findById(REPORTER_ID)).willReturn(Optional.of(reporter));
             given(userRepository.findById(REPORTED_USER_ID)).willReturn(Optional.empty());
