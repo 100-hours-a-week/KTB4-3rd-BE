@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.report.service;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
@@ -58,7 +59,8 @@ public class ReportService {
         User reporter = findUser(reporterId);
         User reportedUser = findReportedUser(request.reportedUserId());
         validateNotSelf(reporter, reportedUser);
-        if (reportedMessage.getSender() == null || !reportedMessage.getSender().getId().equals(reportedUser.getId())) {
+        if (reportedMessage.getMessageType() != MessageType.TEXT
+                || !reportedMessage.getSender().getId().equals(reportedUser.getId())) {
             throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
         }
 

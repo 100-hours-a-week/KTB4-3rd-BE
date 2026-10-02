@@ -111,6 +111,17 @@ class ReportEligibilityTest {
         }
 
         @Test
+        @DisplayName("입장 시스템 메시지는 보낸 사람이 있어도 REPORT_TARGET_INVALID다")
+        void joinSystemMessage() {
+            entityManager.persistAndFlush(participant(pot, reporter, PENDING));
+            reportedMessage = entityManager.persistAndFlush(
+                    Message.joinSystemMessage(reportedMessage.getChatRoom(), reportedUser, "-2", null));
+
+            assertErrorCode(() -> reportService.create(reporter.getId(), messageReport(reportedUser, reportedMessage)),
+                    ReportErrorCode.REPORT_TARGET_INVALID);
+        }
+
+        @Test
         @DisplayName("자기 메시지를 신고하면 REPORT_TARGET_INVALID다")
         void ownMessage() {
             entityManager.persistAndFlush(participant(pot, reporter, PENDING));
