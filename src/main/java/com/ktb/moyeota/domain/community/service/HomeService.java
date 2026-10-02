@@ -44,6 +44,7 @@ public class HomeService {
 
     @Transactional(readOnly = true)
     public MapPinSearchResponse searchMapPins(MapPinSearchRequest request) {
+        validateViewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
         List<CommunityPinProjection> communityPins = communityPostRepository.findPinsInViewport(
                 request.swLat(), request.swLng(), request.neLat(), request.neLng());
         List<CompanionPinProjection> companionPins = companionPostRepository.findPinsInViewport(
