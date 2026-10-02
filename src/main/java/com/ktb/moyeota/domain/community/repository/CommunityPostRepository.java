@@ -18,12 +18,14 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
                     ST_GeomFromText(CONCAT('POLYGON((', :swLat, ' ', :swLng, ',', :neLat, ' ', :swLng, ',', :neLat, ' ', :neLng, ',', :swLat, ' ', :neLng, ',', :swLat, ' ', :swLng, '))'), 4326),
                     cp.location
                   )
+            LIMIT :limit
             """)
     List<CommunityPinProjection> findPinsInViewport(
             @Param("swLat") BigDecimal swLat,
             @Param("swLng") BigDecimal swLng,
             @Param("neLat") BigDecimal neLat,
-            @Param("neLng") BigDecimal neLng);
+            @Param("neLng") BigDecimal neLng,
+            @Param("limit") int limit);
 
 
     @Modifying
