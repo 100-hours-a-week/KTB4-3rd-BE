@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.community.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
@@ -13,6 +14,7 @@ import com.ktb.moyeota.domain.community.dto.MapPinType;
 import com.ktb.moyeota.domain.community.dto.NearbyPostCursor;
 import com.ktb.moyeota.domain.community.dto.NearbyPostSearchRequest;
 import com.ktb.moyeota.domain.community.dto.NearbyPostSearchResponse;
+import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityNearbyProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPinProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
@@ -20,6 +22,7 @@ import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -159,5 +162,29 @@ class HomeServiceTest {
         assertThat(response.items()).extracting(item -> item.author().profileImageUrl())
                 .containsExactly("https://cdn.moyeota.test/profile/a.jpg", null);
     }
-}
+    @Test
+    @DisplayName("핀 조회도 뷰포트가 1도보다 넓으면 거부한다")
+    void mapPinsRejectTooLargeViewport() {
+        MapPinSearchRequest tooLarge = new MapPinSearchRequest(
+                BigDecimal.valueOf(36.52), BigDecimal.valueOf(126.54),
+                BigDecimal.valueOf(38.34), BigDecimal.valueOf(127.68));
 
+        assertThatThrownBy(() -> service.searchMapPins(tooLarge))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommunityErrorCode.COMMUNITY_VIEWPORT_TOO_LARGE);
+    }
+
+    @Test
+    @DisplayName("핀 조회도 남서쪽이 북동쪽보다 크면 거부한다")
+    void mapPinsRejectInvertedViewport() {
+        MapPinSearchRequest inverted = new MapPinSearchRequest(
+                BigDecimal.valueOf(38.0), BigDecimal.valueOf(127.0),
+                BigDecimal.valueOf(37.0), BigDecimal.valueOf(128.0));
+
+        assertThatThrownBy(() -> service.searchMapPins(inverted))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommunityErrorCode.COMMUNITY_VIEWPORT_OUT_OF_RANGE);
+    }
+}
