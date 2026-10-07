@@ -15,6 +15,8 @@ public enum ReportErrorCode implements ErrorCode {
 
     REPORT_TARGET_INVALID(HttpStatus.BAD_REQUEST, "신고 대상을 찾을 수 없습니다"),
 
+    REPORT_PERIOD_EXPIRED(HttpStatus.BAD_REQUEST, "신고 가능 기간이 지났습니다"),
+
     REPORTED_USER_NOT_FOUND(HttpStatus.BAD_REQUEST, "존재하지 않는 사용자입니다");
 
     private final HttpStatus status;

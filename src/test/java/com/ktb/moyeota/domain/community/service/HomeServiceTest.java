@@ -1,8 +1,10 @@
 package com.ktb.moyeota.domain.community.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
@@ -13,6 +15,7 @@ import com.ktb.moyeota.domain.community.dto.MapPinType;
 import com.ktb.moyeota.domain.community.dto.NearbyPostCursor;
 import com.ktb.moyeota.domain.community.dto.NearbyPostSearchRequest;
 import com.ktb.moyeota.domain.community.dto.NearbyPostSearchResponse;
+import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityNearbyProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPinProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
@@ -20,6 +23,7 @@ import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -81,9 +85,9 @@ class HomeServiceTest {
     void mergesBothPinTypes() {
         CommunityPinProjection communityPin = communityPin(1L);
         CompanionPinProjection companionPin = companionPin(2L);
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any()))
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
                 .willReturn(List.of(communityPin));
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any()))
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
                 .willReturn(List.of(companionPin));
 
         MapPinSearchResponse response = service.searchMapPins(request);
@@ -102,9 +106,9 @@ class HomeServiceTest {
     @DisplayName("합산 결과가 500건 이하면 그대로 반환한다")
     void returnsItemsWhenUnderLimit() {
         CommunityPinProjection communityPin = communityPin(1L);
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any()))
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
                 .willReturn(List.of(communityPin));
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any()))
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
                 .willReturn(List.of());
 
         MapPinSearchResponse response = service.searchMapPins(request);
@@ -114,14 +118,38 @@ class HomeServiceTest {
     }
 
     @Test
-    @DisplayName("합산 결과가 500건을 초과하면 빈 목록과 limitExceeded=true를 반환한다")
+    @DisplayName("한쪽 조회가 501건을 돌려주면 빈 목록과 limitExceeded=true를 반환한다")
     void returnsEmptyWhenOverLimit() {
         List<CommunityPinProjection> manyPins = new ArrayList<>(PIN_LIMIT + 1);
         for (long id = 1; id <= PIN_LIMIT + 1; id++) {
-            manyPins.add(mock(CommunityPinProjection.class)); // 내용은 중요하지 않음 — 개수만 검증
+            manyPins.add(mock(CommunityPinProjection.class));
         }
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any())).willReturn(manyPins);
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any())).willReturn(List.of());
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), eq(PIN_LIMIT + 1)))
+                .willReturn(manyPins);
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), eq(PIN_LIMIT + 1)))
+                .willReturn(List.of());
+
+        MapPinSearchResponse response = service.searchMapPins(request);
+
+        assertThat(response.limitExceeded()).isTrue();
+        assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("두 조회가 각각 500건 이하라도 합이 500건을 넘으면 limitExceeded=true를 반환한다")
+    void returnsEmptyWhenSumOverLimit() {
+        List<CommunityPinProjection> communityPins = new ArrayList<>(300);
+        for (int i = 0; i < 300; i++) {
+            communityPins.add(mock(CommunityPinProjection.class));
+        }
+        List<CompanionPinProjection> companionPins = new ArrayList<>(201);
+        for (int i = 0; i < 201; i++) {
+            companionPins.add(mock(CompanionPinProjection.class));
+        }
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), eq(PIN_LIMIT + 1)))
+                .willReturn(communityPins);
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), eq(PIN_LIMIT + 1)))
+                .willReturn(companionPins);
 
         MapPinSearchResponse response = service.searchMapPins(request);
 
@@ -159,5 +187,29 @@ class HomeServiceTest {
         assertThat(response.items()).extracting(item -> item.author().profileImageUrl())
                 .containsExactly("https://cdn.moyeota.test/profile/a.jpg", null);
     }
-}
+    @Test
+    @DisplayName("핀 조회도 뷰포트가 1도보다 넓으면 거부한다")
+    void mapPinsRejectTooLargeViewport() {
+        MapPinSearchRequest tooLarge = new MapPinSearchRequest(
+                BigDecimal.valueOf(36.52), BigDecimal.valueOf(126.54),
+                BigDecimal.valueOf(38.34), BigDecimal.valueOf(127.68));
 
+        assertThatThrownBy(() -> service.searchMapPins(tooLarge))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommunityErrorCode.COMMUNITY_VIEWPORT_TOO_LARGE);
+    }
+
+    @Test
+    @DisplayName("핀 조회도 남서쪽이 북동쪽보다 크면 거부한다")
+    void mapPinsRejectInvertedViewport() {
+        MapPinSearchRequest inverted = new MapPinSearchRequest(
+                BigDecimal.valueOf(38.0), BigDecimal.valueOf(127.0),
+                BigDecimal.valueOf(37.0), BigDecimal.valueOf(128.0));
+
+        assertThatThrownBy(() -> service.searchMapPins(inverted))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommunityErrorCode.COMMUNITY_VIEWPORT_OUT_OF_RANGE);
+    }
+}

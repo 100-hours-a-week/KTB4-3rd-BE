@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class HomeService {
 
     private static final int PIN_LIMIT = 500;
+    private static final int PIN_FETCH_LIMIT = PIN_LIMIT + 1;
     private static final int NEARBY_PAGE_SIZE = 10;
 
     private static final BigDecimal MAX_VIEWPORT_SPAN_DEGREES = BigDecimal.valueOf(1.0);
@@ -44,10 +45,11 @@ public class HomeService {
 
     @Transactional(readOnly = true)
     public MapPinSearchResponse searchMapPins(MapPinSearchRequest request) {
+        validateViewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
         List<CommunityPinProjection> communityPins = communityPostRepository.findPinsInViewport(
-                request.swLat(), request.swLng(), request.neLat(), request.neLng());
+                request.swLat(), request.swLng(), request.neLat(), request.neLng(), PIN_FETCH_LIMIT);
         List<CompanionPinProjection> companionPins = companionPostRepository.findPinsInViewport(
-                request.swLat(), request.swLng(), request.neLat(), request.neLng());
+                request.swLat(), request.swLng(), request.neLat(), request.neLng(), PIN_FETCH_LIMIT);
 
         List<MapPinItem> items = new ArrayList<>(communityPins.size() + companionPins.size());
         for (CommunityPinProjection pin : communityPins) {
