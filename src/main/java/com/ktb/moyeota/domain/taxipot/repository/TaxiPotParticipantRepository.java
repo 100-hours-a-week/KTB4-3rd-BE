@@ -17,6 +17,14 @@ public interface TaxiPotParticipantRepository extends JpaRepository<CompanionPar
             """)
     Optional<Companion> findCurrentTaxiPot(Long userId);
 
+    @Query("""
+            select count(p) > 0 from CompanionParticipant p
+             where p.user.id = :userId
+               and p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
+               and p.companion.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.TAXI_POT
+            """)
+    boolean existsCurrentTaxiPot(Long userId);
+
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 
     @Query("""
