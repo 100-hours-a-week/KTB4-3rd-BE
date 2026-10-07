@@ -70,6 +70,11 @@ public class AuthSessionService {
                 .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
     }
 
+    @Transactional
+    public void revokeAll(Long userId) {
+        sessionStore.deleteAllByUserId(userId);
+    }
+
     private ReissueResult rotate(SessionTokenView view, LocalDateTime now) {
         String rotated = opaqueTokenFactory.generate();
         sessionStore.appendToken(view.sessionId(), opaqueTokenFactory.hash(rotated));

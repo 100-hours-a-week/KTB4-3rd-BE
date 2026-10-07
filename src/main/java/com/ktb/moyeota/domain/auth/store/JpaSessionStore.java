@@ -51,4 +51,11 @@ public class JpaSessionStore implements SessionStore {
         sessionTokenRepository.deleteBySessionId(sessionId);
         sessionRepository.deleteById(sessionId);
     }
+
+    @Override
+    @Transactional
+    public void deleteAllByUserId(Long userId) {
+        sessionTokenRepository.deleteByUserId(userId);
+        sessionRepository.deleteByUserId(userId);
+    }
 }

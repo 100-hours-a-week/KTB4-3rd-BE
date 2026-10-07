@@ -15,4 +15,6 @@ public interface SessionStore {
     void appendToken(Long sessionId, String tokenHash);
 
     void deleteSession(Long sessionId);
+
+    void deleteAllByUserId(Long userId);
 }
