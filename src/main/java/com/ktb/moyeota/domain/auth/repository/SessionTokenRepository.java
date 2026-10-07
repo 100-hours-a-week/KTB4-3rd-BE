@@ -31,4 +31,8 @@ public interface SessionTokenRepository extends JpaRepository<SessionToken, Stri
     @Modifying
     @Query("delete from SessionToken t where t.session.id = :sessionId")
     void deleteBySessionId(Long sessionId);
+
+    @Modifying
+    @Query("delete from SessionToken t where t.session.id in (select s.id from Session s where s.userId = :userId)")
+    void deleteByUserId(Long userId);
 }

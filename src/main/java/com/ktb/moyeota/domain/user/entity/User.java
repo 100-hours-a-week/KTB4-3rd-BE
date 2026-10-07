@@ -24,7 +24,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
-    private static final String WITHDRAWN_NICKNAME_PREFIX = "탈퇴한사용자_";
+    private static final String WITHDRAWN_NAME_PREFIX = "탈퇴한사용자_";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -95,7 +95,8 @@ public class User {
 
     public void withdraw(LocalDateTime now) {
         this.withdrawnAt = now;
-        this.nickname = WITHDRAWN_NICKNAME_PREFIX + id;
+        this.name = WITHDRAWN_NAME_PREFIX + id;
+        this.nickname = WITHDRAWN_NAME_PREFIX + id;
         this.profileImageUrl = null;
         this.bankName = null;
         this.accountNo = null;

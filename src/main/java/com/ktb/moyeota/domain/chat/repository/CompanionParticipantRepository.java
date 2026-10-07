@@ -2,6 +2,9 @@ package com.ktb.moyeota.domain.chat.repository;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -50,4 +53,14 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 
     boolean existsByCompanionIdAndUserId(Long companionId, Long userId);
+
+    @Query("""
+            SELECT p.companion.id FROM CompanionParticipant p
+            WHERE p.user.id = :userId
+              AND p.leftAt IS NULL
+              AND p.companion.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.COMPANION
+              AND p.companion.status IN :statuses
+            """)
+    List<Long> findJoinedCompanionPostIds(
+            @Param("userId") Long userId, @Param("statuses") Collection<CompanionStatus> statuses);
 }

@@ -60,4 +60,13 @@ public class InMemorySessionStore implements SessionStore {
         sessions.remove(sessionId);
         tokens.entrySet().removeIf(entry -> entry.getValue().sessionId().equals(sessionId));
     }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
+        sessions.entrySet().stream()
+                .filter(entry -> entry.getValue().userId().equals(userId))
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(this::deleteSession);
+    }
 }

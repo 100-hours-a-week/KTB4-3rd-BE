@@ -16,11 +16,15 @@ import com.ktb.moyeota.domain.auth.model.SignupSessionView;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
 import com.ktb.moyeota.domain.auth.service.AuthSessionService;
 import com.ktb.moyeota.domain.auth.store.SignupSessionStore;
+import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
+import com.ktb.moyeota.domain.chat.service.ChatParticipationService;
+import com.ktb.moyeota.domain.companion.repository.CompanionRepository;
 import com.ktb.moyeota.domain.image.error.ImageErrorCode;
 import com.ktb.moyeota.domain.image.model.ImagePurpose;
 import com.ktb.moyeota.domain.image.model.UploadScope;
 import com.ktb.moyeota.domain.image.service.ImagePromotionService;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.entity.UserAgreement;
@@ -38,6 +42,7 @@ import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
+import com.ktb.moyeota.global.external.kakao.KakaoUnlinkClient;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import com.ktb.moyeota.global.security.jwt.AccessToken;
 import java.nio.charset.StandardCharsets;
@@ -95,7 +100,9 @@ class UserServiceTest {
     void setUp() {
         service = new UserService(userRepository, oAuthAccountRepository, userAgreementRepository,
                 authSessionService, signupSessionStore, accountNoCipher, imagePromotionService, imageUrlResolver,
-                transactionTemplate,
+                mock(CompanionRepository.class), mock(TaxiPotParticipantRepository.class),
+                mock(CompanionParticipantRepository.class), mock(ChatParticipationService.class),
+                mock(KakaoUnlinkClient.class), transactionTemplate,
                 Clock.fixed(NOW, ZoneOffset.UTC));
         given(authSessionService.issue(any())).willReturn(ISSUED);
     }

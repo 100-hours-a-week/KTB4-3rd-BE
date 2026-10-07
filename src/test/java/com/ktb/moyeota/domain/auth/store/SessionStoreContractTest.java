@@ -76,4 +76,20 @@ public abstract class SessionStoreContractTest {
         assertThat(store().findToken("hash-a")).isEmpty();
         assertThat(store().findToken("hash-b")).isEmpty();
     }
+
+    @Test
+    @DisplayName("사용자의 세션을 모두 지우면 다른 사용자의 세션은 남는다")
+    void deleteAllByUserIdKeepsOtherUsers() {
+        Long deviceA = store().create(1L, "hash-a", EXPIRES);
+        store().appendToken(deviceA, "hash-a2");
+        store().create(1L, "hash-b", EXPIRES);
+        store().create(2L, "hash-other", EXPIRES);
+
+        store().deleteAllByUserId(1L);
+
+        assertThat(store().findToken("hash-a")).isEmpty();
+        assertThat(store().findToken("hash-a2")).isEmpty();
+        assertThat(store().findToken("hash-b")).isEmpty();
+        assertThat(store().findToken("hash-other")).isPresent();
+    }
 }
