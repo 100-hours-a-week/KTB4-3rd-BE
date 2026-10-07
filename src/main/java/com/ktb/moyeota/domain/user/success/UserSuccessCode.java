@@ -16,7 +16,15 @@ public enum UserSuccessCode implements SuccessCode {
 
     MY_PROFILE_FOUND("내 정보 조회에 성공했습니다"),
 
-    BANK_ACCOUNT_SAVED("정산 계좌가 저장되었습니다");
+    BANK_ACCOUNT_SAVED("정산 계좌가 저장되었습니다"),
+
+    CAR_REGISTERED("차량이 등록되었습니다"),
+
+    CAR_UPDATED("차량 정보가 수정되었습니다"),
+
+    CARS_FOUND("조회에 성공했습니다"),
+
+    NO_CAR("등록된 차량이 없습니다");
 
     private final String message;
 }
