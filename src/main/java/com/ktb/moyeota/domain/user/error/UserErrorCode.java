@@ -9,7 +9,11 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
 
-    NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다.");
+    NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
+
+    ACTIVE_HOST_EXISTS(HttpStatus.CONFLICT, "방장으로 진행 중인 동행이 있어 탈퇴할 수 없습니다"),
+
+    ACTIVE_TAXI_POT_EXISTS(HttpStatus.CONFLICT, "참여 중인 택시팟이 있어 탈퇴할 수 없습니다");
 
     private final HttpStatus status;
     private final String message;
