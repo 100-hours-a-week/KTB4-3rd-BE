@@ -47,6 +47,8 @@ moyeota:
       client-id: ${KAKAO_CLIENT_ID}
       client-secret: ${KAKAO_CLIENT_SECRET}
       redirect-uri: ${KAKAO_REDIRECT_URI}
+  kakao-unlink:
+    admin-key: ${KAKAO_ADMIN_KEY:}
   storage:
     s3:
       bucket: ${S3_BUCKET}
