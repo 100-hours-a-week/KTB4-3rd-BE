@@ -1,6 +1,6 @@
 ---
 name: 기능 작업
-about: 새로운 기능이나 개선 사항을 개발합니다.
+about: 새로운 기능을 개발합니다.
 title: '[Feature] '
 labels: ''
 assignees: ''
