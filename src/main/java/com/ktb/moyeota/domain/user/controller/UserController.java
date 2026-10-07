@@ -24,6 +24,7 @@ import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -59,6 +60,14 @@ public class UserController {
     @GetMapping("/users/me")
     public ApiResponse<MyProfileResponse> getMe(@AuthUser Long userId) {
         return ApiResponse.of(UserSuccessCode.MY_PROFILE_FOUND, MyProfileResponse.from(userService.findMe(userId)));
+    }
+
+    @DeleteMapping("/users/me")
+    public ResponseEntity<Void> withdraw(@AuthUser Long userId) {
+        userService.withdraw(userId);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, authCookies.expiredRefreshToken().toString())
+                .build();
     }
 
     @PutMapping("/users/me/bank-account")
