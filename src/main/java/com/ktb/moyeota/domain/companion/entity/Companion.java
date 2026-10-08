@@ -195,6 +195,17 @@ public class Companion {
         }
     }
 
+    public void leaveCarpool(CompanionParticipant leaver) {
+        if (status == CompanionStatus.IN_PROGRESS) {
+            throw new BusinessException(CompanionErrorCode.RIDE_IN_PROGRESS);
+        }
+        if (status != CompanionStatus.RECRUITING) {
+            throw new IllegalStateException("모집 중이 아닌 카풀에서는 나갈 수 없다: " + id);
+        }
+        leaver.leave();
+        this.currentCount--;
+    }
+
     public void startRide(LocalDateTime now) {
         if (status != CompanionStatus.RECRUITING) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
