@@ -10,18 +10,23 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
+import com.ktb.moyeota.domain.carpool.model.CarpoolCreateCommand;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
+import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
+import com.ktb.moyeota.domain.carpool.service.CarpoolRegistrationService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRideService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -77,6 +82,9 @@ class CarpoolControllerTest {
 
     @MockitoBean
     private CarpoolRideService carpoolRideService;
+
+    @MockitoBean
+    private CarpoolRegistrationService carpoolRegistrationService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -362,6 +370,72 @@ class CarpoolControllerTest {
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
 
         verifyNoInteractions(carpoolRideService);
+    }
+
+    @Test
+    @DisplayName("snake_case 본문으로 카풀을 등록하면 201과 Location, 카풀 · 채팅방 id 와 정원을 내린다")
+    void creates() throws Exception {
+        CarpoolCreateCommand command = new CarpoolCreateCommand(
+                "판교역", new BigDecimal("37.394500"), new BigDecimal("127.111200"),
+                "강남역", new BigDecimal("37.497900"), new BigDecimal("127.027600"),
+                LocalDateTime.of(2026, 10, 10, 8, 30), 3);
+        given(carpoolRegistrationService.create(42L, command))
+                .willReturn(new CreatedCarpool(51L, 620L, 4, 1, CompanionStatus.RECRUITING));
+
+        mockMvc.perform(create(createBody("3")).with(member()))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/carpools/51"))
+                .andExpect(jsonPath("$.message").value("카풀 등록을 성공했습니다"))
+                .andExpect(jsonPath("$.data.id").value(51))
+                .andExpect(jsonPath("$.data.chat_room_id").value(620))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(jsonPath("$.data.current_count").value(1))
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"));
+    }
+
+    @Test
+    @DisplayName("모집 인원이 1~3 밖이면 422 VALIDATION_ERROR · OUT_OF_RANGE이고 등록하지 않는다")
+    void recruitCountOutOfRange() throws Exception {
+        mockMvc.perform(create(createBody("4")).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("recruit_count"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("OUT_OF_RANGE"));
+
+        verifyNoInteractions(carpoolRegistrationService);
+    }
+
+    @Test
+    @DisplayName("등록된 차량이 없으면 422 CAR_REGISTRATION_REQUIRED다")
+    void carRequired() throws Exception {
+        given(carpoolRegistrationService.create(any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.CAR_REGISTRATION_REQUIRED));
+
+        mockMvc.perform(create(createBody("1")).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.message").value("차량 정보를 먼저 등록해주세요"))
+                .andExpect(jsonPath("$.error.code").value("CAR_REGISTRATION_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("카풀 등록은 로그인해야 한다")
+    void createRequiresLogin() throws Exception {
+        mockMvc.perform(create(createBody("1")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+
+        verifyNoInteractions(carpoolRegistrationService);
+    }
+
+    private static MockHttpServletRequestBuilder create(String body) {
+        return post("/api/carpools").contentType(MediaType.APPLICATION_JSON).content(body);
+    }
+
+    private static String createBody(String recruitCount) {
+        return """
+                {"origin_name":"판교역","origin_lat":37.394500,"origin_lng":127.111200,\
+                "dest_name":"강남역","dest_lat":37.497900,"dest_lng":127.027600,\
+                "departure_at":"2026-10-10T08:30:00","recruit_count":%s}""".formatted(recruitCount);
     }
 
     private static MockHttpServletRequestBuilder statusChange(Long carpoolId, String status) {
