@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.carpool.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -9,12 +10,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
+import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
+import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
+import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
 import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
 import com.ktb.moyeota.global.config.CorsProperties;
 import com.ktb.moyeota.global.config.WebConfig;
+import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.exception.GlobalExceptionHandler;
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.Authority;
@@ -27,6 +33,7 @@ import com.ktb.moyeota.global.security.resolver.SignupPrincipalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -140,6 +147,84 @@ class CarpoolControllerTest {
         mockMvc.perform(pins("37.39", "127.10", "37.40", "127.12"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("조회에 성공했습니다"));
+    }
+
+    @Test
+    @DisplayName("snake_case 쿼리로 주변 카풀을 조회해 방장 · 거리 · 인원 · 마감 여부를 내린다")
+    void findsNearby() throws Exception {
+        NearbyCarpoolQuery query = new NearbyCarpoolQuery(
+                new BigDecimal("37.3947"), new BigDecimal("127.1111"), VIEWPORT, "v1.next");
+        given(carpoolService.findNearby(query)).willReturn(new NearbyCarpools(List.of(new NearbyCarpool(
+                51L, "우림", null, "판교역", "강남역", LocalDateTime.of(2026, 9, 8, 8, 30),
+                320.5, 2, 4, false, true)), "v1.after51"));
+
+        mockMvc.perform(nearby("37.39", "127.10", "37.40", "127.12").param("cursor", "v1.next"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.items[0].id").value(51))
+                .andExpect(jsonPath("$.data.items[0].host.nickname").value("우림"))
+                .andExpect(jsonPath("$.data.items[0].host.profile_image_url").isEmpty())
+                .andExpect(jsonPath("$.data.items[0].origin_name").value("판교역"))
+                .andExpect(jsonPath("$.data.items[0].dest_name").value("강남역"))
+                .andExpect(jsonPath("$.data.items[0].departure_at").value("2026-09-08T08:30:00"))
+                .andExpect(jsonPath("$.data.items[0].distance_m").value(320.5))
+                .andExpect(jsonPath("$.data.items[0].current_count").value(2))
+                .andExpect(jsonPath("$.data.items[0].capacity").value(4))
+                .andExpect(jsonPath("$.data.items[0].is_full").value(false))
+                .andExpect(jsonPath("$.data.items[0].is_expired").value(true))
+                .andExpect(jsonPath("$.data.next_cursor").value("v1.after51"));
+    }
+
+    @Test
+    @DisplayName("다음 페이지가 없으면 next_cursor 는 null 이다")
+    void lastPage() throws Exception {
+        given(carpoolService.findNearby(any())).willReturn(new NearbyCarpools(List.of(), null));
+
+        mockMvc.perform(nearby("37.39", "127.10", "37.40", "127.12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.next_cursor").isEmpty());
+    }
+
+    @Test
+    @DisplayName("사용자 위치가 빠지면 422 VALIDATION_ERROR이고 조회하지 않는다")
+    void nearbyMissingLocation() throws Exception {
+        mockMvc.perform(get("/api/carpools")
+                        .param("lng", "127.1111")
+                        .param("sw_lat", "37.39").param("sw_lng", "127.10").param("ne_lat", "37.40").param("ne_lng", "127.12"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("lat"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
+
+        verifyNoInteractions(carpoolService);
+    }
+
+    @Test
+    @DisplayName("주변 목록도 뷰포트가 1도를 넘으면 400 VIEWPORT_TOO_LARGE다")
+    void nearbyTooLargeViewport() throws Exception {
+        mockMvc.perform(nearby("37.0", "127.0", "38.5", "127.5"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VIEWPORT_TOO_LARGE"));
+
+        verifyNoInteractions(carpoolService);
+    }
+
+    @Test
+    @DisplayName("커서가 잘못되면 400 INVALID_CURSOR다")
+    void invalidCursor() throws Exception {
+        given(carpoolService.findNearby(any())).willThrow(new BusinessException(CommonErrorCode.INVALID_CURSOR));
+
+        mockMvc.perform(nearby("37.39", "127.10", "37.40", "127.12").param("cursor", "broken"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("잘못된 커서입니다."))
+                .andExpect(jsonPath("$.error.code").value("INVALID_CURSOR"));
+    }
+
+    private static MockHttpServletRequestBuilder nearby(String swLat, String swLng, String neLat, String neLng) {
+        return get("/api/carpools")
+                .param("lat", "37.3947").param("lng", "127.1111")
+                .param("sw_lat", swLat).param("sw_lng", swLng).param("ne_lat", neLat).param("ne_lng", neLng);
     }
 
     private static MockHttpServletRequestBuilder pins(String swLat, String swLng, String neLat, String neLng) {

@@ -2,6 +2,8 @@ package com.ktb.moyeota.domain.carpool.controller;
 
 import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchRequest;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchResponse;
+import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchRequest;
+import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchResponse;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
 import com.ktb.moyeota.domain.carpool.success.CarpoolSuccessCode;
@@ -25,5 +27,11 @@ public class CarpoolController {
         return ApiResponse.of(
                 pins.limitExceeded() ? CarpoolSuccessCode.TOO_MANY_PINS : CarpoolSuccessCode.PINS_FOUND,
                 CarpoolPinSearchResponse.from(pins));
+    }
+
+    @GetMapping("/carpools")
+    public ApiResponse<NearbyCarpoolSearchResponse> getNearby(@Valid NearbyCarpoolSearchRequest request) {
+        return ApiResponse.of(CarpoolSuccessCode.NEARBY_CARPOOLS_FOUND,
+                NearbyCarpoolSearchResponse.from(carpoolService.findNearby(request.toQuery())));
     }
 }
