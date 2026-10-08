@@ -6,7 +6,7 @@ public interface NearbyCarpoolProjection {
 
     Long getId();
 
-    String getHostNickname();
+    String getHostName();
 
     String getHostProfileImageUrl();
 

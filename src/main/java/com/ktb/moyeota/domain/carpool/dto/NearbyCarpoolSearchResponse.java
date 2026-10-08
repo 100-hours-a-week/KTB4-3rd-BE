@@ -27,7 +27,7 @@ public record NearbyCarpoolSearchResponse(List<Item> items, String nextCursor) {
         static Item from(NearbyCarpool carpool) {
             return new Item(
                     carpool.id(),
-                    new Host(carpool.hostNickname(), carpool.hostProfileImageUrl()),
+                    new Host(carpool.hostName(), carpool.hostProfileImageUrl()),
                     carpool.originName(),
                     carpool.destName(),
                     carpool.departureAt(),
@@ -39,6 +39,6 @@ public record NearbyCarpoolSearchResponse(List<Item> items, String nextCursor) {
         }
     }
 
-    public record Host(String nickname, String profileImageUrl) {
+    public record Host(String name, String profileImageUrl) {
     }
 }

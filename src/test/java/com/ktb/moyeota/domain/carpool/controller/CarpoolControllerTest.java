@@ -164,7 +164,7 @@ class CarpoolControllerTest {
     }
 
     @Test
-    @DisplayName("snake_case 쿼리로 주변 카풀을 조회해 방장 · 거리 · 인원 · 마감 여부를 내린다")
+    @DisplayName("snake_case 쿼리로 주변 카풀을 조회해 방장 실명 · 거리 · 인원 · 마감 여부를 내린다")
     void findsNearby() throws Exception {
         NearbyCarpoolQuery query = new NearbyCarpoolQuery(
                 new BigDecimal("37.3947"), new BigDecimal("127.1111"), VIEWPORT, "v1.next");
@@ -176,7 +176,8 @@ class CarpoolControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
                 .andExpect(jsonPath("$.data.items[0].id").value(51))
-                .andExpect(jsonPath("$.data.items[0].host.nickname").value("우림"))
+                .andExpect(jsonPath("$.data.items[0].host.name").value("우림"))
+                .andExpect(content().string(not(containsString("nickname"))))
                 .andExpect(jsonPath("$.data.items[0].host.profile_image_url").isEmpty())
                 .andExpect(jsonPath("$.data.items[0].origin_name").value("판교역"))
                 .andExpect(jsonPath("$.data.items[0].dest_name").value("강남역"))

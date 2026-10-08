@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public record NearbyCarpool(
         Long id,
-        String hostNickname,
+        String hostName,
         String hostProfileImageUrl,
         String originName,
         String destName,
