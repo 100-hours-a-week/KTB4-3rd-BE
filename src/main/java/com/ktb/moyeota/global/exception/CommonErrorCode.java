@@ -16,6 +16,8 @@ public enum CommonErrorCode implements ErrorCode {
 
     VIEWPORT_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 범위가 너무 넓습니다. 지도를 확대해주세요"),
 
+    INVALID_CURSOR(HttpStatus.BAD_REQUEST, "잘못된 커서입니다."),
+
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
 
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
