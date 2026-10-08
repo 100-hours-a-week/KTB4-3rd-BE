@@ -11,6 +11,8 @@ public enum CarpoolErrorCode implements ErrorCode {
 
     HOST_ONLY(HttpStatus.FORBIDDEN, "카풀 등록자만 처리할 수 있습니다"),
 
+    HOST_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "카풀 등록자는 운행 종료 이후에야 나갈 수 있습니다"),
+
     CARPOOL_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 카풀입니다");
 
     private final HttpStatus status;
