@@ -12,6 +12,10 @@ public enum CommonErrorCode implements ErrorCode {
 
     VALIDATION_ERROR(HttpStatus.UNPROCESSABLE_CONTENT, "요청 값 검증에 실패했습니다."),
 
+    VIEWPORT_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "지도 영역이 올바르지 않습니다"),
+
+    VIEWPORT_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 범위가 너무 넓습니다. 지도를 확대해주세요"),
+
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
 
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
