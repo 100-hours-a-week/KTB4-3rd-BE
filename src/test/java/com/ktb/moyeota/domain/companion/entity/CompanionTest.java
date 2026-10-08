@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class CompanionTest {
@@ -53,6 +54,29 @@ class CompanionTest {
             assertThat(pot.getCurrentCount()).isEqualTo(1);
             assertThat(pot.getHost()).isSameAs(host);
             assertThat(pot.getCreator()).isSameAs(host);
+        }
+    }
+
+    @Nested
+    @DisplayName("카풀 열기")
+    class OpenCarpool {
+
+        @ParameterizedTest
+        @CsvSource({"1, 2", "3, 4"})
+        @DisplayName("등록한 사람이 방장인 자가용 카풀이 모집 중으로 열리고, 정원은 모집 인원에 방장을 더한 값이다")
+        void opens(int recruitCount, int capacity) {
+            User host = user("방장");
+
+            Companion carpool = Companion.openCarpool(
+                    host, ORIGIN_NAME, ORIGIN_LAT, ORIGIN_LNG, DEST_NAME, DEST_LAT, DEST_LNG, DEPARTURE_AT, recruitCount);
+
+            assertThat(carpool.getKind()).isEqualTo(CompanionKind.CARPOOL);
+            assertThat(carpool.getTransportType()).isEqualTo(TransportType.OWNED_CAR);
+            assertThat(carpool.getStatus()).isEqualTo(RECRUITING);
+            assertThat(carpool.getCapacity()).isEqualTo(capacity);
+            assertThat(carpool.getCurrentCount()).isEqualTo(1);
+            assertThat(carpool.getHost()).isSameAs(host);
+            assertThat(carpool.getCreator()).isSameAs(host);
         }
     }
 
