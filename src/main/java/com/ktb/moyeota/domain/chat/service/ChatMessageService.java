@@ -11,6 +11,7 @@ import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -116,11 +117,11 @@ public class ChatMessageService {
 
     private Long decodeRequiredId(String cursor) {
         if (cursor == null) {
-            throw new BusinessException(ChatErrorCode.INVALID_CURSOR);
+            throw new BusinessException(CommonErrorCode.INVALID_CURSOR);
         }
         Long id = messageCursorCodec.decode(cursor).id();
         if (id == null) {
-            throw new BusinessException(ChatErrorCode.INVALID_CURSOR);
+            throw new BusinessException(CommonErrorCode.INVALID_CURSOR);
         }
         return id;
     }

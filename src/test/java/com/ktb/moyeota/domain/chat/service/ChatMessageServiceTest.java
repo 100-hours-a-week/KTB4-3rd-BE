@@ -22,6 +22,8 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
+import com.ktb.moyeota.global.exception.ErrorCode;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import java.nio.charset.StandardCharsets;
@@ -339,7 +341,7 @@ class ChatMessageServiceTest {
             givenParticipant(null);
 
             assertError(() -> service.findMessages(USER_ID, ROOM_ID, "before", null, cursor(10L)),
-                    ChatErrorCode.INVALID_CURSOR);
+                    CommonErrorCode.INVALID_CURSOR);
         }
 
         @Test
@@ -348,7 +350,7 @@ class ChatMessageServiceTest {
             givenParticipant(null);
 
             assertError(() -> service.findMessages(USER_ID, ROOM_ID, "before", "abc", null),
-                    ChatErrorCode.INVALID_CURSOR);
+                    CommonErrorCode.INVALID_CURSOR);
         }
 
         @Test
@@ -357,7 +359,7 @@ class ChatMessageServiceTest {
             givenParticipant(null);
 
             assertError(() -> service.findMessages(USER_ID, ROOM_ID, "before", cursor(10L), "abc"),
-                    ChatErrorCode.INVALID_CURSOR);
+                    CommonErrorCode.INVALID_CURSOR);
         }
 
         @Test
@@ -368,10 +370,10 @@ class ChatMessageServiceTest {
                     .encodeToString("{\"lastId\":10}".getBytes(StandardCharsets.UTF_8));
 
             assertError(() -> service.findMessages(USER_ID, ROOM_ID, "before", legacy, null),
-                    ChatErrorCode.INVALID_CURSOR);
+                    CommonErrorCode.INVALID_CURSOR);
         }
 
-        private void assertError(ThrowingCallable call, ChatErrorCode code) {
+        private void assertError(ThrowingCallable call, ErrorCode code) {
             assertThatThrownBy(call)
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())

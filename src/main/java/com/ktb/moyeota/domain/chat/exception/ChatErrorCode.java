@@ -11,8 +11,6 @@ public enum ChatErrorCode implements ErrorCode {
 
     CHATROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 채팅방입니다."),
 
-    INVALID_CURSOR(HttpStatus.BAD_REQUEST, "잘못된 커서입니다."),
-
     INVALID_DIRECTION(HttpStatus.BAD_REQUEST, "잘못된 조회 방향입니다."),
 
     COMPANION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 동행입니다."),
