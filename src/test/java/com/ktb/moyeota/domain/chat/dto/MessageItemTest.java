@@ -27,6 +27,16 @@ class MessageItemTest {
     }
 
     @Test
+    @DisplayName("카풀 채팅방 메시지도 발신자를 실명으로 내린다")
+    void carpoolSenderUsesRealName() {
+        Companion carpool = CompanionFixture.carpool(sender, CompanionStatus.RECRUITING, 1);
+
+        MessageItem item = MessageItem.from(textIn(carpool), null);
+
+        assertThat(item.sender()).isEqualTo(new MessageItem.Sender(7L, "홍길동", null, null));
+    }
+
+    @Test
     @DisplayName("동행모집 채팅방 메시지는 발신자를 닉네임으로 내린다")
     void companionPostSenderUsesNickname() {
         Companion companionPost = CompanionFixture.companionPost(sender);
