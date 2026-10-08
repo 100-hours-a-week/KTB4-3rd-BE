@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                             "/api/map-pins",
                             "/api/nearby-posts",
+                            "/api/carpool-pins",
                             "/api/community-posts/*/comments",
                             "/api/companion-posts/*",
                             "/api/community-posts/*"
