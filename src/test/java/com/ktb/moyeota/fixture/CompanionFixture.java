@@ -34,6 +34,13 @@ public final class CompanionFixture {
         return taxiPot;
     }
 
+    public static Companion carpool(User host, CompanionStatus status, int currentCount) {
+        Companion carpool = recruiting(host, CompanionKind.CARPOOL, TransportType.OWNED_CAR, 4);
+        ReflectionTestUtils.setField(carpool, "status", status);
+        ReflectionTestUtils.setField(carpool, "currentCount", currentCount);
+        return carpool;
+    }
+
     public static Companion companionPost(User host) {
         return recruiting(host, CompanionKind.COMPANION, TransportType.SUBWAY, 10);
     }
