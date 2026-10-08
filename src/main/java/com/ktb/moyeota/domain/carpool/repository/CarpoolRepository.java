@@ -1,14 +1,30 @@
 package com.ktb.moyeota.domain.carpool.repository;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CarpoolRepository extends JpaRepository<Companion, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select c from Companion c
+             where c.id = :id
+               and c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+               and exists (
+                   select p from CompanionParticipant p
+                    where p.companion = c
+                      and p.user.id = :userId
+                      and p.outcomeStatus <> com.ktb.moyeota.domain.chat.entity.OutcomeStatus.INCOMPLETE)
+            """)
+    Optional<Companion> findCarpoolForParticipantForUpdate(@Param("id") Long id, @Param("userId") Long userId);
 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_lat AS originLat, c.origin_lng AS originLng
