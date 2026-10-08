@@ -1,19 +1,29 @@
 package com.ktb.moyeota.domain.carpool.controller;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
+import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
+import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
+import com.ktb.moyeota.domain.carpool.service.CarpoolRideService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
@@ -41,6 +51,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -61,6 +72,9 @@ class CarpoolControllerTest {
 
     @MockitoBean
     private CarpoolService carpoolService;
+
+    @MockitoBean
+    private CarpoolRideService carpoolRideService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -225,6 +239,93 @@ class CarpoolControllerTest {
         return get("/api/carpools")
                 .param("lat", "37.3947").param("lng", "127.1111")
                 .param("sw_lat", swLat).param("sw_lng", swLng).param("ne_lat", neLat).param("ne_lng", neLng);
+    }
+
+    @Test
+    @DisplayName("방장이 운행을 시작하면 카풀 상세와 같은 형식으로 바뀐 상태를 내린다")
+    void changesStatus() throws Exception {
+        given(carpoolRideService.changeStatus(42L, 51L, CompanionStatus.IN_PROGRESS)).willReturn(new CarpoolDetail(
+                51L, CompanionStatus.IN_PROGRESS, new Member(42L, "우림", null), "판교역", "강남역",
+                LocalDateTime.of(2026, 9, 8, 8, 30), "포르쉐 911", 2, 4, false,
+                List.of(new Member(42L, "우림", null), new Member(9L, "루디", "https://cdn.moyeota.test/p/9.png"))));
+
+        mockMvc.perform(statusChange(51L, "IN_PROGRESS").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("운행 상태가 변경됐어요"))
+                .andExpect(jsonPath("$.data.id").value(51))
+                .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.host.id").value(42))
+                .andExpect(jsonPath("$.data.host.name").value("우림"))
+                .andExpect(jsonPath("$.data.host.nickname").doesNotExist())
+                .andExpect(jsonPath("$.data.car_model").value("포르쉐 911"))
+                .andExpect(jsonPath("$.data.current_count").value(2))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(jsonPath("$.data.is_full").value(false))
+                .andExpect(jsonPath("$.data.participants.length()").value(2))
+                .andExpect(jsonPath("$.data.participants[1].profile_image_url").value("https://cdn.moyeota.test/p/9.png"))
+                .andExpect(content().string(not(containsString("my_request"))));
+    }
+
+    @Test
+    @DisplayName("상태 값이 IN_PROGRESS · COMPLETED 가 아니면 422 INVALID_ENUM이다")
+    void rejectsUnknownStatus() throws Exception {
+        mockMvc.perform(statusChange(51L, "CANCELED").with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].field").value("status"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));
+
+        verifyNoInteractions(carpoolRideService);
+    }
+
+    @Test
+    @DisplayName("방장이 아니면 403 HOST_ONLY다")
+    void hostOnly() throws Exception {
+        given(carpoolRideService.changeStatus(any(), any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.HOST_ONLY));
+
+        mockMvc.perform(statusChange(51L, "IN_PROGRESS").with(member()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("카풀 등록자만 처리할 수 있습니다"))
+                .andExpect(jsonPath("$.error.code").value("HOST_ONLY"));
+    }
+
+    @Test
+    @DisplayName("참여 중인 카풀이 아니면 404 CARPOOL_NOT_FOUND다")
+    void notFound() throws Exception {
+        given(carpoolRideService.changeStatus(any(), any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+
+        mockMvc.perform(statusChange(51L, "IN_PROGRESS").with(member()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CARPOOL_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("혼자서 운행을 시작하면 409 NOT_ENOUGH_PARTICIPANTS다")
+    void notEnoughParticipants() throws Exception {
+        given(carpoolRideService.changeStatus(any(), any(), any()))
+                .willThrow(new BusinessException(CompanionErrorCode.NOT_ENOUGH_PARTICIPANTS));
+
+        mockMvc.perform(statusChange(51L, "IN_PROGRESS").with(member()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("NOT_ENOUGH_PARTICIPANTS"));
+    }
+
+    @Test
+    @DisplayName("운행 상태 변경은 로그인해야 한다")
+    void statusChangeRequiresLogin() throws Exception {
+        mockMvc.perform(statusChange(51L, "IN_PROGRESS"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+
+        verifyNoInteractions(carpoolRideService);
+    }
+
+    private static MockHttpServletRequestBuilder statusChange(Long carpoolId, String status) {
+        return patch("/api/carpools/" + carpoolId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"" + status + "\"}");
     }
 
     private static MockHttpServletRequestBuilder pins(String swLat, String swLng, String neLat, String neLng) {
