@@ -14,6 +14,8 @@ import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -50,5 +52,11 @@ public class CarpoolController {
             @Valid @RequestBody CarpoolStatusChangeRequest request) {
         return ApiResponse.of(CarpoolSuccessCode.STATUS_CHANGED, CarpoolDetailResponse.from(
                 carpoolRideService.changeStatus(userId, carpoolId, request.toStatus())));
+    }
+
+    @DeleteMapping("/carpools/{companion_id}/participants/me")
+    public ResponseEntity<Void> leave(@AuthUser Long userId, @PathVariable("companion_id") Long carpoolId) {
+        carpoolRideService.leave(userId, carpoolId);
+        return ResponseEntity.noContent().build();
     }
 }
