@@ -12,6 +12,7 @@ import static com.ktb.moyeota.fixture.CompanionFixture.DEST_NAME;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LAT;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_NAME;
+import static com.ktb.moyeota.fixture.CompanionFixture.carpool;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
@@ -194,6 +195,51 @@ class CompanionTest {
 
             assertThat(pot.getCurrentCount()).isEqualTo(2);
             assertThat(completed.getOutcomeStatus()).isEqualTo(OutcomeStatus.COMPLETED);
+        }
+    }
+
+    @Nested
+    @DisplayName("카풀 나가기")
+    class LeaveCarpool {
+
+        private final User host = user(1L, "방장");
+        private final User member = user(2L, "동승자");
+
+        @Test
+        @DisplayName("동승자가 나가면 인원이 줄고 참여가 끝나며 모집은 이어진다")
+        void memberLeaves() {
+            Companion carpool = carpool(host, RECRUITING, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            carpool.leaveCarpool(leaving);
+
+            assertThat(carpool.getCurrentCount()).isEqualTo(1);
+            assertThat(carpool.getStatus()).isEqualTo(RECRUITING);
+            assertThat(carpool.getHost()).isSameAs(host);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+        }
+
+        @Test
+        @DisplayName("운행 중이면 RIDE_IN_PROGRESS이고 나가려고 해도 아무것도 바뀌지 않는다")
+        void rideInProgress() {
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            assertErrorCode(() -> carpool.leaveCarpool(leaving), CompanionErrorCode.RIDE_IN_PROGRESS);
+            assertThat(carpool.getCurrentCount()).isEqualTo(2);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = CompanionStatus.class, names = {"COMPLETED", "CANCELED"})
+        @DisplayName("끝난 카풀에서는 나갈 수 없고 아무것도 바뀌지 않는다")
+        void notRecruiting(CompanionStatus status) {
+            Companion carpool = carpool(host, status, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            assertThatThrownBy(() -> carpool.leaveCarpool(leaving)).isInstanceOf(IllegalStateException.class);
+            assertThat(carpool.getCurrentCount()).isEqualTo(2);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(PENDING);
         }
     }
 

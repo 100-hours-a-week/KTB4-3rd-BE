@@ -2,11 +2,14 @@ package com.ktb.moyeota.domain.carpool.repository;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CarpoolParticipantRepository extends JpaRepository<CompanionParticipant, Long> {
+
+    Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 
     @Query("""
             select p from CompanionParticipant p

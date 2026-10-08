@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolParticipantRepository;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolRepository;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
@@ -45,6 +46,23 @@ public class CarpoolRideService {
             default -> throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         return carpoolDetailReader.read(carpool);
+    }
+
+    @Transactional
+    public void leave(Long userId, Long carpoolId) {
+        Companion carpool = carpoolRepository.findCarpoolForParticipantForUpdate(carpoolId, userId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+        CompanionParticipant leaver = carpoolParticipantRepository.findByCompanionIdAndUserId(carpoolId, userId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+
+        if (leaver.isCompleted()) {
+            return;
+        }
+        if (carpool.isHostedBy(userId)) {
+            throw new BusinessException(CarpoolErrorCode.HOST_CANNOT_LEAVE);
+        }
+        carpool.leaveCarpool(leaver);
+        chatSystemMessageService.leave(findChatRoom(carpool), leaver.getUser());
     }
 
     @Transactional

@@ -4,8 +4,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -317,6 +319,45 @@ class CarpoolControllerTest {
     @DisplayName("운행 상태 변경은 로그인해야 한다")
     void statusChangeRequiresLogin() throws Exception {
         mockMvc.perform(statusChange(51L, "IN_PROGRESS"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+
+        verifyNoInteractions(carpoolRideService);
+    }
+
+    @Test
+    @DisplayName("나가면 204이고 본문이 없다")
+    void leave() throws Exception {
+        mockMvc.perform(delete("/api/carpools/51/participants/me").with(member()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    @DisplayName("로그인한 사용자와 경로의 카풀로 나가고, 방장이면 403 HOST_CANNOT_LEAVE다")
+    void hostCannotLeave() throws Exception {
+        willThrow(new BusinessException(CarpoolErrorCode.HOST_CANNOT_LEAVE)).given(carpoolRideService).leave(42L, 51L);
+
+        mockMvc.perform(delete("/api/carpools/51/participants/me").with(member()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("카풀 등록자는 운행 종료 이후에야 나갈 수 있습니다"))
+                .andExpect(jsonPath("$.error.code").value("HOST_CANNOT_LEAVE"));
+    }
+
+    @Test
+    @DisplayName("운행 중에 나가면 409 RIDE_IN_PROGRESS다")
+    void leaveDuringRide() throws Exception {
+        willThrow(new BusinessException(CompanionErrorCode.RIDE_IN_PROGRESS)).given(carpoolRideService).leave(42L, 51L);
+
+        mockMvc.perform(delete("/api/carpools/51/participants/me").with(member()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("RIDE_IN_PROGRESS"));
+    }
+
+    @Test
+    @DisplayName("나가기는 로그인해야 한다")
+    void leaveRequiresLogin() throws Exception {
+        mockMvc.perform(delete("/api/carpools/51/participants/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
 
