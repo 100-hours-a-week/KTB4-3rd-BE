@@ -54,10 +54,14 @@ public record MessageItem(
 
     private static Sender sender(Message message, String profileImageUrl) {
         User sender = message.getSender();
-        if (message.getChatRoom().getCompanion().getKind() == CompanionKind.TAXI_POT) {
+        if (usesRealName(message.getChatRoom().getCompanion().getKind())) {
             return new Sender(sender.getId(), sender.getName(), null, profileImageUrl);
         }
         return new Sender(sender.getId(), null, sender.getNickname(), profileImageUrl);
+    }
+
+    private static boolean usesRealName(CompanionKind kind) {
+        return kind == CompanionKind.TAXI_POT || kind == CompanionKind.CARPOOL;
     }
 
     private static MessageItem join(Message message) {

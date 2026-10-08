@@ -70,7 +70,7 @@ public class CarpoolService {
     private NearbyCarpool toNearbyCarpool(NearbyCarpoolProjection row, LocalDateTime now) {
         return new NearbyCarpool(
                 row.getId(),
-                row.getHostNickname(),
+                row.getHostName(),
                 imageUrlResolver.toUrl(row.getHostProfileImageUrl()),
                 row.getOriginName(),
                 row.getDestName(),

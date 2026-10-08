@@ -48,7 +48,7 @@ public interface CarpoolRepository extends JpaRepository<Companion, Long> {
 
     @Query(nativeQuery = true, value = """
             SELECT * FROM (
-                SELECT c.id AS id, u.nickname AS hostNickname, u.profile_image_url AS hostProfileImageUrl,
+                SELECT c.id AS id, u.name AS hostName, u.profile_image_url AS hostProfileImageUrl,
                        c.origin_name AS originName, c.dest_name AS destName, c.departure_at AS departureAt,
                        c.current_count AS currentCount, c.capacity AS capacity,
                        ST_Distance_Sphere(c.origin_location, ST_SRID(POINT(:lng, :lat), 4326)) AS distanceM

@@ -180,7 +180,7 @@ class CarpoolServiceTest {
     }
 
     private record NearbyRow(
-            Long id, String hostNickname, String hostProfileImageUrl, String originName, String destName,
+            Long id, String hostName, String hostProfileImageUrl, String originName, String destName,
             LocalDateTime departureAt, Double distanceM, Integer currentCount, Integer capacity)
             implements NearbyCarpoolProjection {
 
@@ -190,8 +190,8 @@ class CarpoolServiceTest {
         }
 
         @Override
-        public String getHostNickname() {
-            return hostNickname;
+        public String getHostName() {
+            return hostName;
         }
 
         @Override
