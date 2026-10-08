@@ -139,6 +139,13 @@ public class Companion {
                 originName, originLat, originLng, destName, destLat, destLng, departureAt, TAXI_POT_CAPACITY);
     }
 
+    public static Companion openCarpool(User host, String originName, BigDecimal originLat, BigDecimal originLng,
+                                        String destName, BigDecimal destLat, BigDecimal destLng,
+                                        LocalDateTime departureAt, int recruitCount) {
+        return new Companion(host, host, CompanionKind.CARPOOL, TransportType.OWNED_CAR, null,
+                originName, originLat, originLng, destName, destLat, destLng, departureAt, recruitCount + 1);
+    }
+
     public boolean isDepartureAtFuture() {
         return departureAt != null && departureAt.isAfter(LocalDateTime.now());
     }
