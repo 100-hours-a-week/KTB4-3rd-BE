@@ -2,6 +2,8 @@ package com.ktb.moyeota.domain.notification.controller;
 
 import com.ktb.moyeota.domain.notification.dto.NotificationListQuery;
 import com.ktb.moyeota.domain.notification.dto.NotificationListResponse;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllRequest;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllResult;
 import com.ktb.moyeota.domain.notification.dto.NotificationReadResponse;
 import com.ktb.moyeota.domain.notification.service.NotificationService;
 import com.ktb.moyeota.domain.notification.success.NotificationSuccessCode;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,5 +44,17 @@ public class NotificationController {
     ) {
         NotificationReadResponse response = notificationService.markRead(userId, notificationId);
         return ResponseEntity.ok(ApiResponse.of(NotificationSuccessCode.NOTIFICATION_READ, response));
+    }
+
+    @PatchMapping("/read-all")
+    public ResponseEntity<ApiResponse<Void>> markAllRead(
+            @AuthUser Long userId,
+            @RequestBody NotificationReadAllRequest request
+    ) {
+        NotificationReadAllResult result = notificationService.markAllRead(userId, request);
+        NotificationSuccessCode code = result.hasTarget()
+                ? NotificationSuccessCode.ALL_NOTIFICATIONS_READ
+                : NotificationSuccessCode.NO_NOTIFICATIONS_TO_READ;
+        return ResponseEntity.ok(ApiResponse.of(code, null));
     }
 }
