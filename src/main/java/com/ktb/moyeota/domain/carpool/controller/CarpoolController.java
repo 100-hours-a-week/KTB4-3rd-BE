@@ -11,6 +11,8 @@ import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleRequest;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleResponse;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestSendRequest;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestSendResponse;
+import com.ktb.moyeota.domain.carpool.dto.MyCarpoolRequestSearchRequest;
+import com.ktb.moyeota.domain.carpool.dto.MyCarpoolRequestsResponse;
 import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchRequest;
 import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchResponse;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
@@ -21,6 +23,7 @@ import com.ktb.moyeota.domain.carpool.service.CarpoolRegistrationService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRequestService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRideService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
+import com.ktb.moyeota.domain.carpool.service.MyCarpoolRequestService;
 import com.ktb.moyeota.domain.carpool.success.CarpoolSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
@@ -47,6 +50,7 @@ public class CarpoolController {
     private final CarpoolRideService carpoolRideService;
     private final CarpoolRegistrationService carpoolRegistrationService;
     private final CarpoolRequestService carpoolRequestService;
+    private final MyCarpoolRequestService myCarpoolRequestService;
 
     @PostMapping("/carpools")
     public ResponseEntity<ApiResponse<CarpoolCreateResponse>> create(
@@ -85,6 +89,13 @@ public class CarpoolController {
         SentJoinRequest sent = carpoolRequestService.send(userId, carpoolId, request.content());
         return ResponseEntity.created(URI.create("/api/carpools/" + carpoolId + "/join-requests/" + sent.id()))
                 .body(ApiResponse.of(CarpoolSuccessCode.JOIN_REQUEST_SENT, JoinRequestSendResponse.from(sent)));
+    }
+
+    @GetMapping("/users/me/carpool-requests")
+    public ApiResponse<MyCarpoolRequestsResponse> getMyRequests(
+            @AuthUser Long userId, @Valid MyCarpoolRequestSearchRequest request) {
+        return ApiResponse.of(CarpoolSuccessCode.MY_REQUESTS_FOUND, MyCarpoolRequestsResponse.from(
+                myCarpoolRequestService.find(userId, request.toDirection(), request.cursor())));
     }
 
     @PatchMapping("/carpools/{companion_id}/join-requests/{request_id}")
