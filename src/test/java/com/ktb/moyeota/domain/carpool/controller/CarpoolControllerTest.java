@@ -19,6 +19,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.CarpoolCreateCommand;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
+import com.ktb.moyeota.domain.carpool.model.CarpoolDetailForViewer;
+import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequest;
+import com.ktb.moyeota.domain.carpool.model.MyRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
@@ -46,12 +49,14 @@ import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.JwtConfig;
 import com.ktb.moyeota.global.security.resolver.AuthUserArgumentResolver;
+import com.ktb.moyeota.global.security.resolver.AuthUserOptionalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.SignupPrincipalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,7 +71,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(controllers = CarpoolController.class)
 @Import({SecurityConfig.class, CorsConfig.class, JwtConfig.class, ClockConfig.class, WebConfig.class,
-        AuthUserArgumentResolver.class, SignupPrincipalArgumentResolver.class, UploadScopeArgumentResolver.class,
+        AuthUserArgumentResolver.class, AuthUserOptionalArgumentResolver.class, SignupPrincipalArgumentResolver.class, UploadScopeArgumentResolver.class,
         ApiAuthenticationEntryPoint.class, ApiAccessDeniedHandler.class, GlobalExceptionHandler.class})
 @EnableConfigurationProperties({AuthProperties.class, CorsProperties.class})
 class CarpoolControllerTest {
@@ -250,6 +255,56 @@ class CarpoolControllerTest {
         return get("/api/carpools")
                 .param("lat", "37.3947").param("lng", "127.1111")
                 .param("sw_lat", swLat).param("sw_lng", swLng).param("ne_lat", neLat).param("ne_lng", neLng);
+    }
+
+    @Test
+    @DisplayName("로그인하지 않아도 카풀 상세를 내리고, 내 요청이 없으면 my_request 키가 없다")
+    void detailAnonymous() throws Exception {
+        given(carpoolService.findDetail(51L, null))
+                .willReturn(new CarpoolDetailForViewer(detail(), Optional.empty()));
+
+        mockMvc.perform(get("/api/carpools/51"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.id").value(51))
+                .andExpect(jsonPath("$.data.status").value("RECRUITING"))
+                .andExpect(jsonPath("$.data.host.name").value("우림"))
+                .andExpect(jsonPath("$.data.origin_name").value("판교역"))
+                .andExpect(jsonPath("$.data.departure_at").value("2026-09-08T08:30:00"))
+                .andExpect(jsonPath("$.data.car_model").value("포르쉐 911"))
+                .andExpect(jsonPath("$.data.is_full").value(false))
+                .andExpect(jsonPath("$.data.participants.length()").value(2))
+                .andExpect(content().string(not(containsString("my_request"))));
+    }
+
+    @Test
+    @DisplayName("로그인한 사용자의 id 로 조회해 내 요청을 id · status 로 내린다")
+    void detailWithMyRequest() throws Exception {
+        given(carpoolService.findDetail(51L, 42L)).willReturn(new CarpoolDetailForViewer(
+                detail(), Optional.of(new MyCarpoolRequest(88L, MyRequestStatus.EXPIRED))));
+
+        mockMvc.perform(get("/api/carpools/51").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.my_request.id").value(88))
+                .andExpect(jsonPath("$.data.my_request.status").value("EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("없는 카풀이면 404 CARPOOL_NOT_FOUND다")
+    void detailNotFound() throws Exception {
+        given(carpoolService.findDetail(any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+
+        mockMvc.perform(get("/api/carpools/51"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CARPOOL_NOT_FOUND"));
+    }
+
+    private static CarpoolDetail detail() {
+        return new CarpoolDetail(
+                51L, CompanionStatus.RECRUITING, new Member(42L, "우림", null), "판교역", "강남역",
+                LocalDateTime.of(2026, 9, 8, 8, 30), "포르쉐 911", 2, 4, false,
+                List.of(new Member(42L, "우림", null), new Member(9L, "루디", null)));
     }
 
     @Test

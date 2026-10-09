@@ -1,20 +1,28 @@
 package com.ktb.moyeota.domain.carpool.service;
 
+import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
+import com.ktb.moyeota.domain.carpool.model.CarpoolDetailForViewer;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
+import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequest;
+import com.ktb.moyeota.domain.carpool.model.MyRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolCursor;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolPinProjection;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolRepository;
+import com.ktb.moyeota.domain.carpool.repository.CompanionRequestRepository;
 import com.ktb.moyeota.domain.carpool.repository.NearbyCarpoolProjection;
+import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.common.Viewport;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +36,8 @@ public class CarpoolService {
     private static final int NEARBY_PAGE_SIZE = 10;
 
     private final CarpoolRepository carpoolRepository;
+    private final CompanionRequestRepository companionRequestRepository;
+    private final CarpoolDetailReader carpoolDetailReader;
     private final NearbyCarpoolCursorCodec nearbyCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
     private final Clock clock;
@@ -65,6 +75,22 @@ public class CarpoolService {
                 ? nearbyCursorCodec.encode(nextCursorOf(carpools.getLast()))
                 : null;
         return new NearbyCarpools(carpools, nextCursor);
+    }
+
+    @Transactional(readOnly = true)
+    public CarpoolDetailForViewer findDetail(Long carpoolId, Long viewerId) {
+        Companion carpool = carpoolRepository.findCarpool(carpoolId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+        return new CarpoolDetailForViewer(carpoolDetailReader.read(carpool), findMyRequest(carpool, viewerId));
+    }
+
+    private Optional<MyCarpoolRequest> findMyRequest(Companion carpool, Long viewerId) {
+        if (viewerId == null) {
+            return Optional.empty();
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        return companionRequestRepository.findFirstByCompanionIdAndRequesterIdOrderByIdDesc(carpool.getId(), viewerId)
+                .map(request -> new MyCarpoolRequest(request.getId(), MyRequestStatus.of(request.getStatus(), carpool, now)));
     }
 
     private NearbyCarpool toNearbyCarpool(NearbyCarpoolProjection row, LocalDateTime now) {

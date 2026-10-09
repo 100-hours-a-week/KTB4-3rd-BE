@@ -16,6 +16,7 @@ import com.ktb.moyeota.domain.carpool.service.CarpoolService;
 import com.ktb.moyeota.domain.carpool.success.CarpoolSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
+import com.ktb.moyeota.global.security.resolver.AuthUserOptional;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +59,13 @@ public class CarpoolController {
     public ApiResponse<NearbyCarpoolSearchResponse> getNearby(@Valid NearbyCarpoolSearchRequest request) {
         return ApiResponse.of(CarpoolSuccessCode.NEARBY_CARPOOLS_FOUND,
                 NearbyCarpoolSearchResponse.from(carpoolService.findNearby(request.toQuery())));
+    }
+
+    @GetMapping("/carpools/{companion_id}")
+    public ApiResponse<CarpoolDetailResponse> getDetail(
+            @AuthUserOptional Long userId, @PathVariable("companion_id") Long carpoolId) {
+        return ApiResponse.of(CarpoolSuccessCode.DETAIL_FOUND,
+                CarpoolDetailResponse.from(carpoolService.findDetail(carpoolId, userId)));
     }
 
     @PatchMapping("/carpools/{companion_id}")

@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolPinProjection;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolRepository;
+import com.ktb.moyeota.domain.carpool.repository.CompanionRequestRepository;
 import com.ktb.moyeota.domain.carpool.repository.NearbyCarpoolProjection;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.global.common.Viewport;
@@ -48,6 +49,12 @@ class CarpoolServiceTest {
     @Mock
     private CarpoolRepository carpoolRepository;
 
+    @Mock
+    private CompanionRequestRepository companionRequestRepository;
+
+    @Mock
+    private CarpoolDetailReader carpoolDetailReader;
+
     private final NearbyCarpoolCursorCodec cursorCodec = new NearbyCarpoolCursorCodec();
 
     private CarpoolService service;
@@ -56,7 +63,8 @@ class CarpoolServiceTest {
     void setUp() {
         ImageUrlResolver imageUrlResolver = new ImageUrlResolver(new S3Properties(
                 "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test"));
-        service = new CarpoolService(carpoolRepository, cursorCodec, imageUrlResolver, Clock.fixed(NOW, SEOUL));
+        service = new CarpoolService(carpoolRepository, companionRequestRepository, carpoolDetailReader,
+                cursorCodec, imageUrlResolver, Clock.fixed(NOW, SEOUL));
     }
 
     @Test

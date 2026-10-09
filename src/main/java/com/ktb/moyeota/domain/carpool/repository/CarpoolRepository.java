@@ -13,6 +13,13 @@ import org.springframework.data.repository.query.Param;
 
 public interface CarpoolRepository extends JpaRepository<Companion, Long> {
 
+    @Query("""
+            select c from Companion c
+             where c.id = :id
+               and c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+            """)
+    Optional<Companion> findCarpool(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select c from Companion c
