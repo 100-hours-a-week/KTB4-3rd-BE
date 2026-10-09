@@ -62,6 +62,7 @@ public class SecurityConfig {
                             "/api/nearby-posts",
                             "/api/carpool-pins",
                             "/api/carpools",
+                            "/api/carpools/*",
                             "/api/community-posts/*/comments",
                             "/api/companion-posts/*",
                             "/api/community-posts/*"

@@ -16,7 +16,9 @@ public enum CarpoolSuccessCode implements SuccessCode {
 
     STATUS_CHANGED("운행 상태가 변경됐어요"),
 
-    CARPOOL_CREATED("카풀 등록을 성공했습니다");
+    CARPOOL_CREATED("카풀 등록을 성공했습니다"),
+
+    DETAIL_FOUND("조회에 성공했습니다");
 
     private final String message;
 }

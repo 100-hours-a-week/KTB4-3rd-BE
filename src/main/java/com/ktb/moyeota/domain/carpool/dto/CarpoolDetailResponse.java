@@ -2,6 +2,8 @@ package com.ktb.moyeota.domain.carpool.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
+import com.ktb.moyeota.domain.carpool.model.CarpoolDetailForViewer;
+import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,6 +22,14 @@ public record CarpoolDetailResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL) MyRequest myRequest) {
 
     public static CarpoolDetailResponse from(CarpoolDetail detail) {
+        return of(detail, null);
+    }
+
+    public static CarpoolDetailResponse from(CarpoolDetailForViewer viewed) {
+        return of(viewed.detail(), viewed.myRequest().map(MyRequest::from).orElse(null));
+    }
+
+    private static CarpoolDetailResponse of(CarpoolDetail detail, MyRequest myRequest) {
         return new CarpoolDetailResponse(
                 detail.id(),
                 detail.status().name(),
@@ -32,7 +42,7 @@ public record CarpoolDetailResponse(
                 detail.capacity(),
                 detail.full(),
                 detail.participants().stream().map(Member::from).toList(),
-                null);
+                myRequest);
     }
 
     public record Member(Long id, String name, String profileImageUrl) {
@@ -43,5 +53,9 @@ public record CarpoolDetailResponse(
     }
 
     public record MyRequest(Long id, String status) {
+
+        static MyRequest from(MyCarpoolRequest myRequest) {
+            return new MyRequest(myRequest.id(), myRequest.status().name());
+        }
     }
 }
