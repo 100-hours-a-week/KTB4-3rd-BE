@@ -28,6 +28,31 @@ public interface CarpoolRepository extends JpaRepository<Companion, Long> {
             """)
     Optional<Companion> findCarpoolForUpdate(@Param("id") Long id);
 
+    @Query("""
+            select c.id from Companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING
+               and c.currentCount >= 2
+               and c.departureAt <= :now
+               and not exists (
+                   select m from Message m
+                    where m.chatRoom.companion = c
+                      and m.messageType = com.ktb.moyeota.domain.chat.entity.MessageType.SYSTEM_RIDE_START_REQUESTED)
+            """)
+    List<Long> findRideStartDueIds(@Param("now") LocalDateTime now);
+
+    @Query("""
+            select c.id from Companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+               and c.status = com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRESS
+               and c.etaAt <= :now
+               and not exists (
+                   select m from Message m
+                    where m.chatRoom.companion = c
+                      and m.messageType = com.ktb.moyeota.domain.chat.entity.MessageType.SYSTEM_RIDE_END_REQUESTED)
+            """)
+    List<Long> findRideEndDueIds(@Param("now") LocalDateTime now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select c from Companion c
