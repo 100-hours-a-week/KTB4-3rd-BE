@@ -26,7 +26,9 @@ public enum CarpoolSuccessCode implements SuccessCode {
 
     JOIN_REQUEST_REJECTED("요청을 거절했습니다"),
 
-    MY_REQUESTS_FOUND("조회에 성공했습니다");
+    MY_REQUESTS_FOUND("조회에 성공했습니다"),
+
+    JOIN_REQUEST_FOUND("조회에 성공했습니다");
 
     private final String message;
 }
