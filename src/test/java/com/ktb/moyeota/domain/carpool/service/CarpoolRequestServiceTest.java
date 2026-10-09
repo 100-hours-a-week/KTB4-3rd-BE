@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
+import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -39,7 +40,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({CarpoolRequestService.class, CarpoolRequestServiceTest.Config.class})
+@Import({CarpoolRequestService.class, ChatSystemMessageService.class, CarpoolRequestServiceTest.Config.class})
 class CarpoolRequestServiceTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");

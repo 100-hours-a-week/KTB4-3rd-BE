@@ -25,6 +25,14 @@ public interface CarpoolRepository extends JpaRepository<Companion, Long> {
             select c from Companion c
              where c.id = :id
                and c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+            """)
+    Optional<Companion> findCarpoolForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select c from Companion c
+             where c.id = :id
+               and c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
                and exists (
                    select p from CompanionParticipant p
                     where p.companion = c

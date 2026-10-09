@@ -1,7 +1,9 @@
 package com.ktb.moyeota.domain.carpool.entity;
 
+import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -65,6 +67,21 @@ public class CompanionRequest {
 
     public static CompanionRequest send(Companion carpool, User requester, String content) {
         return new CompanionRequest(carpool, requester, content);
+    }
+
+    public void accept() {
+        handle(CompanionRequestStatus.ACCEPTED);
+    }
+
+    public void reject() {
+        handle(CompanionRequestStatus.REJECTED);
+    }
+
+    private void handle(CompanionRequestStatus result) {
+        if (status != CompanionRequestStatus.PENDING) {
+            throw new BusinessException(CarpoolErrorCode.REQUEST_ALREADY_HANDLED);
+        }
+        this.status = result;
     }
 
     @PrePersist
