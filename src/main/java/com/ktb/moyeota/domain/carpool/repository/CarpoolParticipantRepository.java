@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.carpool.repository;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,17 @@ public interface CarpoolParticipantRepository extends JpaRepository<CompanionPar
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<CompanionParticipant> findForUpdateByCompanionIdAndUserId(Long companionId, Long userId);
+
+    @Query("""
+            select r.companion.id as carpoolId, r.id as chatRoomId
+              from ChatRoom r, CompanionParticipant p
+             where p.companion = r.companion
+               and p.user.id = :userId
+               and p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
+               and r.companion.id in :carpoolIds
+            """)
+    List<ActiveChatRoomProjection> findActiveChatRooms(
+            @Param("userId") Long userId, @Param("carpoolIds") Collection<Long> carpoolIds);
 
     @Query("""
             select p from CompanionParticipant p

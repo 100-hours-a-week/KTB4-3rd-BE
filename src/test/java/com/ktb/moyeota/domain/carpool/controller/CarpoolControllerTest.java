@@ -28,6 +28,9 @@ import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
 import com.ktb.moyeota.domain.carpool.model.HandledJoinRequest;
+import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequestItem;
+import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequests;
+import com.ktb.moyeota.domain.carpool.model.RequestDirection;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
@@ -36,6 +39,7 @@ import com.ktb.moyeota.domain.carpool.service.CarpoolRegistrationService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRequestService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRideService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
+import com.ktb.moyeota.domain.carpool.service.MyCarpoolRequestService;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.global.common.Viewport;
@@ -97,6 +101,9 @@ class CarpoolControllerTest {
 
     @MockitoBean
     private CarpoolRequestService carpoolRequestService;
+
+    @MockitoBean
+    private MyCarpoolRequestService myCarpoolRequestService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -418,6 +425,78 @@ class CarpoolControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(carpoolRequestService);
+    }
+
+    @Test
+    @DisplayName("방향을 빼면 보낸 요청을 조회하고, 채팅방 id 는 있을 때만 내린다")
+    void myRequestsDefaultSent() throws Exception {
+        given(myCarpoolRequestService.find(42L, RequestDirection.SENT, null)).willReturn(new MyCarpoolRequests(
+                RequestDirection.SENT,
+                List.of(
+                        requestItem(88L, MyRequestStatus.ACCEPTED, 620L),
+                        requestItem(84L, MyRequestStatus.EXPIRED, null)),
+                "v1.next"));
+
+        mockMvc.perform(get("/api/users/me/carpool-requests").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.direction").value("SENT"))
+                .andExpect(jsonPath("$.data.items[0].id").value(88))
+                .andExpect(jsonPath("$.data.items[0].carpool_id").value(51))
+                .andExpect(jsonPath("$.data.items[0].status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.data.items[0].content").value("판교역에서 같이 가고 싶습니다!"))
+                .andExpect(jsonPath("$.data.items[0].counterpart.name").value("김우림"))
+                .andExpect(jsonPath("$.data.items[0].origin_name").value("판교역"))
+                .andExpect(jsonPath("$.data.items[0].departure_at").value("2026-09-08T08:30:00"))
+                .andExpect(jsonPath("$.data.items[0].chat_room_id").value(620))
+                .andExpect(jsonPath("$.data.items[0].created_at").value("2026-09-06T21:10:00"))
+                .andExpect(jsonPath("$.data.items[1].status").value("EXPIRED"))
+                .andExpect(jsonPath("$.data.items[1].chat_room_id").doesNotExist())
+                .andExpect(jsonPath("$.data.next_cursor").value("v1.next"));
+    }
+
+    @Test
+    @DisplayName("받은 요청과 커서를 그대로 넘긴다")
+    void myRequestsReceived() throws Exception {
+        given(myCarpoolRequestService.find(42L, RequestDirection.RECEIVED, "v1.abc"))
+                .willReturn(new MyCarpoolRequests(RequestDirection.RECEIVED, List.of(), null));
+
+        mockMvc.perform(get("/api/users/me/carpool-requests")
+                        .param("direction", "RECEIVED").param("cursor", "v1.abc").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.direction").value("RECEIVED"))
+                .andExpect(jsonPath("$.data.items.length()").value(0))
+                .andExpect(jsonPath("$.data.next_cursor").isEmpty());
+    }
+
+    @Test
+    @DisplayName("방향이 SENT · RECEIVED 가 아니면 422 INVALID_ENUM, 커서가 잘못되면 400 INVALID_CURSOR다")
+    void myRequestsErrors() throws Exception {
+        mockMvc.perform(get("/api/users/me/carpool-requests").param("direction", "ALL").with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.field").value("direction"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));
+
+        given(myCarpoolRequestService.find(42L, RequestDirection.SENT, "broken"))
+                .willThrow(new BusinessException(CommonErrorCode.INVALID_CURSOR));
+        mockMvc.perform(get("/api/users/me/carpool-requests").param("cursor", "broken").with(member()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_CURSOR"));
+    }
+
+    @Test
+    @DisplayName("내 요청 목록은 로그인해야 한다")
+    void myRequestsRequiresLogin() throws Exception {
+        mockMvc.perform(get("/api/users/me/carpool-requests"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(myCarpoolRequestService);
+    }
+
+    private static MyCarpoolRequestItem requestItem(Long id, MyRequestStatus status, Long chatRoomId) {
+        return new MyCarpoolRequestItem(id, 51L, status, "판교역에서 같이 가고 싶습니다!",
+                new Member(7L, "김우림", null), "판교역", "강남역", LocalDateTime.of(2026, 9, 8, 8, 30),
+                chatRoomId, LocalDateTime.of(2026, 9, 6, 21, 10));
     }
 
     private static MockHttpServletRequestBuilder handleRequest(String status) {
