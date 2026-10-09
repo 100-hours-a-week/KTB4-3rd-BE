@@ -15,6 +15,7 @@ import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,26 @@ public class CarpoolRideService {
         }
         carpool.leaveCarpool(leaver);
         chatSystemMessageService.leave(findChatRoom(carpool), leaver.getUser());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findRideStartDueIds() {
+        return carpoolRepository.findRideStartDueIds(LocalDateTime.now(clock));
+    }
+
+    @Transactional
+    public void requestRideStart(Long carpoolId) {
+        chatSystemMessageService.requestRideStart(findChatRoom(carpoolRepository.getReferenceById(carpoolId)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findRideEndDueIds() {
+        return carpoolRepository.findRideEndDueIds(LocalDateTime.now(clock));
+    }
+
+    @Transactional
+    public void requestRideEnd(Long carpoolId) {
+        chatSystemMessageService.requestRideEnd(findChatRoom(carpoolRepository.getReferenceById(carpoolId)));
     }
 
     @Transactional
