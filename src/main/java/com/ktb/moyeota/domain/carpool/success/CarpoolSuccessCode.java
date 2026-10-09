@@ -18,7 +18,9 @@ public enum CarpoolSuccessCode implements SuccessCode {
 
     CARPOOL_CREATED("카풀 등록을 성공했습니다"),
 
-    DETAIL_FOUND("조회에 성공했습니다");
+    DETAIL_FOUND("조회에 성공했습니다"),
+
+    JOIN_REQUEST_SENT("카풀 요청이 등록되었습니다");
 
     private final String message;
 }
