@@ -33,7 +33,11 @@ public enum CarpoolErrorCode implements ErrorCode {
 
     REQUEST_ALREADY_PENDING(HttpStatus.CONFLICT, "이미 요청을 보낸 상태입니다"),
 
-    REQUEST_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "제한된 요청 수를 초과했습니다");
+    REQUEST_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "제한된 요청 수를 초과했습니다"),
+
+    CARPOOL_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 카풀 요청입니다"),
+
+    REQUEST_ALREADY_HANDLED(HttpStatus.CONFLICT, "이미 처리된 요청입니다");
 
     private final HttpStatus status;
     private final String message;
