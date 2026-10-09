@@ -7,6 +7,7 @@ import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchRequest;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchResponse;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolStatusChangeRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
+import com.ktb.moyeota.domain.carpool.dto.JoinRequestDetailResponse;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleRequest;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleResponse;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestSendRequest;
@@ -96,6 +97,15 @@ public class CarpoolController {
             @AuthUser Long userId, @Valid MyCarpoolRequestSearchRequest request) {
         return ApiResponse.of(CarpoolSuccessCode.MY_REQUESTS_FOUND, MyCarpoolRequestsResponse.from(
                 myCarpoolRequestService.find(userId, request.toDirection(), request.cursor())));
+    }
+
+    @GetMapping("/carpools/{companion_id}/join-requests/{request_id}")
+    public ApiResponse<JoinRequestDetailResponse> getJoinRequest(
+            @AuthUser Long userId,
+            @PathVariable("companion_id") Long carpoolId,
+            @PathVariable("request_id") Long requestId) {
+        return ApiResponse.of(CarpoolSuccessCode.JOIN_REQUEST_FOUND, JoinRequestDetailResponse.from(
+                myCarpoolRequestService.findDetail(userId, carpoolId, requestId)));
     }
 
     @PatchMapping("/carpools/{companion_id}/join-requests/{request_id}")

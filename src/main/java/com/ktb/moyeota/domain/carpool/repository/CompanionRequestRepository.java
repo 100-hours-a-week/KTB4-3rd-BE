@@ -26,6 +26,14 @@ public interface CompanionRequestRepository extends JpaRepository<CompanionReque
 
     @Query("""
             select r from CompanionRequest r
+              join fetch r.requester
+             where r.id = :id
+               and r.companion.id = :companionId
+            """)
+    Optional<CompanionRequest> findWithRequester(@Param("id") Long id, @Param("companionId") Long companionId);
+
+    @Query("""
+            select r from CompanionRequest r
               join fetch r.companion c
               join fetch c.host
              where r.requester.id = :userId

@@ -3,13 +3,16 @@ package com.ktb.moyeota.domain.carpool.service;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
+import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.CarpoolRequestCursor;
+import com.ktb.moyeota.domain.carpool.model.JoinRequestDetail;
 import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequestItem;
 import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequests;
 import com.ktb.moyeota.domain.carpool.model.MyRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.RequestDirection;
 import com.ktb.moyeota.domain.carpool.repository.ActiveChatRoomProjection;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolParticipantRepository;
+import com.ktb.moyeota.domain.carpool.repository.CarpoolRepository;
 import com.ktb.moyeota.domain.carpool.repository.CompanionRequestRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
@@ -33,6 +36,7 @@ public class MyCarpoolRequestService {
 
     private static final int PAGE_SIZE = 10;
 
+    private final CarpoolRepository carpoolRepository;
     private final CompanionRequestRepository companionRequestRepository;
     private final CarpoolParticipantRepository carpoolParticipantRepository;
     private final UserRepository userRepository;
@@ -42,9 +46,7 @@ public class MyCarpoolRequestService {
 
     @Transactional(readOnly = true)
     public MyCarpoolRequests find(Long userId, RequestDirection direction, String cursor) {
-        userRepository.findById(userId)
-                .filter(user -> !user.isWithdrawn())
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
+        findActiveUser(userId);
         Long cursorId = cursorCodec.decode(cursor).map(CarpoolRequestCursor::id).orElse(null);
         LocalDateTime now = LocalDateTime.now(clock);
         PageRequest page = PageRequest.of(0, PAGE_SIZE + 1);
@@ -64,6 +66,35 @@ public class MyCarpoolRequestService {
                 ? cursorCodec.encode(new CarpoolRequestCursor(pageRows.getLast().getId()))
                 : null;
         return new MyCarpoolRequests(direction, items, nextCursor);
+    }
+
+    @Transactional(readOnly = true)
+    public JoinRequestDetail findDetail(Long userId, Long carpoolId, Long requestId) {
+        findActiveUser(userId);
+        Companion carpool = carpoolRepository.findCarpool(carpoolId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+        if (!carpool.isHostedBy(userId)) {
+            throw new BusinessException(CarpoolErrorCode.HOST_ONLY);
+        }
+        CompanionRequest request = companionRequestRepository.findWithRequester(requestId, carpoolId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_REQUEST_NOT_FOUND));
+        return new JoinRequestDetail(
+                request.getId(),
+                carpoolId,
+                MyRequestStatus.of(request.getStatus(), carpool, LocalDateTime.now(clock)),
+                request.getContent(),
+                toMember(request.getRequester()),
+                request.getCreatedAt());
+    }
+
+    private void findActiveUser(Long userId) {
+        userRepository.findById(userId)
+                .filter(user -> !user.isWithdrawn())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
+    }
+
+    private Member toMember(User user) {
+        return new Member(user.getId(), user.getName(), imageUrlResolver.toUrl(user.getProfileImageUrl()));
     }
 
     private Map<Long, Long> findChatRoomsOfAccepted(Long userId, List<CompanionRequest> requests) {
@@ -91,7 +122,7 @@ public class MyCarpoolRequestService {
                 carpool.getId(),
                 MyRequestStatus.of(request.getStatus(), carpool, now),
                 request.getContent(),
-                new Member(counterpart.getId(), counterpart.getName(), imageUrlResolver.toUrl(counterpart.getProfileImageUrl())),
+                toMember(counterpart),
                 carpool.getOriginName(),
                 carpool.getDestName(),
                 carpool.getDepartureAt(),

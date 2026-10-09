@@ -28,6 +28,7 @@ import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
 import com.ktb.moyeota.domain.carpool.model.HandledJoinRequest;
+import com.ktb.moyeota.domain.carpool.model.JoinRequestDetail;
 import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequestItem;
 import com.ktb.moyeota.domain.carpool.model.MyCarpoolRequests;
 import com.ktb.moyeota.domain.carpool.model.RequestDirection;
@@ -488,6 +489,50 @@ class CarpoolControllerTest {
     @DisplayName("내 요청 목록은 로그인해야 한다")
     void myRequestsRequiresLogin() throws Exception {
         mockMvc.perform(get("/api/users/me/carpool-requests"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(myCarpoolRequestService);
+    }
+
+    @Test
+    @DisplayName("방장이 요청 상세를 보면 요청 내용과 요청자 실명을 내린다")
+    void joinRequestDetail() throws Exception {
+        given(myCarpoolRequestService.findDetail(42L, 51L, 88L)).willReturn(new JoinRequestDetail(
+                88L, 51L, MyRequestStatus.PENDING, "판교역에서 같이 가고 싶습니다!",
+                new Member(9L, "이루디", "https://cdn.moyeota.test/p/9.jpg"), LocalDateTime.of(2026, 9, 6, 21, 10)));
+
+        mockMvc.perform(get("/api/carpools/51/join-requests/88").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.id").value(88))
+                .andExpect(jsonPath("$.data.carpool_id").value(51))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.content").value("판교역에서 같이 가고 싶습니다!"))
+                .andExpect(jsonPath("$.data.requester.id").value(9))
+                .andExpect(jsonPath("$.data.requester.name").value("이루디"))
+                .andExpect(jsonPath("$.data.requester.profile_image_url").value("https://cdn.moyeota.test/p/9.jpg"))
+                .andExpect(jsonPath("$.data.created_at").value("2026-09-06T21:10:00"));
+    }
+
+    @Test
+    @DisplayName("방장이 아니면 403 HOST_ONLY, 요청이 없으면 404 CARPOOL_REQUEST_NOT_FOUND다")
+    void joinRequestDetailErrors() throws Exception {
+        given(myCarpoolRequestService.findDetail(42L, 51L, 88L)).willThrow(new BusinessException(CarpoolErrorCode.HOST_ONLY));
+        given(myCarpoolRequestService.findDetail(42L, 51L, 99L))
+                .willThrow(new BusinessException(CarpoolErrorCode.CARPOOL_REQUEST_NOT_FOUND));
+
+        mockMvc.perform(get("/api/carpools/51/join-requests/88").with(member()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("HOST_ONLY"));
+        mockMvc.perform(get("/api/carpools/51/join-requests/99").with(member()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("CARPOOL_REQUEST_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("요청 상세는 로그인해야 한다(카풀 상세와 달리 열려 있지 않다)")
+    void joinRequestDetailRequiresLogin() throws Exception {
+        mockMvc.perform(get("/api/carpools/51/join-requests/88"))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(myCarpoolRequestService);
