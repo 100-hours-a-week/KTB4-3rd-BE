@@ -27,6 +27,7 @@ import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
+import com.ktb.moyeota.domain.carpool.model.HandledJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
@@ -355,6 +356,74 @@ class CarpoolControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(carpoolRequestService);
+    }
+
+    @Test
+    @DisplayName("요청을 수락하면 요청 id · 상태와 채팅방 id · 인원 · 정원을 내린다")
+    void acceptsJoinRequest() throws Exception {
+        given(carpoolRequestService.handle(42L, 51L, 88L, CompanionRequestStatus.ACCEPTED))
+                .willReturn(new HandledJoinRequest(88L, CompanionRequestStatus.ACCEPTED, 620L, 3, 4));
+
+        mockMvc.perform(handleRequest("ACCEPTED").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("요청을 수락했습니다"))
+                .andExpect(jsonPath("$.data.id").value(88))
+                .andExpect(jsonPath("$.data.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.data.chat_room_id").value(620))
+                .andExpect(jsonPath("$.data.current_count").value(3))
+                .andExpect(jsonPath("$.data.capacity").value(4));
+    }
+
+    @Test
+    @DisplayName("요청을 거절하면 요청 id · 상태만 내린다")
+    void rejectsJoinRequest() throws Exception {
+        given(carpoolRequestService.handle(42L, 51L, 88L, CompanionRequestStatus.REJECTED))
+                .willReturn(HandledJoinRequest.rejected(88L));
+
+        mockMvc.perform(handleRequest("REJECTED").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("요청을 거절했습니다"))
+                .andExpect(jsonPath("$.data.id").value(88))
+                .andExpect(jsonPath("$.data.status").value("REJECTED"))
+                .andExpect(content().string(not(containsString("chat_room_id"))))
+                .andExpect(content().string(not(containsString("current_count"))));
+    }
+
+    @Test
+    @DisplayName("상태가 ACCEPTED · REJECTED 가 아니면 422 INVALID_ENUM이고 처리하지 않는다")
+    void handleRejectsUnknownStatus() throws Exception {
+        mockMvc.perform(handleRequest("PENDING").with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.field").value("status"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_ENUM"));
+
+        verifyNoInteractions(carpoolRequestService);
+    }
+
+    @Test
+    @DisplayName("방장이 아니면 403 HOST_ONLY다")
+    void handleHostOnly() throws Exception {
+        given(carpoolRequestService.handle(any(), any(), any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.HOST_ONLY));
+
+        mockMvc.perform(handleRequest("ACCEPTED").with(member()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("HOST_ONLY"));
+    }
+
+    @Test
+    @DisplayName("수락 · 거절은 로그인해야 한다")
+    void handleRequiresLogin() throws Exception {
+        mockMvc.perform(handleRequest("ACCEPTED"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(carpoolRequestService);
+    }
+
+    private static MockHttpServletRequestBuilder handleRequest(String status) {
+        return patch("/api/carpools/51/join-requests/88")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"" + status + "\"}");
     }
 
     private static MockHttpServletRequestBuilder joinRequest(Long carpoolId, String body) {

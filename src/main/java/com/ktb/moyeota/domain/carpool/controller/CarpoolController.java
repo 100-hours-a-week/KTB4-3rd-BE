@@ -6,12 +6,16 @@ import com.ktb.moyeota.domain.carpool.dto.CarpoolDetailResponse;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchRequest;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolPinSearchResponse;
 import com.ktb.moyeota.domain.carpool.dto.CarpoolStatusChangeRequest;
+import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
+import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleRequest;
+import com.ktb.moyeota.domain.carpool.dto.JoinRequestHandleResponse;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestSendRequest;
 import com.ktb.moyeota.domain.carpool.dto.JoinRequestSendResponse;
 import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchRequest;
 import com.ktb.moyeota.domain.carpool.dto.NearbyCarpoolSearchResponse;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
 import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
+import com.ktb.moyeota.domain.carpool.model.HandledJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRegistrationService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRequestService;
@@ -81,6 +85,20 @@ public class CarpoolController {
         SentJoinRequest sent = carpoolRequestService.send(userId, carpoolId, request.content());
         return ResponseEntity.created(URI.create("/api/carpools/" + carpoolId + "/join-requests/" + sent.id()))
                 .body(ApiResponse.of(CarpoolSuccessCode.JOIN_REQUEST_SENT, JoinRequestSendResponse.from(sent)));
+    }
+
+    @PatchMapping("/carpools/{companion_id}/join-requests/{request_id}")
+    public ApiResponse<JoinRequestHandleResponse> handleJoinRequest(
+            @AuthUser Long userId,
+            @PathVariable("companion_id") Long carpoolId,
+            @PathVariable("request_id") Long requestId,
+            @Valid @RequestBody JoinRequestHandleRequest request) {
+        HandledJoinRequest handled = carpoolRequestService.handle(userId, carpoolId, requestId, request.toStatus());
+        return ApiResponse.of(
+                handled.status() == CompanionRequestStatus.ACCEPTED
+                        ? CarpoolSuccessCode.JOIN_REQUEST_ACCEPTED
+                        : CarpoolSuccessCode.JOIN_REQUEST_REJECTED,
+                JoinRequestHandleResponse.from(handled));
     }
 
     @PatchMapping("/carpools/{companion_id}")
