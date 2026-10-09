@@ -21,7 +21,19 @@ public enum CarpoolErrorCode implements ErrorCode {
 
     SAME_ORIGIN_DEST(HttpStatus.UNPROCESSABLE_CONTENT, "출발지와 도착지가 같습니다"),
 
-    CAR_REGISTRATION_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "차량 정보를 먼저 등록해주세요");
+    CAR_REGISTRATION_REQUIRED(HttpStatus.CONFLICT, "차량 정보를 먼저 등록해주세요"),
+
+    OWN_CARPOOL(HttpStatus.UNPROCESSABLE_CONTENT, "본인이 등록한 카풀에는 동승 요청을 보낼 수 없습니다"),
+
+    CARPOOL_CLOSED(HttpStatus.CONFLICT, "마감된 카풀입니다"),
+
+    CAPACITY_FULL(HttpStatus.CONFLICT, "카풀 정원이 가득 찼습니다"),
+
+    ALREADY_PARTICIPATING(HttpStatus.CONFLICT, "이미 참여 중인 카풀입니다"),
+
+    REQUEST_ALREADY_PENDING(HttpStatus.CONFLICT, "이미 요청을 보낸 상태입니다"),
+
+    REQUEST_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "제한된 요청 수를 초과했습니다");
 
     private final HttpStatus status;
     private final String message;

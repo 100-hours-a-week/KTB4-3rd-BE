@@ -25,11 +25,14 @@ import com.ktb.moyeota.domain.carpool.model.MyRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPin;
 import com.ktb.moyeota.domain.carpool.model.CarpoolPins;
+import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.model.CreatedCarpool;
+import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpool;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpoolQuery;
 import com.ktb.moyeota.domain.carpool.model.NearbyCarpools;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRegistrationService;
+import com.ktb.moyeota.domain.carpool.service.CarpoolRequestService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolRideService;
 import com.ktb.moyeota.domain.carpool.service.CarpoolService;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -90,6 +93,9 @@ class CarpoolControllerTest {
 
     @MockitoBean
     private CarpoolRegistrationService carpoolRegistrationService;
+
+    @MockitoBean
+    private CarpoolRequestService carpoolRequestService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -300,6 +306,61 @@ class CarpoolControllerTest {
                 .andExpect(jsonPath("$.error.code").value("CARPOOL_NOT_FOUND"));
     }
 
+    @Test
+    @DisplayName("동승 요청을 보내면 201과 Location, 요청 id · 카풀 id · 상태 · 요청 시각을 내린다")
+    void sendsJoinRequest() throws Exception {
+        given(carpoolRequestService.send(42L, 51L, "판교역에서 같이 가고 싶습니다!")).willReturn(new SentJoinRequest(
+                88L, 51L, CompanionRequestStatus.PENDING, LocalDateTime.of(2026, 9, 6, 21, 10)));
+
+        mockMvc.perform(joinRequest(51L, "{\"content\":\"판교역에서 같이 가고 싶습니다!\"}").with(member()))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/carpools/51/join-requests/88"))
+                .andExpect(jsonPath("$.message").value("카풀 요청이 등록되었습니다"))
+                .andExpect(jsonPath("$.data.id").value(88))
+                .andExpect(jsonPath("$.data.carpool_id").value(51))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.created_at").value("2026-09-06T21:10:00"));
+    }
+
+    @Test
+    @DisplayName("요청 메시지가 비면 REQUIRED, 200자를 넘으면 LENGTH_OUT_OF_RANGE 이고 요청하지 않는다")
+    void joinRequestContentValidation() throws Exception {
+        mockMvc.perform(joinRequest(51L, "{\"content\":\" \"}").with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.field").value("content"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
+        mockMvc.perform(joinRequest(51L, "{\"content\":\"" + "가".repeat(201) + "\"}").with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+
+        verifyNoInteractions(carpoolRequestService);
+    }
+
+    @Test
+    @DisplayName("마감된 카풀이면 409 CARPOOL_CLOSED다")
+    void joinRequestClosed() throws Exception {
+        given(carpoolRequestService.send(any(), any(), any()))
+                .willThrow(new BusinessException(CarpoolErrorCode.CARPOOL_CLOSED));
+
+        mockMvc.perform(joinRequest(51L, "{\"content\":\"요청\"}").with(member()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("마감된 카풀입니다"))
+                .andExpect(jsonPath("$.error.code").value("CARPOOL_CLOSED"));
+    }
+
+    @Test
+    @DisplayName("동승 요청은 로그인해야 한다")
+    void joinRequestRequiresLogin() throws Exception {
+        mockMvc.perform(joinRequest(51L, "{\"content\":\"요청\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(carpoolRequestService);
+    }
+
+    private static MockHttpServletRequestBuilder joinRequest(Long carpoolId, String body) {
+        return post("/api/carpools/" + carpoolId + "/join-requests").contentType(MediaType.APPLICATION_JSON).content(body);
+    }
+
     private static CarpoolDetail detail() {
         return new CarpoolDetail(
                 51L, CompanionStatus.RECRUITING, new Member(42L, "우림", null), "판교역", "강남역",
@@ -461,13 +522,13 @@ class CarpoolControllerTest {
     }
 
     @Test
-    @DisplayName("등록된 차량이 없으면 422 CAR_REGISTRATION_REQUIRED다")
+    @DisplayName("등록된 차량이 없으면 409 CAR_REGISTRATION_REQUIRED다")
     void carRequired() throws Exception {
         given(carpoolRegistrationService.create(any(), any()))
                 .willThrow(new BusinessException(CarpoolErrorCode.CAR_REGISTRATION_REQUIRED));
 
         mockMvc.perform(create(createBody("1")).with(member()))
-                .andExpect(status().isUnprocessableContent())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("차량 정보를 먼저 등록해주세요"))
                 .andExpect(jsonPath("$.error.code").value("CAR_REGISTRATION_REQUIRED"));
     }
