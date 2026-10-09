@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CarpoolRideService {
+
+    private static final Duration AUTO_CANCEL_AFTER_DEPARTURE = Duration.ofHours(12);
 
     private final CarpoolRepository carpoolRepository;
     private final CarpoolParticipantRepository carpoolParticipantRepository;
@@ -84,6 +87,19 @@ public class CarpoolRideService {
     @Transactional
     public void requestRideEnd(Long carpoolId) {
         chatSystemMessageService.requestRideEnd(findChatRoom(carpoolRepository.getReferenceById(carpoolId)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findAutoCancelDueIds() {
+        return carpoolRepository.findAutoCancelDueIds(LocalDateTime.now(clock).minus(AUTO_CANCEL_AFTER_DEPARTURE));
+    }
+
+    @Transactional
+    public void autoCancel(Long carpoolId) {
+        carpoolRepository.findRecruitingCarpoolForUpdate(carpoolId).ifPresent(carpool -> {
+            carpool.cancel(carpoolParticipantRepository.findPendingParticipants(carpoolId));
+            findChatRoom(carpool).close();
+        });
     }
 
     @Transactional
