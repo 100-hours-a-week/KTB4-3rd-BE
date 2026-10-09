@@ -39,6 +39,19 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             @Param("recipientId") Long recipientId,
             @Param("readAt") LocalDateTime readAt);
 
+    @Modifying
+    @Query("""
+            UPDATE Notification n
+            SET n.readAt = :readAt
+            WHERE n.recipient.id = :recipientId
+              AND n.id <= :maxId
+              AND n.readAt IS NULL
+            """)
+    int markAllReadUpTo(
+            @Param("recipientId") Long recipientId,
+            @Param("maxId") Long maxId,
+            @Param("readAt") LocalDateTime readAt);
+
     @Query("""
             SELECT n.readAt
             FROM Notification n

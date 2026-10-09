@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -227,6 +228,112 @@ class NotificationControllerTest {
         @DisplayName("액세스 토큰이 없으면 401이고 조회하지 않는다")
         void anonymous() throws Exception {
             mockMvc.perform(patch("/api/notifications/900/read_at"))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(notificationRepository);
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /api/notifications/read-all")
+    class MarkAllRead {
+
+        private static final String READ_ALL_URL = "/api/notifications/read-all";
+
+        @Test
+        @DisplayName("max_notification_id가 있으면 200 '모두 읽음 처리되었습니다'이고 그 id 이하로 처리한다")
+        void success() throws Exception {
+            given(notificationRepository.markAllReadUpTo(eq(USER_ID), eq(900L), any())).willReturn(3);
+
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": 900}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("모두 읽음 처리되었습니다"));
+
+            verify(notificationRepository).markAllReadUpTo(eq(USER_ID), eq(900L), any());
+        }
+
+        @Test
+        @DisplayName("처리된 알림이 0건이어도 200 '모두 읽음 처리되었습니다'다")
+        void successEvenIfNothingUpdated() throws Exception {
+            given(notificationRepository.markAllReadUpTo(eq(USER_ID), eq(900L), any())).willReturn(0);
+
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": 900}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("모두 읽음 처리되었습니다"));
+        }
+
+        @Test
+        @DisplayName("max_notification_id가 null이면 200 '읽음 처리할 알림이 없어요'이고 처리하지 않는다")
+        void nullId() throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": null}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("읽음 처리할 알림이 없어요"));
+
+            verifyNoInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("max_notification_id 필드가 빠져도 null과 같이 200 '읽음 처리할 알림이 없어요'다")
+        void missingField() throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("읽음 처리할 알림이 없어요"));
+
+            verifyNoInteractions(notificationRepository);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"0", "-1"})
+        @DisplayName("max_notification_id가 0 이하면 400 VALIDATION_ERROR(field: max_notification_id)이고 처리하지 않는다")
+        void invalidId(String id) throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": " + id + "}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("알림 id 값이 올바르지 않아요"))
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.field").value("max_notification_id"));
+
+            verifyNoInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("max_notification_id가 숫자가 아니면 400 MALFORMED_REQUEST이고 처리하지 않는다")
+        void notNumber() throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": \"abc\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
+
+            verifyNoInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("body가 없으면 400 MALFORMED_REQUEST이고 처리하지 않는다")
+        void noBody() throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL).with(member())
+                            .contentType("application/json"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("MALFORMED_REQUEST"));
+
+            verifyNoInteractions(notificationRepository);
+        }
+
+        @Test
+        @DisplayName("액세스 토큰이 없으면 401이고 처리하지 않는다")
+        void anonymous() throws Exception {
+            mockMvc.perform(patch(READ_ALL_URL)
+                            .contentType("application/json")
+                            .content("{\"max_notification_id\": 900}"))
                     .andExpect(status().isUnauthorized());
 
             verifyNoInteractions(notificationRepository);
