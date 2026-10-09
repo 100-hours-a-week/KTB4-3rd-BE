@@ -461,13 +461,13 @@ class CarpoolControllerTest {
     }
 
     @Test
-    @DisplayName("등록된 차량이 없으면 422 CAR_REGISTRATION_REQUIRED다")
+    @DisplayName("등록된 차량이 없으면 409 CAR_REGISTRATION_REQUIRED다")
     void carRequired() throws Exception {
         given(carpoolRegistrationService.create(any(), any()))
                 .willThrow(new BusinessException(CarpoolErrorCode.CAR_REGISTRATION_REQUIRED));
 
         mockMvc.perform(create(createBody("1")).with(member()))
-                .andExpect(status().isUnprocessableContent())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("차량 정보를 먼저 등록해주세요"))
                 .andExpect(jsonPath("$.error.code").value("CAR_REGISTRATION_REQUIRED"));
     }

@@ -21,7 +21,7 @@ public enum CarpoolErrorCode implements ErrorCode {
 
     SAME_ORIGIN_DEST(HttpStatus.UNPROCESSABLE_CONTENT, "출발지와 도착지가 같습니다"),
 
-    CAR_REGISTRATION_REQUIRED(HttpStatus.UNPROCESSABLE_CONTENT, "차량 정보를 먼저 등록해주세요");
+    CAR_REGISTRATION_REQUIRED(HttpStatus.CONFLICT, "차량 정보를 먼저 등록해주세요"),
 
     private final HttpStatus status;
     private final String message;
