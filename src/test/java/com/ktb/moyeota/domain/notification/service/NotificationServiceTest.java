@@ -10,6 +10,8 @@ import com.ktb.moyeota.domain.community.entity.CommunityPost;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.notification.dto.NotificationListQuery;
 import com.ktb.moyeota.domain.notification.dto.NotificationListResponse;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllRequest;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllResult;
 import com.ktb.moyeota.domain.notification.dto.NotificationReadResponse;
 import com.ktb.moyeota.domain.notification.dto.NotificationResponse;
 import com.ktb.moyeota.domain.notification.entity.Notification;
@@ -341,6 +343,99 @@ class NotificationServiceTest {
             assertThatThrownBy(() -> notificationService.markRead(recipient.getId(), 999_999L))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode").isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("markAllRead")
+    class MarkAllRead {
+
+        @Test
+        @DisplayName("화면 최상단 id 이하만 읽음 처리하고, 이후 도착한 알림은 안읽음으로 남긴다")
+        void upToScreenTop() {
+            Notification seen1 = persist(unread(recipient));
+            Notification seenTop = persist(unread(recipient));
+            Notification arrivedLater = persist(unread(recipient));
+
+            NotificationReadAllResult result = notificationService.markAllRead(
+                    recipient.getId(), new NotificationReadAllRequest(seenTop.getId()));
+            entityManager.clear();
+
+            assertThat(result.hasTarget()).isTrue();
+            assertThat(readAtOf(seen1)).isEqualTo(TRUNCATED_NOW);
+            assertThat(readAtOf(seenTop)).isEqualTo(TRUNCATED_NOW);
+            assertThat(readAtOf(arrivedLater)).isNull();
+        }
+
+        @Test
+        @DisplayName("이미 읽은 알림은 기존 read_at을 유지한다")
+        void keepsAlreadyRead() {
+            Notification alreadyRead = persist(read(recipient));
+            Notification notYet = persist(unread(recipient));
+
+            notificationService.markAllRead(recipient.getId(), new NotificationReadAllRequest(notYet.getId()));
+            entityManager.clear();
+
+            assertThat(readAtOf(alreadyRead)).isEqualTo(EARLIER_READ_AT);
+            assertThat(readAtOf(notYet)).isEqualTo(TRUNCATED_NOW);
+        }
+
+        @Test
+        @DisplayName("같은 요청을 다시 보내도 첫 read_at이 유지된다")
+        void idempotent() {
+            Notification notification = unread(recipient);
+            persist(notification);
+            notificationService.markAllRead(recipient.getId(), new NotificationReadAllRequest(notification.getId()));
+            entityManager.clear();
+            LocalDateTime first = readAtOf(notification);
+
+            notificationService.markAllRead(recipient.getId(), new NotificationReadAllRequest(notification.getId()));
+            entityManager.clear();
+
+            assertThat(readAtOf(notification)).isEqualTo(first);
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 알림은 읽음 처리하지 않는다")
+        void othersUntouched() {
+            Notification others = persist(unread(other));
+            Notification mine = persist(unread(recipient));
+
+            notificationService.markAllRead(recipient.getId(), new NotificationReadAllRequest(mine.getId()));
+            entityManager.clear();
+
+            assertThat(readAtOf(others)).isNull();
+        }
+
+        @Test
+        @DisplayName("max_notification_id가 null이면 아무것도 바꾸지 않는다")
+        void nullDoesNothing() {
+            Notification notification = persist(unread(recipient));
+
+            NotificationReadAllResult result = notificationService.markAllRead(
+                    recipient.getId(), new NotificationReadAllRequest(null));
+            entityManager.clear();
+
+            assertThat(result.hasTarget()).isFalse();
+            assertThat(readAtOf(notification)).isNull();
+        }
+
+        @Test
+        @DisplayName("max_notification_id가 0 이하면 400 INVALID_NOTIFICATION_ID이고 바꾸지 않는다")
+        void invalidId() {
+            Notification notification = persist(unread(recipient));
+
+            assertThatThrownBy(() -> notificationService.markAllRead(
+                    recipient.getId(), new NotificationReadAllRequest(0L)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode").isEqualTo(NotificationErrorCode.INVALID_NOTIFICATION_ID);
+
+            entityManager.clear();
+            assertThat(readAtOf(notification)).isNull();
+        }
+
+        private LocalDateTime readAtOf(Notification notification) {
+            return entityManager.find(Notification.class, notification.getId()).getReadAt();
         }
     }
 

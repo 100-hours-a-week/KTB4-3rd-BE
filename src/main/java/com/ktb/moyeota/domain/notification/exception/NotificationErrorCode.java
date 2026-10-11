@@ -13,6 +13,9 @@ public enum NotificationErrorCode implements ErrorCode {
 
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "커서 값이 올바르지 않아요", "cursor"),
 
+    INVALID_NOTIFICATION_ID(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "알림 id 값이 올바르지 않아요",
+            "max_notification_id"),
+
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOT_FOUND", "알림을 찾을 수 없어요", null);
 
     private final HttpStatus status;

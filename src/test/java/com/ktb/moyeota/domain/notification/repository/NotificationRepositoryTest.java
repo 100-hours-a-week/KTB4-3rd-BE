@@ -174,6 +174,64 @@ class NotificationRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("markAllReadUpTo")
+    class MarkAllReadUpTo {
+
+        @Test
+        @DisplayName("기준 id 이하의 안읽은 내 알림만 읽음 처리하고, 그보다 큰 알림은 안읽음으로 남긴다")
+        void onlyUpToMaxId() {
+            Notification n1 = persist(unread(recipient));
+            Notification n2 = persist(unread(recipient));
+            Notification n3 = persist(unread(recipient));
+
+            int updated = notificationRepository.markAllReadUpTo(recipient.getId(), n2.getId(), NOW);
+            entityManager.clear();
+
+            assertThat(updated).isEqualTo(2);
+            assertThat(readAtOf(n1)).isEqualTo(NOW);
+            assertThat(readAtOf(n2)).isEqualTo(NOW);
+            assertThat(readAtOf(n3)).isNull();
+        }
+
+        @Test
+        @DisplayName("이미 읽은 알림은 세지 않고 read_at을 덮어쓰지 않는다")
+        void keepsAlreadyRead() {
+            Notification alreadyRead = persist(read(recipient));
+            Notification notYet = persist(unread(recipient));
+
+            int updated = notificationRepository.markAllReadUpTo(recipient.getId(), notYet.getId(), NOW);
+            entityManager.clear();
+
+            assertThat(updated).isEqualTo(1);
+            assertThat(readAtOf(alreadyRead)).isEqualTo(READ_AT);
+            assertThat(readAtOf(notYet)).isEqualTo(NOW);
+        }
+
+        @Test
+        @DisplayName("다른 사람의 알림은 기준 id 이하여도 바꾸지 않는다")
+        void othersUntouched() {
+            Notification others = persist(unread(other));
+            Notification mine = persist(unread(recipient));
+
+            int updated = notificationRepository.markAllReadUpTo(recipient.getId(), mine.getId(), NOW);
+            entityManager.clear();
+
+            assertThat(updated).isEqualTo(1);
+            assertThat(readAtOf(others)).isNull();
+        }
+
+        @Test
+        @DisplayName("처리할 알림이 없으면 0을 반환한다")
+        void nothingToUpdate() {
+            assertThat(notificationRepository.markAllReadUpTo(recipient.getId(), 999_999L, NOW)).isZero();
+        }
+
+        private LocalDateTime readAtOf(Notification notification) {
+            return entityManager.find(Notification.class, notification.getId()).getReadAt();
+        }
+    }
+
     private Notification unread(User to) {
         return Notification.createForChatRoom(
                 to, NotificationType.MATCHING_COMPLETED, 1L, chatRoom, "매칭이 완료됐어요");

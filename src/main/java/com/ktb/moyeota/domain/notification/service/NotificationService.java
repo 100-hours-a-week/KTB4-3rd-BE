@@ -2,6 +2,8 @@ package com.ktb.moyeota.domain.notification.service;
 
 import com.ktb.moyeota.domain.notification.dto.NotificationListQuery;
 import com.ktb.moyeota.domain.notification.dto.NotificationListResponse;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllRequest;
+import com.ktb.moyeota.domain.notification.dto.NotificationReadAllResult;
 import com.ktb.moyeota.domain.notification.dto.NotificationReadResponse;
 import com.ktb.moyeota.domain.notification.dto.NotificationResponse;
 import com.ktb.moyeota.domain.notification.entity.Notification;
@@ -66,5 +68,20 @@ public class NotificationService {
         LocalDateTime readAt = notificationRepository.findReadAtByIdAndRecipientId(notificationId, userId)
                 .orElseThrow(() -> new BusinessException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
         return new NotificationReadResponse(readAt);
+    }
+
+    @Transactional
+    public NotificationReadAllResult markAllRead(Long userId, NotificationReadAllRequest request) {
+
+        if (!request.isValidId()) {
+            throw new BusinessException(NotificationErrorCode.INVALID_NOTIFICATION_ID);
+        }
+        if (!request.hasTarget()) {
+            return new NotificationReadAllResult(false);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
+        notificationRepository.markAllReadUpTo(userId, request.maxNotificationId(), now);
+        return new NotificationReadAllResult(true);
     }
 }
