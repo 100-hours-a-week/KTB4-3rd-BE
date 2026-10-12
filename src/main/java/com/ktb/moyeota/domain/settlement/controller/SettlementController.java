@@ -14,8 +14,10 @@ import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +38,12 @@ public class SettlementController {
             @Valid @RequestBody SettlementAmountRequest request) {
         RequestedSettlement requested = settlementService.requestManually(userId, settlementId, request.totalAmountValue());
         return ApiResponse.of(SettlementSuccessCode.AMOUNT_ENTERED, toResponse(requested));
+    }
+
+    @PostMapping("/settlements/{settlement_id}/completion")
+    public ResponseEntity<Void> complete(@AuthUser Long userId, @PathVariable("settlement_id") Long settlementId) {
+        settlementService.complete(userId, settlementId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/settlements/{settlement_id}/analysis-status")

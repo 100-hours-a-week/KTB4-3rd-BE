@@ -3,9 +3,12 @@ package com.ktb.moyeota.domain.settlement.controller;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -65,6 +68,7 @@ class SettlementControllerTest {
 
     private static final String ANALYSIS_STATUS = "/api/settlements/77/analysis-status";
     private static final String MY_TRANSFER = "/api/settlements/77/participants/me";
+    private static final String COMPLETION = "/api/settlements/77/completion";
 
     @Autowired
     private MockMvc mockMvc;
@@ -259,6 +263,33 @@ class SettlementControllerTest {
         return Stream.of(
                 Arguments.of(SettlementErrorCode.PAYEE_HAS_NO_TRANSFER, "PAYEE_HAS_NO_TRANSFER", 403),
                 Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404));
+    }
+
+    @Test
+    @DisplayName("방장이 정산을 완료하면 204다")
+    void complete() throws Exception {
+        mockMvc.perform(post(COMPLETION).with(member()))
+                .andExpect(status().isNoContent());
+
+        verify(settlementService).complete(42L, 77L);
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("completionFailures")
+    @DisplayName("정산을 완료할 수 없으면 그 상태와 코드를 내린다")
+    void completionRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        willThrow(new BusinessException(errorCode)).given(settlementService).complete(42L, 77L);
+
+        mockMvc.perform(post(COMPLETION).with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> completionFailures() {
+        return Stream.of(
+                Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
+                Arguments.of(SettlementErrorCode.INVALID_STATE_TRANSITION, "INVALID_STATE_TRANSITION", 409));
     }
 
     private static MockHttpServletRequestBuilder inputAmount(String body) {
