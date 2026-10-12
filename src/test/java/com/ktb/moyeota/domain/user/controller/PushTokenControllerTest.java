@@ -1,8 +1,6 @@
 package com.ktb.moyeota.domain.user.controller;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -13,13 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ktb.moyeota.domain.user.dto.PushTokenRequest;
-import com.ktb.moyeota.domain.user.error.PushTokenErrorCode;
 import com.ktb.moyeota.domain.user.service.PushTokenService;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
 import com.ktb.moyeota.global.config.CorsProperties;
 import com.ktb.moyeota.global.config.WebConfig;
-import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.GlobalExceptionHandler;
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.Authority;
@@ -34,6 +30,8 @@ import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -76,17 +74,32 @@ class PushTokenControllerTest {
             verify(pushTokenService).register(eq(USER_ID), eq(new PushTokenRequest("fcm-token")));
         }
 
-        @Test
-        @DisplayName("토큰이 유효하지 않으면 400 VALIDATION_ERROR(field: token)다")
-        void invalid() throws Exception {
-            willThrow(new BusinessException(PushTokenErrorCode.INVALID_PUSH_TOKEN))
-                    .given(pushTokenService).register(eq(USER_ID), any());
-
-            mockMvc.perform(put(URL).with(member()).contentType("application/json").content("{\"token\": \"\"}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("입력값을 확인해주세요"))
+        @ParameterizedTest
+        @ValueSource(strings = {"{\"token\": \"\"}", "{\"token\": \"   \"}", "{}"})
+        @DisplayName("토큰이 비어 있으면 422 VALIDATION_ERROR(REQUIRED)이고 서비스를 호출하지 않는다")
+        void blank(String body) throws Exception {
+            mockMvc.perform(put(URL).with(member()).contentType("application/json").content(body))
+                    .andExpect(status().isUnprocessableContent())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                    .andExpect(jsonPath("$.error.field").value("token"));
+                    .andExpect(jsonPath("$.error.field").value("token"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("token"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
+
+            verifyNoInteractions(pushTokenService);
+        }
+
+        @Test
+        @DisplayName("토큰이 255자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
+        void tooLong() throws Exception {
+            String body = "{\"token\": \"" + "a".repeat(256) + "\"}";
+
+            mockMvc.perform(put(URL).with(member()).contentType("application/json").content(body))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("token"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+
+            verifyNoInteractions(pushTokenService);
         }
 
         @Test
@@ -122,15 +135,29 @@ class PushTokenControllerTest {
             verify(pushTokenService).delete(eq(USER_ID), eq(new PushTokenRequest("fcm-token")));
         }
 
-        @Test
-        @DisplayName("토큰이 비어 있으면 400 VALIDATION_ERROR(field: token)다")
-        void invalid() throws Exception {
-            willThrow(new BusinessException(PushTokenErrorCode.INVALID_PUSH_TOKEN))
-                    .given(pushTokenService).delete(eq(USER_ID), any());
+        @ParameterizedTest
+        @ValueSource(strings = {"{\"token\": \"\"}", "{}"})
+        @DisplayName("토큰이 비어 있으면 422 VALIDATION_ERROR(REQUIRED)이고 서비스를 호출하지 않는다")
+        void blank(String body) throws Exception {
+            mockMvc.perform(delete(URL).with(member()).contentType("application/json").content(body))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("token"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED"));
 
-            mockMvc.perform(delete(URL).with(member()).contentType("application/json").content("{}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error.field").value("token"));
+            verifyNoInteractions(pushTokenService);
+        }
+
+        @Test
+        @DisplayName("토큰이 255자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
+        void tooLong() throws Exception {
+            String body = "{\"token\": \"" + "a".repeat(256) + "\"}";
+
+            mockMvc.perform(delete(URL).with(member()).contentType("application/json").content(body))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+
+            verifyNoInteractions(pushTokenService);
         }
 
         @Test
