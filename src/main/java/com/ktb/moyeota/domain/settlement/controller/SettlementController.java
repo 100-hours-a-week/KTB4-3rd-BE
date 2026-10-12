@@ -1,11 +1,14 @@
 package com.ktb.moyeota.domain.settlement.controller;
 
 import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisResponse;
+import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
+import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
+import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.settlement.success.SettlementSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SettlementController {
 
     private final SettlementService settlementService;
+    private final TransferProofService transferProofService;
 
     @PutMapping("/settlements/{settlement_id}/amount")
     public ApiResponse<SettlementAmountResponse> inputAmount(
@@ -41,6 +45,13 @@ public class SettlementController {
         return ApiResponse.of(SettlementSuccessCode.METER_ANALYSIS_FOUND, toResponse(analysis));
     }
 
+    @GetMapping("/settlements/{settlement_id}/participants/me")
+    public ApiResponse<MyTransferResponse> getMyTransfer(
+            @AuthUser Long userId, @PathVariable("settlement_id") Long settlementId) {
+        MyTransfer transfer = transferProofService.findMine(userId, settlementId);
+        return ApiResponse.of(SettlementSuccessCode.MY_TRANSFER_FOUND, toResponse(transfer));
+    }
+
     private static SettlementAmountResponse toResponse(RequestedSettlement requested) {
         return new SettlementAmountResponse(
                 requested.participantCount(),
@@ -55,5 +66,19 @@ public class SettlementController {
                 analysis.meterAnalysisStatus().name(),
                 analysis.totalAmount(),
                 analysis.analysisStartedAt());
+    }
+
+    private static MyTransferResponse toResponse(MyTransfer transfer) {
+        return transfer.charge()
+                .map(charge -> new MyTransferResponse(
+                        transfer.participantCount(),
+                        transfer.status().name(),
+                        charge.analysisStatus().name(),
+                        charge.amount(),
+                        charge.transferredAt(),
+                        new MyTransferResponse.Payee(
+                                charge.payee().name(), charge.payee().bankName(), charge.payee().accountNo())))
+                .orElseGet(() -> new MyTransferResponse(
+                        transfer.participantCount(), transfer.status().name(), null, null, null, null));
     }
 }

@@ -25,6 +25,12 @@ public final class UserFixture {
         return user;
     }
 
+    public static User bankAccountHolder(String nickname, byte[] encryptedAccountNo) {
+        User user = user(nickname);
+        user.registerBankAccount("kb", encryptedAccountNo);
+        return user;
+    }
+
     public static User bankAccountHolder(Long id, String nickname) {
         User user = user(id, nickname);
         user.registerBankAccount("kb", new byte[] {1});
