@@ -7,6 +7,7 @@ import jakarta.persistence.QueryHint;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -18,6 +19,14 @@ import org.springframework.data.repository.query.Param;
 public interface NotificationPushJobRepository extends JpaRepository<NotificationPushJob, Long> {
 
     String SKIP_LOCKED = "-2";
+
+    @Query("""
+            SELECT j
+            FROM NotificationPushJob j
+            JOIN FETCH j.notification
+            WHERE j.id = :id
+            """)
+    Optional<NotificationPushJob> findWithNotificationById(@Param("id") Long id);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""

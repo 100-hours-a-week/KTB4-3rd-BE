@@ -71,7 +71,6 @@ public class NotificationPushJob {
         this.updatedAt = now;
     }
 
-    /** 알림 저장과 같은 트랜잭션에서 생성한다. 바로 발송 대상(PENDING)이 된다. */
     public static NotificationPushJob create(Notification notification, LocalDateTime now) {
         if (notification == null) {
             throw new IllegalArgumentException("발송 작업에는 notification이 필요합니다");
