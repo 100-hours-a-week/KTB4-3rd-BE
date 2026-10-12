@@ -1,6 +1,9 @@
 package com.ktb.moyeota.domain.settlement.service;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
+import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
@@ -23,6 +26,7 @@ public class SettlementService {
     private final SettlementRepository settlementRepository;
     private final SettlementRiderRepository settlementRiderRepository;
     private final SettlementParticipantRepository settlementParticipantRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
     @Transactional
     public RequestedSettlement requestManually(Long userId, Long settlementId, int totalAmount) {
@@ -35,6 +39,25 @@ public class SettlementService {
         chargeRiders(settlement, riders);
         return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
                 settlement.getStatus(), settlement.getMeterAnalysisStatus());
+    }
+
+    @Transactional
+    public void complete(Long userId, Long settlementId) {
+        Settlement settlement = settlementRepository.findByIdForUpdate(settlementId)
+                .orElseThrow(() -> new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
+        Long companionId = settlement.getCompanion().getId();
+        List<CompanionParticipant> riders = settlementRiderRepository.findRiders(companionId);
+        validateHost(settlement, riders, userId);
+
+        settlement.complete();
+        settlementParticipantRepository.findAllBySettlementId(settlementId)
+                .forEach(SettlementParticipant::confirmTransfer);
+        riders.stream()
+                .filter(rider -> rider.getOutcomeStatus() == OutcomeStatus.PENDING)
+                .forEach(CompanionParticipant::complete);
+        chatRoomRepository.findByCompanionId(companionId)
+                .filter(chatRoom -> chatRoom.getClosedAt() == null)
+                .ifPresent(ChatRoom::close);
     }
 
     @Transactional(readOnly = true)
