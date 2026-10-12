@@ -62,9 +62,6 @@ public class Notification {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "pushed_at")
-    private LocalDateTime pushedAt;
-
     private Notification(User recipient, NotificationType type, Long eventId,
                          ChatRoom targetChatRoom, CommunityPost targetPost, String content) {
         this.recipient = recipient;
