@@ -13,9 +13,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.ktb.moyeota.domain.settlement.entity.MeterAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
+import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
+import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
+import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
@@ -35,6 +38,7 @@ import com.ktb.moyeota.global.security.resolver.SignupPrincipalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,12 +64,16 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 class SettlementControllerTest {
 
     private static final String ANALYSIS_STATUS = "/api/settlements/77/analysis-status";
+    private static final String MY_TRANSFER = "/api/settlements/77/participants/me";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private SettlementService settlementService;
+
+    @MockitoBean
+    private TransferProofService transferProofService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -186,6 +194,71 @@ class SettlementControllerTest {
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SETTLEMENT_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("청구를 받은 동승자에게 200과 보낼 금액 · 송금 상태 · 방장 계좌를 내린다")
+    void myTransferCharged() throws Exception {
+        given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
+                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PENDING, null,
+                        new MyTransfer.Payee("김방장", "kb", "11012345678")))));
+
+        mockMvc.perform(get(MY_TRANSFER).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("내 송금 상태를 조회했습니다"))
+                .andExpect(jsonPath("$.data.participant_count").value(3))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
+                .andExpect(jsonPath("$.data.member_analysis_status").value("PENDING"))
+                .andExpect(jsonPath("$.data.amount").value(6000))
+                .andExpect(jsonPath("$.data.payee.name").value("김방장"))
+                .andExpect(jsonPath("$.data.payee.bank_name").value("kb"))
+                .andExpect(jsonPath("$.data.payee.account_no").value("11012345678"))
+                .andExpect(jsonPath("$.data", not(hasKey("transferred_at"))))
+                .andExpect(jsonPath("$.data", not(hasKey("is_forged"))));
+    }
+
+    @Test
+    @DisplayName("송금이 확인되면 송금 시각을 내린다")
+    void myTransferDone() throws Exception {
+        given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
+                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PASSED,
+                        LocalDateTime.of(2026, 9, 7, 9, 1), new MyTransfer.Payee("김방장", "kb", "11012345678")))));
+
+        mockMvc.perform(get(MY_TRANSFER).with(member()))
+                .andExpect(jsonPath("$.data.member_analysis_status").value("PASSED"))
+                .andExpect(jsonPath("$.data.transferred_at").value("2026-09-07T09:01:00"));
+    }
+
+    @Test
+    @DisplayName("금액이 정해지기 전이면 송금 관련 키 없이 인원과 정산 상태만 내린다")
+    void myTransferBeforeCharge() throws Exception {
+        given(transferProofService.findMine(42L, 77L))
+                .willReturn(new MyTransfer(3, SettlementStatus.PENDING, Optional.empty()));
+
+        mockMvc.perform(get(MY_TRANSFER).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participant_count").value(3))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("PENDING"))
+                .andExpect(jsonPath("$.data", not(hasKey("member_analysis_status"))))
+                .andExpect(jsonPath("$.data", not(hasKey("amount"))))
+                .andExpect(jsonPath("$.data", not(hasKey("payee"))));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("myTransferFailures")
+    @DisplayName("내 송금 상태를 볼 수 없으면 그 상태와 코드를 내린다")
+    void myTransferRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        given(transferProofService.findMine(42L, 77L)).willThrow(new BusinessException(errorCode));
+
+        mockMvc.perform(get(MY_TRANSFER).with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> myTransferFailures() {
+        return Stream.of(
+                Arguments.of(SettlementErrorCode.PAYEE_HAS_NO_TRANSFER, "PAYEE_HAS_NO_TRANSFER", 403),
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404));
     }
 
     private static MockHttpServletRequestBuilder inputAmount(String body) {
