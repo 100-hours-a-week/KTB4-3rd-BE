@@ -1,16 +1,13 @@
 package com.ktb.moyeota.domain.user.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public record PushTokenRequest(
+        @NotBlank
+        @Size(max = PushTokenRequest.MAX_LENGTH)
         String token
 ) {
 
     public static final int MAX_LENGTH = 255;
-
-    public boolean isBlank() {
-        return token == null || token.isBlank();
-    }
-
-    public boolean exceedsMaxLength() {
-        return token != null && token.length() > MAX_LENGTH;
-    }
 }
