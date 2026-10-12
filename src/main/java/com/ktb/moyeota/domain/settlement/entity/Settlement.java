@@ -1,7 +1,9 @@
 package com.ktb.moyeota.domain.settlement.entity;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -93,6 +95,26 @@ public class Settlement {
             throw new IllegalStateException("정산 받을 방장에게 계좌가 없다: " + companion.getId());
         }
         return new Settlement(companion, payee, companion.getCurrentCount());
+    }
+
+    public boolean isPaidTo(Long userId) {
+        return payee.getId().equals(userId);
+    }
+
+    public void requestManually(int totalAmount) {
+        if (status != SettlementStatus.PENDING) {
+            throw new BusinessException(SettlementErrorCode.ALREADY_REQUESTED);
+        }
+        this.totalAmount = totalAmount;
+        this.meterAnalysisStatus = MeterAnalysisStatus.MANUAL;
+        this.status = SettlementStatus.REQUESTED;
+    }
+
+    public int amountPerPerson() {
+        if (totalAmount == null) {
+            throw new IllegalStateException("금액이 정해지지 않은 정산이다: " + id);
+        }
+        return totalAmount / participantCount;
     }
 
     @PrePersist
