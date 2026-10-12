@@ -14,4 +14,12 @@ public interface SettlementRiderRepository extends JpaRepository<CompanionPartic
                and p.outcomeStatus <> com.ktb.moyeota.domain.chat.entity.OutcomeStatus.INCOMPLETE
             """)
     List<CompanionParticipant> findRiders(Long companionId);
+
+    @Query("""
+            select count(p) > 0 from CompanionParticipant p
+             where p.companion.id = :companionId
+               and p.user.id = :userId
+               and p.outcomeStatus <> com.ktb.moyeota.domain.chat.entity.OutcomeStatus.INCOMPLETE
+            """)
+    boolean existsRider(Long companionId, Long userId);
 }
