@@ -328,8 +328,8 @@ class CompanionTest {
     }
 
     @Nested
-    @DisplayName("운행 종료")
-    class CompleteRide {
+    @DisplayName("카풀 운행 종료")
+    class CompleteCarpoolRide {
 
         private final User host = user(1L, "방장");
         private final User member = user(2L, "동승자");
@@ -337,21 +337,21 @@ class CompanionTest {
         @Test
         @DisplayName("운행 중이면 완료된다")
         void completes() {
-            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
 
-            pot.completeRide(List.of());
+            carpool.completeCarpoolRide(List.of());
 
-            assertThat(pot.getStatus()).isEqualTo(COMPLETED);
+            assertThat(carpool.getStatus()).isEqualTo(COMPLETED);
         }
 
         @Test
         @DisplayName("운행한 참여자는 모두 완주한 참여가 된다")
         void completesRiders() {
-            Companion pot = taxiPot(host, IN_PROGRESS, 2);
-            CompanionParticipant hostRider = participant(pot, host, PENDING);
-            CompanionParticipant memberRider = participant(pot, member, PENDING);
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
+            CompanionParticipant hostRider = participant(carpool, host, PENDING);
+            CompanionParticipant memberRider = participant(carpool, member, PENDING);
 
-            pot.completeRide(List.of(hostRider, memberRider));
+            carpool.completeCarpoolRide(List.of(hostRider, memberRider));
 
             assertThat(List.of(hostRider, memberRider))
                     .extracting(CompanionParticipant::getOutcomeStatus)
@@ -362,12 +362,39 @@ class CompanionTest {
         @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("운행 중이 아니면 INVALID_STATE_TRANSITION이다")
         void notInProgress(CompanionStatus status) {
-            Companion pot = taxiPot(host, status, 2);
-            CompanionParticipant rider = participant(pot, member, PENDING);
+            Companion carpool = carpool(host, status, 2);
+            CompanionParticipant rider = participant(carpool, member, PENDING);
 
-            assertErrorCode(() -> pot.completeRide(List.of(rider)), CompanionErrorCode.INVALID_STATE_TRANSITION);
-            assertThat(pot.getStatus()).isEqualTo(status);
+            assertErrorCode(() -> carpool.completeCarpoolRide(List.of(rider)), CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertThat(carpool.getStatus()).isEqualTo(status);
             assertThat(rider.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+    }
+
+    @Nested
+    @DisplayName("택시팟 운행 종료")
+    class EndRide {
+
+        private final User host = user(1L, "방장");
+
+        @Test
+        @DisplayName("운행 중이면 완료 상태가 된다")
+        void ends() {
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+
+            pot.endRide();
+
+            assertThat(pot.getStatus()).isEqualTo(COMPLETED);
+        }
+
+        @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+        @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("운행 중이 아니면 INVALID_STATE_TRANSITION이다")
+        void notInProgress(CompanionStatus status) {
+            Companion pot = taxiPot(host, status, 2);
+
+            assertErrorCode(pot::endRide, CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertThat(pot.getStatus()).isEqualTo(status);
         }
     }
 

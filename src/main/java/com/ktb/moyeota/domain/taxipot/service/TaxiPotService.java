@@ -185,11 +185,9 @@ public class TaxiPotService {
     }
 
     private void completeRide(Companion taxiPot) {
-        taxiPot.completeRide(taxiPotParticipantRepository.findPendingParticipants(taxiPot.getId()));
+        taxiPot.endRide();
         settlementRepository.save(Settlement.open(taxiPot));
-        ChatRoom chatRoom = findChatRoom(taxiPot);
-        chatSystemMessageService.rideEnded(chatRoom);
-        chatRoom.close();
+        chatSystemMessageService.rideEnded(findChatRoom(taxiPot));
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
