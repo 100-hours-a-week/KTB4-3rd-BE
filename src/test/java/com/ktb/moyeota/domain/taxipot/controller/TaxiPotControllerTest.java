@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.taxipot.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -134,7 +136,7 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.host_id").value(7))
                 .andExpect(jsonPath("$.data.chat_room_id").value(501))
-                .andExpect(jsonPath("$.data.settlement_id").isEmpty());
+                .andExpect(jsonPath("$.data", not(hasKey("settlement_id"))));
     }
 
     @Test

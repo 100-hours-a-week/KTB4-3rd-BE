@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.taxipot.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 
 public record TaxiPotDetailResponse(
@@ -12,5 +13,5 @@ public record TaxiPotDetailResponse(
         int currentCount,
         int capacity,
         Long hostId,
-        Long settlementId) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) Long settlementId) {
 }
