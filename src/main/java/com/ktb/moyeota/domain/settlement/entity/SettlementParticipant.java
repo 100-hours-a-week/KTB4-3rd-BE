@@ -73,4 +73,8 @@ public class SettlementParticipant {
     public static SettlementParticipant charge(Settlement settlement, User user, int amount) {
         return new SettlementParticipant(settlement, user, amount);
     }
+
+    public void confirmTransfer() {
+        this.transferCompleted = true;
+    }
 }

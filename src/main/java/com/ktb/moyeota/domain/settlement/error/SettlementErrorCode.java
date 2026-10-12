@@ -13,7 +13,9 @@ public enum SettlementErrorCode implements ErrorCode {
 
     PAYEE_HAS_NO_TRANSFER(HttpStatus.FORBIDDEN, "방장은 송금할 금액이 없어요"),
 
-    ALREADY_REQUESTED(HttpStatus.CONFLICT, "이미 정산 금액이 정해졌어요");
+    ALREADY_REQUESTED(HttpStatus.CONFLICT, "이미 정산 금액이 정해졌어요"),
+
+    INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "정산을 완료할 수 있는 상태가 아니에요");
 
     private final HttpStatus status;
     private final String message;

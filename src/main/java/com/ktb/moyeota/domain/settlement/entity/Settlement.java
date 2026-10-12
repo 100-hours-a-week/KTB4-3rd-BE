@@ -110,6 +110,14 @@ public class Settlement {
         this.status = SettlementStatus.REQUESTED;
     }
 
+    public void complete() {
+        if (status != SettlementStatus.REQUESTED) {
+            throw new BusinessException(SettlementErrorCode.INVALID_STATE_TRANSITION);
+        }
+        this.status = SettlementStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
+    }
+
     public int amountPerPerson() {
         if (totalAmount == null) {
             throw new IllegalStateException("금액이 정해지지 않은 정산이다: " + id);
