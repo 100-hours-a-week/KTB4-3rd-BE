@@ -11,5 +11,6 @@ public record TaxiPotDetailResponse(
         LocalDateTime departureAt,
         int currentCount,
         int capacity,
-        Long hostId) {
+        Long hostId,
+        Long settlementId) {
 }

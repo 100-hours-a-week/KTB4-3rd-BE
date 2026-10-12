@@ -25,6 +25,7 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
@@ -70,6 +71,9 @@ class TaxiPotServiceTest {
 
     @Mock
     private ChatRoomRepository chatRoomRepository;
+
+    @Mock
+    private SettlementRepository settlementRepository;
 
     @Mock
     private ChatSystemMessageService chatSystemMessageService;
@@ -219,7 +223,7 @@ class TaxiPotServiceTest {
     @DisplayName("운행 상태 변경")
     class ChangeStatus {
 
-        private final User host = user(USER_ID, "방장");
+        private final User host = bankAccountHolder(USER_ID, "방장");
 
         @Test
         @DisplayName("조회할 수 있는 택시팟이 없으면 TAXI_POT_NOT_FOUND다")
