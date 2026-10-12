@@ -101,6 +101,7 @@ public class TaxiPotController {
                 detail.departureAt(),
                 detail.currentCount(),
                 detail.capacity(),
-                detail.hostId());
+                detail.hostId(),
+                detail.settlementId());
     }
 }

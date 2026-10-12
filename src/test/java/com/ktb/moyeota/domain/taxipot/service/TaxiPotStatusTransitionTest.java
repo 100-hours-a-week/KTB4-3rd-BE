@@ -3,7 +3,7 @@ package com.ktb.moyeota.domain.taxipot.service;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
-import static com.ktb.moyeota.fixture.UserFixture.user;
+import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -41,7 +41,7 @@ class TaxiPotStatusTransitionTest {
             "IN_PROGRESS, COMPLETED"
     })
     void allowed(CompanionStatus current, CompanionStatus target) {
-        User host = entityManager.persist(user("방장"));
+        User host = entityManager.persist(bankAccountHolder("방장"));
         Companion pot = persistTaxiPot(host, current);
 
         taxiPotService.changeStatus(host.getId(), pot.getId(), target);
@@ -59,7 +59,7 @@ class TaxiPotStatusTransitionTest {
             "CANCELED,    COMPLETED,   TAXI_POT_NOT_FOUND"
     })
     void rejected(CompanionStatus current, CompanionStatus target, String expectedCode) {
-        User host = entityManager.persist(user("방장"));
+        User host = entityManager.persist(bankAccountHolder("방장"));
         Companion pot = persistTaxiPot(host, current);
 
         assertThatThrownBy(() -> taxiPotService.changeStatus(host.getId(), pot.getId(), target))

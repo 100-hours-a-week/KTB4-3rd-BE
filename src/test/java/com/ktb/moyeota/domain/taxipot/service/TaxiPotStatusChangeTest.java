@@ -201,7 +201,7 @@ class TaxiPotStatusChangeTest {
     }
 
     private Companion persistTaxiPot(CompanionStatus status) {
-        User host = entityManager.persist(user("방장"));
+        User host = entityManager.persist(bankAccountHolder("방장"));
         Companion pot = entityManager.persist(taxiPot(host, status, 2));
         entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));

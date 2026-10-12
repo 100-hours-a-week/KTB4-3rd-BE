@@ -7,6 +7,8 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
+import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
@@ -43,6 +45,7 @@ public class TaxiPotService {
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final SettlementRepository settlementRepository;
     private final ChatSystemMessageService chatSystemMessageService;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
@@ -183,6 +186,7 @@ public class TaxiPotService {
 
     private void completeRide(Companion taxiPot) {
         taxiPot.completeRide(taxiPotParticipantRepository.findPendingParticipants(taxiPot.getId()));
+        settlementRepository.save(Settlement.open(taxiPot));
         ChatRoom chatRoom = findChatRoom(taxiPot);
         chatSystemMessageService.rideEnded(chatRoom);
         chatRoom.close();
@@ -240,6 +244,7 @@ public class TaxiPotService {
                 companion.getDepartureAt(),
                 companion.getCurrentCount(),
                 companion.getCapacity(),
-                companion.getHost().getId());
+                companion.getHost().getId(),
+                settlementRepository.findIdByCompanionId(companion.getId()).orElse(null));
     }
 }

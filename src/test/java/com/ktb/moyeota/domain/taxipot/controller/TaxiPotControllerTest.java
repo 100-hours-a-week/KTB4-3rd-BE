@@ -120,7 +120,7 @@ class TaxiPotControllerTest {
     @DisplayName("참여 중인 택시팟이면 200과 상세 정보를 내린다")
     void detail() throws Exception {
         given(taxiPotService.find(42L, 30L)).willReturn(new TaxiPotDetail(30L, 501L, CompanionStatus.IN_PROGRESS,
-                "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 7L));
+                "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 7L, null));
 
         mockMvc.perform(get("/api/taxi-pots/30").with(member()))
                 .andExpect(status().isOk())
@@ -133,7 +133,8 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.current_count").value(3))
                 .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.host_id").value(7))
-                .andExpect(jsonPath("$.data.chat_room_id").value(501));
+                .andExpect(jsonPath("$.data.chat_room_id").value(501))
+                .andExpect(jsonPath("$.data.settlement_id").isEmpty());
     }
 
     @Test
@@ -151,7 +152,7 @@ class TaxiPotControllerTest {
     @DisplayName("운행을 시작하면 200과 바뀐 상세 정보를 내린다")
     void startRide() throws Exception {
         given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.IN_PROGRESS)).willReturn(new TaxiPotDetail(30L, 501L,
-                CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+                CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L, null));
 
         mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
                 .andExpect(status().isOk())
@@ -163,12 +164,13 @@ class TaxiPotControllerTest {
     @DisplayName("운행을 종료하면 200과 바뀐 상세 정보를 내린다")
     void completeRide() throws Exception {
         given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.COMPLETED)).willReturn(new TaxiPotDetail(30L, 501L,
-                CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+                CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L, 77L));
 
         mockMvc.perform(changeStatus("COMPLETED").with(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("운행 상태가 변경됐어요"))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.settlement_id").value(77));
     }
 
     @ParameterizedTest(name = "{0}", quoteTextArguments = false)

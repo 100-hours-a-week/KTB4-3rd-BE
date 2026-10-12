@@ -11,7 +11,7 @@ import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LAT;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
-import static com.ktb.moyeota.fixture.UserFixture.user;
+import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -93,7 +93,7 @@ class EtaRefresherTest {
     }
 
     private Companion startedTaxiPot() {
-        User host = entityManager.persist(user("방장"));
+        User host = entityManager.persist(bankAccountHolder("방장"));
         Companion pot = entityManager.persist(taxiPot(host, RECRUITING, 2));
         entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));
