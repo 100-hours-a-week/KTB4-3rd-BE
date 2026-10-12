@@ -233,12 +233,16 @@ public class Companion {
         }
     }
 
-    public void completeRide(List<CompanionParticipant> riders) {
+    public void completeCarpoolRide(List<CompanionParticipant> riders) {
+        endRide();
+        riders.forEach(CompanionParticipant::complete);
+    }
+
+    public void endRide() {
         if (status != CompanionStatus.IN_PROGRESS) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         this.status = CompanionStatus.COMPLETED;
-        riders.forEach(CompanionParticipant::complete);
     }
 
     public void cancel(List<CompanionParticipant> remaining) {

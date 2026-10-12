@@ -123,13 +123,13 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 종료하면 채팅방이 닫힌다")
-    void closesChatRoomOnRideEnd() {
+    @DisplayName("운행을 종료해도 정산을 위해 채팅방은 열려 있다")
+    void keepsChatRoomOpenOnRideEnd() {
         Companion pot = persistTaxiPot(IN_PROGRESS);
 
         taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), COMPLETED);
 
-        assertThat(reloadChatRoom(pot).getClosedAt()).isNotNull();
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNull();
     }
 
     @Test
@@ -156,8 +156,8 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 종료하면 함께 탄 참여자가 모두 완주하고 진행 중인 택시팟이 없어진다")
-    void completesRidersOnRideEnd() {
+    @DisplayName("운행을 종료해도 함께 탄 참여자는 정산이 끝날 때까지 진행 중이고 진행 중인 택시팟으로 남는다")
+    void keepsRidersPendingOnRideEnd() {
         User host = entityManager.persist(bankAccountHolder("방장"));
         User member = entityManager.persist(bankAccountHolder("동승자"));
         Companion pot = persistRidingPot(host, member);
@@ -167,10 +167,11 @@ class TaxiPotStatusChangeTest {
         entityManager.flush();
         assertThat(participantsOf(pot))
                 .allSatisfy(p -> {
-                    assertThat(p.isCompleted()).isTrue();
-                    assertThat(p.getLeftAt()).isNotNull();
+                    assertThat(p.getOutcomeStatus()).isEqualTo(PENDING);
+                    assertThat(p.getLeftAt()).isNull();
                 });
-        assertThat(taxiPotService.findMyCurrent(member.getId())).isEmpty();
+        assertThat(taxiPotService.findMyCurrent(member.getId()))
+                .hasValueSatisfying(current -> assertThat(current.status()).isEqualTo(COMPLETED));
     }
 
     private Companion persistRidingPot(User host, User member) {
