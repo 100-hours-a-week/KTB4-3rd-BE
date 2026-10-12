@@ -37,7 +37,7 @@ public class PushToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, columnDefinition = "VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin")
+    @Column(nullable = false, columnDefinition = "VARCHAR(500) CHARACTER SET ascii COLLATE ascii_bin")
     private String token;
 
     @Column(name = "created_at", nullable = false, updatable = false)

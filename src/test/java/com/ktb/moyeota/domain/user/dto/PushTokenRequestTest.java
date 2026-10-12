@@ -24,7 +24,7 @@ class PushTokenRequestTest {
     }
 
     @Test
-    @DisplayName("255자까지는 통과한다")
+    @DisplayName("500자까지는 통과한다")
     void acceptsMaxLength() {
         assertThat(validator.validate(new PushTokenRequest("a".repeat(PushTokenRequest.MAX_LENGTH)))).isEmpty();
     }
@@ -38,10 +38,17 @@ class PushTokenRequestTest {
     }
 
     @Test
-    @DisplayName("255자를 넘으면 Size 위반이다")
+    @DisplayName("500자를 넘으면 Size 위반이다")
     void rejectsTooLong() {
         assertThat(violatedConstraints(new PushTokenRequest("a".repeat(PushTokenRequest.MAX_LENGTH + 1))))
                 .containsExactly("Size");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ㅊ", "fcm-토큰", "token😀"})
+    @DisplayName("ASCII가 아닌 문자가 있으면 Pattern 위반이다")
+    void rejectsNonAscii(String token) {
+        assertThat(violatedConstraints(new PushTokenRequest(token))).containsExactly("Pattern");
     }
 
     private Set<String> violatedConstraints(PushTokenRequest request) {

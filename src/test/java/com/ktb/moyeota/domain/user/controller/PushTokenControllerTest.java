@@ -89,15 +89,27 @@ class PushTokenControllerTest {
         }
 
         @Test
-        @DisplayName("토큰이 255자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
+        @DisplayName("토큰이 500자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
         void tooLong() throws Exception {
-            String body = "{\"token\": \"" + "a".repeat(256) + "\"}";
+            String body = "{\"token\": \"" + "a".repeat(501) + "\"}";
 
             mockMvc.perform(put(URL).with(member()).contentType("application/json").content(body))
                     .andExpect(status().isUnprocessableContent())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                     .andExpect(jsonPath("$.error.details[0].field").value("token"))
                     .andExpect(jsonPath("$.error.details[0].reason").value("LENGTH_OUT_OF_RANGE"));
+
+            verifyNoInteractions(pushTokenService);
+        }
+
+        @Test
+        @DisplayName("토큰에 ASCII가 아닌 문자가 있으면 422 VALIDATION_ERROR(INVALID_FORMAT)이고 서비스를 호출하지 않는다")
+        void nonAscii() throws Exception {
+            mockMvc.perform(put(URL).with(member()).contentType("application/json").content("{\"token\": \"ㅊ\"}"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.details[0].field").value("token"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_FORMAT"));
 
             verifyNoInteractions(pushTokenService);
         }
@@ -149,9 +161,9 @@ class PushTokenControllerTest {
         }
 
         @Test
-        @DisplayName("토큰이 255자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
+        @DisplayName("토큰이 500자를 넘으면 422 VALIDATION_ERROR(LENGTH_OUT_OF_RANGE)이고 서비스를 호출하지 않는다")
         void tooLong() throws Exception {
-            String body = "{\"token\": \"" + "a".repeat(256) + "\"}";
+            String body = "{\"token\": \"" + "a".repeat(501) + "\"}";
 
             mockMvc.perform(delete(URL).with(member()).contentType("application/json").content(body))
                     .andExpect(status().isUnprocessableContent())
