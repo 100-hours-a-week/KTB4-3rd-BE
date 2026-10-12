@@ -35,6 +35,7 @@ import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
+import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
 import com.ktb.moyeota.domain.user.repository.UserAgreementRepository;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.fixture.UserFixture;
@@ -102,7 +103,7 @@ class UserServiceTest {
                 authSessionService, signupSessionStore, accountNoCipher, imagePromotionService, imageUrlResolver,
                 mock(CompanionRepository.class), mock(TaxiPotParticipantRepository.class),
                 mock(CompanionParticipantRepository.class), mock(ChatParticipationService.class),
-                mock(KakaoUnlinkClient.class), transactionTemplate,
+                mock(KakaoUnlinkClient.class), mock(PushTokenRepository.class), transactionTemplate,
                 Clock.fixed(NOW, ZoneOffset.UTC));
         given(authSessionService.issue(any())).willReturn(ISSUED);
     }

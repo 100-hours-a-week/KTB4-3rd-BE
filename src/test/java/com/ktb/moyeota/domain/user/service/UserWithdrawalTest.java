@@ -33,6 +33,7 @@ import com.ktb.moyeota.domain.image.service.ImagePromotionService;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
+import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -82,6 +83,9 @@ class UserWithdrawalTest {
     private KakaoUnlinkClient kakaoUnlinkClient;
 
     @MockitoBean
+    private PushTokenRepository pushTokenRepository;
+
+    @MockitoBean
     private AccessTokenProvider accessTokenProvider;
 
     @MockitoBean
@@ -107,7 +111,7 @@ class UserWithdrawalTest {
     }
 
     @Test
-    @DisplayName("탈퇴하면 실명·닉네임을 익명화하고 계좌를 파기하며 카카오 연결 정보와 모든 세션을 지운다")
+    @DisplayName("탈퇴하면 실명·닉네임을 익명화하고 계좌를 파기하며 카카오 연결 정보와 모든 세션, 푸시 토큰을 지운다")
     void withdraw() {
         entityManager.flush();
         entityManager.clear();
@@ -123,6 +127,7 @@ class UserWithdrawalTest {
         assertThat(sessionStore.findToken("hash-device-a")).isEmpty();
         assertThat(sessionStore.findToken("hash-device-b")).isEmpty();
         verify(kakaoUnlinkClient).unlink(KAKAO_USER_ID);
+        verify(pushTokenRepository).deleteAllByUserId(me.getId());
     }
 
     @Test
@@ -149,6 +154,7 @@ class UserWithdrawalTest {
         assertThat(entityManager.find(User.class, me.getId()).getWithdrawnAt()).isEqualTo(NOW.minusDays(1));
         assertThat(sessionStore.findToken("hash-device-a")).isPresent();
         verifyNoInteractions(kakaoUnlinkClient);
+        verifyNoInteractions(pushTokenRepository);
     }
 
     @Test
@@ -259,6 +265,7 @@ class UserWithdrawalTest {
         assertThat(oAuthAccountRepository.findByUserId(me.getId())).hasSize(1);
         assertThat(sessionStore.findToken("hash-device-a")).isPresent();
         verifyNoInteractions(kakaoUnlinkClient);
+        verifyNoInteractions(pushTokenRepository);
     }
 
     @TestConfiguration
