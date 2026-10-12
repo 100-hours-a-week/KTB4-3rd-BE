@@ -23,6 +23,7 @@ import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
+import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
 import com.ktb.moyeota.domain.user.repository.UserAgreementRepository;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
@@ -61,6 +62,7 @@ public class UserService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final ChatParticipationService chatParticipationService;
     private final KakaoUnlinkClient kakaoUnlinkClient;
+    private final PushTokenRepository pushTokenRepository;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -122,6 +124,7 @@ public class UserService {
                 .map(OAuthAccount::getProviderUserId)
                 .toList();
         oAuthAccountRepository.deleteByUserId(userId);
+        pushTokenRepository.deleteAllByUserId(userId);
         authSessionService.revokeAll(userId);
         return kakaoUserIds;
     }
