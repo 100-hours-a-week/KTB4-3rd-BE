@@ -65,14 +65,12 @@ class NotificationPushServiceTest {
         }
     }
 
-    /** 미리 정해 둔 결과를 돌려주고, 호출 내용을 기록하는 테스트용 발송기 */
     static class StubPushSender implements PushSender {
 
         private PushSendResult nextResult = new PushSendResult(List.of());
         private final List<List<String>> sentTokens = new ArrayList<>();
         private PushMessage lastMessage;
 
-        /** 스프링 테스트 컨텍스트가 재사용되면 이 빈도 테스트끼리 공유되므로, 테스트마다 초기화한다 */
         void reset() {
             this.nextResult = new PushSendResult(List.of());
             this.sentTokens.clear();

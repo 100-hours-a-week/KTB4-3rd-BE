@@ -26,7 +26,6 @@ public record PushSendResult(
                 .toList();
     }
 
-    /** 실패한 토큰들의 오류 코드 요약. 예: "UNAVAILABLE,UNREGISTERED". 실패가 없으면 null */
     public String errorSummary() {
         String summary = results.stream()
                 .map(TokenSendResult::errorCode)
