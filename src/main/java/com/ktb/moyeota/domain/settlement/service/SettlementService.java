@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
+import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.repository.SettlementParticipantRepository;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
@@ -34,6 +35,15 @@ public class SettlementService {
         chargeRiders(settlement, riders);
         return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
                 settlement.getStatus(), settlement.getMeterAnalysisStatus());
+    }
+
+    @Transactional(readOnly = true)
+    public MeterAnalysis findMeterAnalysis(Long userId, Long settlementId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+                .filter(found -> settlementRiderRepository.existsRider(found.getCompanion().getId(), userId))
+                .orElseThrow(() -> new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
+        return new MeterAnalysis(settlement.getStatus(), settlement.getMeterAnalysisStatus(),
+                settlement.getTotalAmount(), settlement.getAnalysisStartedAt());
     }
 
     private void chargeRiders(Settlement settlement, List<CompanionParticipant> riders) {
