@@ -53,9 +53,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-/**
- * 검증 로직이 서비스에 있어서, 서비스는 실제 빈을 쓰고 Repository만 mock으로 둔다.
- */
 @WebMvcTest(controllers = NotificationController.class)
 @Import({NotificationService.class,
         SecurityConfig.class, CorsConfig.class, JwtConfig.class, ClockConfig.class, WebConfig.class,
