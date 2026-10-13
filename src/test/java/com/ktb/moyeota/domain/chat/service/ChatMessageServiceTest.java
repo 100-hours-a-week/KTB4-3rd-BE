@@ -20,6 +20,7 @@ import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.settlement.service.SettlementSummaryReader;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -55,6 +56,9 @@ class ChatMessageServiceTest {
     @Mock
     private CompanionParticipantRepository companionParticipantRepository;
 
+    @Mock
+    private SettlementSummaryReader settlementSummaryReader;
+
     private ChatMessageService service;
 
     private User sender;
@@ -69,7 +73,8 @@ class ChatMessageServiceTest {
         participant = CompanionParticipant.join(companion, sender);
         service = new ChatMessageService(messageRepository, companionParticipantRepository, new MessageCursorCodec(),
                 new ImageUrlResolver(new S3Properties(
-                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
+                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
+                settlementSummaryReader);
     }
 
     @Nested

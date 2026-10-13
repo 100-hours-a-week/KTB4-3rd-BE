@@ -5,10 +5,12 @@ import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.dto.MessageListResponse;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.settlement.service.SettlementSummaryReader;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -31,6 +33,7 @@ public class ChatMessageService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final MessageCursorCodec messageCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
+    private final SettlementSummaryReader settlementSummaryReader;
 
     private static final String DIRECTION_BEFORE = "before";
     private static final String DIRECTION_AFTER = "after";
@@ -145,9 +148,19 @@ public class ChatMessageService {
     }
 
     private List<MessageItem> toItems(List<Message> messages) {
+        MessageItem.Settlement settlement = settlementOf(messages);
         return messages.stream()
-                .map(message -> MessageItem.from(message, senderProfileImageUrl(message)))
+                .map(message -> MessageItem.from(message, senderProfileImageUrl(message), settlement))
                 .toList();
+    }
+
+    private MessageItem.Settlement settlementOf(List<Message> messages) {
+        return messages.stream()
+                .filter(message -> message.getMessageType() == MessageType.SYSTEM_TRANSFER_REQUESTED)
+                .findFirst()
+                .flatMap(message -> settlementSummaryReader.findByCompanionId(
+                        message.getChatRoom().getCompanion().getId()))
+                .orElse(null);
     }
 
     private record Chunk(List<Message> messages, boolean hasMore) {
