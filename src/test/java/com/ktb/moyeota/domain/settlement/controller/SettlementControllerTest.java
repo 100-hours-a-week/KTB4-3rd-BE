@@ -20,7 +20,9 @@ import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
+import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
@@ -42,6 +44,7 @@ import com.ktb.moyeota.global.security.resolver.SignupPrincipalArgumentResolver;
 import com.ktb.moyeota.global.security.resolver.UploadScopeArgumentResolver;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -70,6 +73,7 @@ class SettlementControllerTest {
     private static final String ANALYSIS_STATUS = "/api/settlements/77/analysis-status";
     private static final String MY_TRANSFER = "/api/settlements/77/participants/me";
     private static final String COMPLETION = "/api/settlements/77/completion";
+    private static final String SETTLEMENT = "/api/settlements/77";
     private static final String TRANSFER_PROOF = "/api/settlements/77/participants/43/transfer-proof";
 
     @Autowired
@@ -80,6 +84,9 @@ class SettlementControllerTest {
 
     @MockitoBean
     private TransferProofService transferProofService;
+
+    @MockitoBean
+    private SettlementOverviewService settlementOverviewService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -338,6 +345,82 @@ class SettlementControllerTest {
                 Arguments.of(SettlementErrorCode.TRANSFER_PROOF_FORBIDDEN, "TRANSFER_PROOF_FORBIDDEN", 403),
                 Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
                 Arguments.of(SettlementErrorCode.TRANSFER_NOT_FOUND, "TRANSFER_NOT_FOUND", 404));
+    }
+
+    @Test
+    @DisplayName("방장이 조회하면 200과 정산 상태 · 동승자별 송금 상태를 내린다")
+    void overview() throws Exception {
+        given(settlementOverviewService.find(42L, 77L)).willReturn(new SettlementOverview(77L,
+                SettlementStatus.REQUESTED, MeterAnalysisStatus.MANUAL, 10000, 3333, 3, null, List.of(
+                        new SettlementOverview.Payer(43L, "이다라", "https://img/profile/a.png", 3333,
+                                TransferAnalysisStatus.PASSED, LocalDateTime.of(2026, 9, 7, 9, 1), true),
+                        new SettlementOverview.Payer(44L, "박마바", null, 3333,
+                                TransferAnalysisStatus.PENDING, null, false))));
+
+        mockMvc.perform(get(SETTLEMENT).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("정산 상태를 조회했습니다"))
+                .andExpect(jsonPath("$.data.id").value(77))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
+                .andExpect(jsonPath("$.data.meter_analysis_status").value("MANUAL"))
+                .andExpect(jsonPath("$.data.total_amount").value(10000))
+                .andExpect(jsonPath("$.data.amount_per_person").value(3333))
+                .andExpect(jsonPath("$.data.participant_count").value(3))
+                .andExpect(jsonPath("$.data", not(hasKey("completed_at"))))
+                .andExpect(jsonPath("$.data.participants[0].user_id").value(43))
+                .andExpect(jsonPath("$.data.participants[0].name").value("이다라"))
+                .andExpect(jsonPath("$.data.participants[0].profile_image_url").value("https://img/profile/a.png"))
+                .andExpect(jsonPath("$.data.participants[0].amount").value(3333))
+                .andExpect(jsonPath("$.data.participants[0].member_analysis_status").value("PASSED"))
+                .andExpect(jsonPath("$.data.participants[0].transferred_at").value("2026-09-07T09:01:00"))
+                .andExpect(jsonPath("$.data.participants[0].has_transfer_proof").value(true))
+                .andExpect(jsonPath("$.data.participants[1].member_analysis_status").value("PENDING"))
+                .andExpect(jsonPath("$.data.participants[1].has_transfer_proof").value(false))
+                .andExpect(jsonPath("$.data.participants[1]", not(hasKey("transferred_at"))));
+    }
+
+    @Test
+    @DisplayName("금액이 정해지기 전이면 인당 금액 키가 없고 총액은 null, 참여자는 빈 목록이다")
+    void overviewBeforeAmount() throws Exception {
+        given(settlementOverviewService.find(42L, 77L)).willReturn(new SettlementOverview(77L,
+                SettlementStatus.PENDING, MeterAnalysisStatus.PENDING, null, null, 3, null, List.of()));
+
+        mockMvc.perform(get(SETTLEMENT).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasKey("total_amount")))
+                .andExpect(jsonPath("$.data.total_amount").isEmpty())
+                .andExpect(jsonPath("$.data", not(hasKey("amount_per_person"))))
+                .andExpect(jsonPath("$.data.participants").isArray())
+                .andExpect(jsonPath("$.data.participants").isEmpty());
+    }
+
+    @Test
+    @DisplayName("정산을 완료했으면 완료 시각을 내린다")
+    void overviewCompleted() throws Exception {
+        given(settlementOverviewService.find(42L, 77L)).willReturn(new SettlementOverview(77L,
+                SettlementStatus.COMPLETED, MeterAnalysisStatus.MANUAL, 10000, 3333, 3,
+                LocalDateTime.of(2026, 9, 7, 9, 30), List.of()));
+
+        mockMvc.perform(get(SETTLEMENT).with(member()))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completed_at").value("2026-09-07T09:30:00"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("overviewFailures")
+    @DisplayName("정산 상태를 볼 수 없으면 그 상태와 코드를 내린다")
+    void overviewRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        given(settlementOverviewService.find(42L, 77L)).willThrow(new BusinessException(errorCode));
+
+        mockMvc.perform(get(SETTLEMENT).with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> overviewFailures() {
+        return Stream.of(
+                Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404));
     }
 
     private static MockHttpServletRequestBuilder inputAmount(String body) {

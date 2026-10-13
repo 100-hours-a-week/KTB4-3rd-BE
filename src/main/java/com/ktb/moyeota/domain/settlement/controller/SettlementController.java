@@ -4,11 +4,14 @@ import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisResponse;
 import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
+import com.ktb.moyeota.domain.settlement.dto.SettlementOverviewResponse;
 import com.ktb.moyeota.domain.settlement.dto.TransferProofResponse;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
+import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.settlement.success.SettlementSuccessCode;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SettlementController {
 
     private final SettlementService settlementService;
+    private final SettlementOverviewService settlementOverviewService;
     private final TransferProofService transferProofService;
 
     @PutMapping("/settlements/{settlement_id}/amount")
@@ -40,6 +44,13 @@ public class SettlementController {
             @Valid @RequestBody SettlementAmountRequest request) {
         RequestedSettlement requested = settlementService.requestManually(userId, settlementId, request.totalAmountValue());
         return ApiResponse.of(SettlementSuccessCode.AMOUNT_ENTERED, toResponse(requested));
+    }
+
+    @GetMapping("/settlements/{settlement_id}")
+    public ApiResponse<SettlementOverviewResponse> get(
+            @AuthUser Long userId, @PathVariable("settlement_id") Long settlementId) {
+        SettlementOverview overview = settlementOverviewService.find(userId, settlementId);
+        return ApiResponse.of(SettlementSuccessCode.SETTLEMENT_FOUND, toResponse(overview));
     }
 
     @PostMapping("/settlements/{settlement_id}/completion")
@@ -103,5 +114,26 @@ public class SettlementController {
 
     private static TransferProofResponse toResponse(TransferProof proof) {
         return new TransferProofResponse(proof.analysisStatus().name(), proof.imageUrl(), proof.transferredAt());
+    }
+
+    private static SettlementOverviewResponse toResponse(SettlementOverview overview) {
+        return new SettlementOverviewResponse(
+                overview.id(),
+                overview.status().name(),
+                overview.meterAnalysisStatus().name(),
+                overview.totalAmount(),
+                overview.amountPerPerson(),
+                overview.participantCount(),
+                overview.completedAt(),
+                overview.payers().stream()
+                        .map(payer -> new SettlementOverviewResponse.Payer(
+                                payer.userId(),
+                                payer.name(),
+                                payer.profileImageUrl(),
+                                payer.amount(),
+                                payer.analysisStatus().name(),
+                                payer.transferredAt(),
+                                payer.hasTransferProof()))
+                        .toList());
     }
 }
