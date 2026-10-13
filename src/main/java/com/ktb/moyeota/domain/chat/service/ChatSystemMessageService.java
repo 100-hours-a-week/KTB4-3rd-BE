@@ -52,10 +52,32 @@ public class ChatSystemMessageService {
         publish(chatRoom, Message.rideEndedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestMeter(ChatRoom chatRoom) {
+        publish(chatRoom, Message.meterRequestedSystemMessage(chatRoom, newSystemMessageKey(), "택시 미터기 사진을 보내주세요"));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestTransfer(ChatRoom chatRoom, MessageItem.Settlement settlement) {
+        publish(chatRoom,
+                Message.transferRequestedSystemMessage(chatRoom, newSystemMessageKey(), "방장이 정산을 요청했어요"),
+                settlement);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void completeSettlement(ChatRoom chatRoom) {
+        publish(chatRoom, Message.settlementCompletedSystemMessage(chatRoom, newSystemMessageKey(), "정산이 완료됐어요"));
+    }
+
     private void publish(ChatRoom chatRoom, Message message) {
+        publish(chatRoom, message, null);
+    }
+
+    private void publish(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
-        eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved, null)));
+        eventPublisher.publishEvent(
+                new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved, null, settlement)));
     }
 
     private static String newSystemMessageKey() {
