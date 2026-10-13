@@ -19,6 +19,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,6 +31,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Settlement {
+
+    private static final int METER_ATTEMPT_LIMIT = 2;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -99,6 +102,30 @@ public class Settlement {
 
     public boolean isPaidTo(Long userId) {
         return payee.getId().equals(userId);
+    }
+
+    public void submitMeter(String meterImageKey, LocalDateTime startedAt) {
+        checkMeterSubmittable();
+        this.meterImageUrl = meterImageKey;
+        this.meterAnalysisStatus = MeterAnalysisStatus.ANALYZING;
+        this.analysisTrialCount++;
+        this.analysisStartedAt = startedAt.truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    public void checkMeterSubmittable() {
+        if (status != SettlementStatus.PENDING) {
+            throw new BusinessException(SettlementErrorCode.ALREADY_REQUESTED);
+        }
+        if (meterAnalysisStatus == MeterAnalysisStatus.ANALYZING) {
+            throw new BusinessException(SettlementErrorCode.METER_ANALYSIS_IN_PROGRESS);
+        }
+        if (analysisTrialCount >= METER_ATTEMPT_LIMIT) {
+            throw new BusinessException(SettlementErrorCode.RETRY_LIMIT_EXCEEDED);
+        }
+    }
+
+    public int remainingMeterAttempts() {
+        return Math.max(0, METER_ATTEMPT_LIMIT - analysisTrialCount);
     }
 
     public void requestManually(int totalAmount) {
