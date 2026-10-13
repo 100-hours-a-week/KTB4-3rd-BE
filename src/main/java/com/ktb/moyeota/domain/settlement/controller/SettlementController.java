@@ -95,7 +95,8 @@ public class SettlementController {
                 analysis.status().name(),
                 analysis.meterAnalysisStatus().name(),
                 analysis.totalAmount(),
-                analysis.analysisStartedAt());
+                analysis.analysisStartedAt(),
+                analysis.remainingMeterAttempts());
     }
 
     private static MyTransferResponse toResponse(MyTransfer transfer) {

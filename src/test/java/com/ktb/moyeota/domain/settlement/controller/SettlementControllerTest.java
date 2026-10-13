@@ -161,7 +161,7 @@ class SettlementControllerTest {
     @DisplayName("미터기 분석 중이면 200과 정산 상태 · 분석 상태 · 분석 시작 시각을 내린다")
     void meterAnalyzing() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.PENDING,
-                MeterAnalysisStatus.ANALYZING, null, LocalDateTime.of(2026, 9, 7, 9, 0, 3)));
+                MeterAnalysisStatus.ANALYZING, null, LocalDateTime.of(2026, 9, 7, 9, 0, 3), 1));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
@@ -170,14 +170,15 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.meter_analysis_status").value("ANALYZING"))
                 .andExpect(jsonPath("$.data", hasKey("total_amount")))
                 .andExpect(jsonPath("$.data.total_amount").isEmpty())
-                .andExpect(jsonPath("$.data.analysis_started_at").value("2026-09-07T09:00:03"));
+                .andExpect(jsonPath("$.data.analysis_started_at").value("2026-09-07T09:00:03"))
+                .andExpect(jsonPath("$.data.remaining_meter_attempts").value(1));
     }
 
     @Test
     @DisplayName("금액이 정해지면 총액을 내린다")
     void meterAmountDecided() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.REQUESTED,
-                MeterAnalysisStatus.MANUAL, 18000, null));
+                MeterAnalysisStatus.MANUAL, 18000, null, 2));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
@@ -190,7 +191,7 @@ class SettlementControllerTest {
     @DisplayName("미터기 사진을 내기 전이면 분석 시작 시각 키를 내리지 않는다")
     void meterNotSubmitted() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.PENDING,
-                MeterAnalysisStatus.PENDING, null, null));
+                MeterAnalysisStatus.PENDING, null, null, 2));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
