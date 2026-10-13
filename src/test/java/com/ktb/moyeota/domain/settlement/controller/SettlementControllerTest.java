@@ -20,6 +20,7 @@ import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
+import com.ktb.moyeota.domain.settlement.model.TransferProof;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
@@ -69,6 +70,7 @@ class SettlementControllerTest {
     private static final String ANALYSIS_STATUS = "/api/settlements/77/analysis-status";
     private static final String MY_TRANSFER = "/api/settlements/77/participants/me";
     private static final String COMPLETION = "/api/settlements/77/completion";
+    private static final String TRANSFER_PROOF = "/api/settlements/77/participants/43/transfer-proof";
 
     @Autowired
     private MockMvc mockMvc;
@@ -290,6 +292,52 @@ class SettlementControllerTest {
                 Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
                 Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
                 Arguments.of(SettlementErrorCode.INVALID_STATE_TRANSITION, "INVALID_STATE_TRANSITION", 409));
+    }
+
+    @Test
+    @DisplayName("인증 사진이 있으면 200과 분석 상태 · 만료형 주소 · 송금 시각을 내린다")
+    void transferProof() throws Exception {
+        given(transferProofService.find(42L, 77L, 43L)).willReturn(new TransferProof(TransferAnalysisStatus.PASSED,
+                "https://bucket.s3.amazonaws.com/transfer/a.jpg?X-Amz-Expires=1800", LocalDateTime.of(2026, 9, 7, 9, 1)));
+
+        mockMvc.perform(get(TRANSFER_PROOF).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("송금 인증 사진을 조회했습니다"))
+                .andExpect(jsonPath("$.data.member_analysis_status").value("PASSED"))
+                .andExpect(jsonPath("$.data.image_url").value("https://bucket.s3.amazonaws.com/transfer/a.jpg?X-Amz-Expires=1800"))
+                .andExpect(jsonPath("$.data.transferred_at").value("2026-09-07T09:01:00"))
+                .andExpect(jsonPath("$.data", not(hasKey("is_forged"))));
+    }
+
+    @Test
+    @DisplayName("아직 사진을 내지 않았으면 분석 상태만 내리고 주소 · 송금 시각 키는 없다")
+    void transferProofNotSubmitted() throws Exception {
+        given(transferProofService.find(42L, 77L, 43L))
+                .willReturn(new TransferProof(TransferAnalysisStatus.PENDING, null, null));
+
+        mockMvc.perform(get(TRANSFER_PROOF).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.member_analysis_status").value("PENDING"))
+                .andExpect(jsonPath("$.data", not(hasKey("image_url"))))
+                .andExpect(jsonPath("$.data", not(hasKey("transferred_at"))));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("transferProofFailures")
+    @DisplayName("인증 사진을 볼 수 없으면 그 상태와 코드를 내린다")
+    void transferProofRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        given(transferProofService.find(42L, 77L, 43L)).willThrow(new BusinessException(errorCode));
+
+        mockMvc.perform(get(TRANSFER_PROOF).with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> transferProofFailures() {
+        return Stream.of(
+                Arguments.of(SettlementErrorCode.TRANSFER_PROOF_FORBIDDEN, "TRANSFER_PROOF_FORBIDDEN", 403),
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
+                Arguments.of(SettlementErrorCode.TRANSFER_NOT_FOUND, "TRANSFER_NOT_FOUND", 404));
     }
 
     private static MockHttpServletRequestBuilder inputAmount(String body) {

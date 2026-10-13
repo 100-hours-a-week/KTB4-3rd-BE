@@ -4,9 +4,11 @@ import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisResponse;
 import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
+import com.ktb.moyeota.domain.settlement.dto.TransferProofResponse;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
+import com.ktb.moyeota.domain.settlement.model.TransferProof;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
 import com.ktb.moyeota.domain.settlement.success.SettlementSuccessCode;
@@ -60,6 +62,15 @@ public class SettlementController {
         return ApiResponse.of(SettlementSuccessCode.MY_TRANSFER_FOUND, toResponse(transfer));
     }
 
+    @GetMapping("/settlements/{settlement_id}/participants/{user_id}/transfer-proof")
+    public ApiResponse<TransferProofResponse> getTransferProof(
+            @AuthUser Long userId,
+            @PathVariable("settlement_id") Long settlementId,
+            @PathVariable("user_id") Long targetUserId) {
+        TransferProof proof = transferProofService.find(userId, settlementId, targetUserId);
+        return ApiResponse.of(SettlementSuccessCode.TRANSFER_PROOF_FOUND, toResponse(proof));
+    }
+
     private static SettlementAmountResponse toResponse(RequestedSettlement requested) {
         return new SettlementAmountResponse(
                 requested.participantCount(),
@@ -88,5 +99,9 @@ public class SettlementController {
                                 charge.payee().name(), charge.payee().bankName(), charge.payee().accountNo())))
                 .orElseGet(() -> new MyTransferResponse(
                         transfer.participantCount(), transfer.status().name(), null, null, null, null));
+    }
+
+    private static TransferProofResponse toResponse(TransferProof proof) {
+        return new TransferProofResponse(proof.analysisStatus().name(), proof.imageUrl(), proof.transferredAt());
     }
 }
