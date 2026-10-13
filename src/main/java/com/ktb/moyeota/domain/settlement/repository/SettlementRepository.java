@@ -12,6 +12,9 @@ public interface SettlementRepository extends JpaRepository<Settlement, Long> {
     @Query("select s.id from Settlement s where s.companion.id = :companionId")
     Optional<Long> findIdByCompanionId(Long companionId);
 
+    @Query("select s from Settlement s join fetch s.payee where s.companion.id = :companionId")
+    Optional<Settlement> findWithPayeeByCompanionId(Long companionId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Settlement s where s.id = :id")
     Optional<Settlement> findByIdForUpdate(Long id);

@@ -9,6 +9,8 @@ import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
+import com.ktb.moyeota.domain.settlement.event.SettlementCompletedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.repository.SettlementParticipantRepository;
@@ -18,6 +20,7 @@ import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class SettlementService {
     private final SettlementParticipantRepository settlementParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final NotificationCommandService notificationCommandService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RequestedSettlement requestManually(Long userId, Long settlementId, int totalAmount) {
@@ -40,6 +44,8 @@ public class SettlementService {
 
         settlement.requestManually(totalAmount);
         chargeRiders(settlement, riders);
+        eventPublisher.publishEvent(
+                new SettlementTransferRequestedEvent(settlement.getId(), settlement.getCompanion().getId()));
         notifyRiders(settlement, riders);
         return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
                 settlement.getStatus(), settlement.getMeterAnalysisStatus());
@@ -59,6 +65,7 @@ public class SettlementService {
         riders.stream()
                 .filter(rider -> rider.getOutcomeStatus() == OutcomeStatus.PENDING)
                 .forEach(CompanionParticipant::complete);
+        eventPublisher.publishEvent(new SettlementCompletedEvent(settlementId, companionId));
         chatRoomRepository.findByCompanionId(companionId)
                 .filter(chatRoom -> chatRoom.getClosedAt() == null)
                 .ifPresent(ChatRoom::close);

@@ -113,13 +113,13 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 종료하면 채팅방에 운행 종료 알림이 남는다")
+    @DisplayName("운행을 종료하면 채팅방에 운행 종료 알림과 미터기 사진 요청이 차례로 남는다")
     void leavesRideEndedMessage() {
         Companion pot = persistTaxiPot(IN_PROGRESS);
 
         taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), COMPLETED);
 
-        assertThat(messageTypes(pot)).containsExactly(MessageType.SYSTEM_RIDE_ENDED);
+        assertThat(messageTypes(pot)).containsExactly(MessageType.SYSTEM_RIDE_ENDED, MessageType.SYSTEM_METER_REQUESTED);
     }
 
     @Test
