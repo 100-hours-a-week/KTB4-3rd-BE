@@ -7,6 +7,7 @@ import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -17,6 +18,7 @@ import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import java.time.LocalDateTime;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,11 +28,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import(SettlementService.class)
 class SettlementMeterAnalysisQueryTest {
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     @Autowired
     private SettlementService settlementService;
@@ -47,6 +53,7 @@ class SettlementMeterAnalysisQueryTest {
         host = entityManager.persist(bankAccountHolder("방장"));
         rider = entityManager.persist(bankAccountHolder("동승자"));
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(pot));
         entityManager.persist(participant(pot, host, COMPLETED));
         entityManager.persist(participant(pot, rider, COMPLETED));
         settlement = entityManager.persistAndFlush(Settlement.open(pot));

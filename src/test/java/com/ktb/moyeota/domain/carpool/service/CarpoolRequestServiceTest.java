@@ -8,15 +8,22 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -37,6 +44,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
@@ -51,6 +59,9 @@ class CarpoolRequestServiceTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     private User host;
     private User requester;
@@ -77,6 +88,9 @@ class CarpoolRequestServiceTest {
         assertThat(sent.carpoolId()).isEqualTo(carpool.getId());
         assertThat(sent.status()).isEqualTo(CompanionRequestStatus.PENDING);
         assertThat(sent.createdAt()).isNotNull();
+        verify(notificationCommandService).createForChatRoom(
+                any(User.class), eq(NotificationType.CARPOOL_REQUEST_RECEIVED), eq(carpool.getId()),
+                any(ChatRoom.class), eq("요청자님이 동승을 요청했어요"));
     }
 
     @Test
@@ -205,6 +219,7 @@ class CarpoolRequestServiceTest {
     private Companion persistCarpool(CompanionStatus status, int currentCount) {
         Companion carpool = entityManager.persist(carpool(host, status, currentCount));
         entityManager.persist(participant(carpool, host, OutcomeStatus.PENDING));
+        entityManager.persist(ChatRoom.create(carpool));
         entityManager.flush();
         return carpool;
     }
@@ -235,6 +250,7 @@ class CarpoolRequestServiceTest {
     private void assertRejected(ThrowingCallable call, ErrorCode expected, Companion carpool) {
         assertErrorCode(call, expected);
         assertThat(requestsOf(carpool)).isEmpty();
+        verify(notificationCommandService, never()).createForChatRoom(any(), any(), eq(carpool.getId()), any(), any());
     }
 
     private static void assertErrorCode(ThrowingCallable call, ErrorCode expected) {

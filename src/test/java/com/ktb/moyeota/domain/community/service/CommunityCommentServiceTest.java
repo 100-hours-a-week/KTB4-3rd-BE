@@ -19,6 +19,7 @@ import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityCommentRepository;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class CommunityCommentServiceTest {
@@ -54,17 +56,27 @@ class CommunityCommentServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private NotificationCommandService notificationCommandService;
+
     private CommunityCommentService service;
 
     @BeforeEach
     void setUp() {
         service = new CommunityCommentService(communityCommentRepository, communityPostRepository, entityManager,
                 new ImageUrlResolver(new S3Properties(
-                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
+                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
+                notificationCommandService);
     }
 
     private User activeUser() {
         return User.register("우림", "rain", Gender.FEMALE, null);
+    }
+
+    private User userWithId(Long id) {
+        User user = User.register("작성자", "writer" + id, Gender.FEMALE, null);
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
     }
 
     private User withdrawnUser() {
@@ -96,6 +108,7 @@ class CommunityCommentServiceTest {
         @DisplayName("정상 유저/게시글이면 댓글을 저장하고 댓글 수를 +1한다")
         void createsComment() {
             CommunityPost post = activePost();
+            given(post.getAuthor()).willReturn(userWithId(2L));
             given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
             given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
 
@@ -104,6 +117,34 @@ class CommunityCommentServiceTest {
             assertThat(response).isNotNull();
             verify(communityCommentRepository).save(any(CommunityComment.class));
             verify(communityPostRepository).increaseCommentCount(POST_ID);
+        }
+
+        @Test
+        @DisplayName("다른 사람 게시글에 댓글을 달면 게시글 작성자에게 댓글 알림을 만든다")
+        void notifiesPostAuthor() {
+            CommunityPost post = activePost();
+            User postAuthor = userWithId(2L);
+            given(post.getAuthor()).willReturn(postAuthor);
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+            service.create(USER_ID, POST_ID, request);
+
+            verify(notificationCommandService).createForComment(
+                    eq(postAuthor), any(), eq(post), eq("rain님이 댓글을 남겼어요"));
+        }
+
+        @Test
+        @DisplayName("본인 게시글에 댓글을 달면 알림을 만들지 않는다")
+        void skipsNotificationOnOwnPost() {
+            CommunityPost post = activePost();
+            given(post.getAuthor()).willReturn(userWithId(USER_ID));
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+            service.create(USER_ID, POST_ID, request);
+
+            verify(notificationCommandService, never()).createForComment(any(), any(), any(), any());
         }
 
         @Test

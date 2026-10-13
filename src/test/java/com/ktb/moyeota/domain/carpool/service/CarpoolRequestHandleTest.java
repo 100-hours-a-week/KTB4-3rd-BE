@@ -12,6 +12,10 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
@@ -25,6 +29,8 @@ import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -43,6 +49,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
@@ -57,6 +64,9 @@ class CarpoolRequestHandleTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     private User host;
     private User requester;
@@ -85,6 +95,9 @@ class CarpoolRequestHandleTest {
             assertThat(message.getSender().getId()).isEqualTo(requester.getId());
         });
         assertThat(handled).isEqualTo(new HandledJoinRequest(request.getId(), ACCEPTED, chatRoom.getId(), 2, 4));
+        verify(notificationCommandService).createForChatRoom(
+                any(User.class), eq(NotificationType.CARPOOL_REQUEST_ACCEPTED), eq(carpool.getId()),
+                any(ChatRoom.class), eq("방장님이 동승 요청을 수락했어요"));
     }
 
     @Test
@@ -119,6 +132,7 @@ class CarpoolRequestHandleTest {
         assertThat(entityManager.find(Companion.class, carpool.getId()).getCurrentCount()).isEqualTo(1);
         assertThat(messagesOf(chatRoom)).isEmpty();
         assertThat(handled).isEqualTo(HandledJoinRequest.rejected(request.getId()));
+        verify(notificationCommandService, never()).createForChatRoom(any(), any(), any(), any(), any());
     }
 
     @Test

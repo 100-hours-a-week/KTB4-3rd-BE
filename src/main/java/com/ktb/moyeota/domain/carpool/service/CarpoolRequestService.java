@@ -15,6 +15,8 @@ import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
@@ -38,6 +40,7 @@ public class CarpoolRequestService {
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatSystemMessageService chatSystemMessageService;
+    private final NotificationCommandService notificationCommandService;
     private final Clock clock;
 
     @Transactional
@@ -48,6 +51,8 @@ public class CarpoolRequestService {
         validateRequestable(carpool, userId);
 
         CompanionRequest request = save(CompanionRequest.send(carpool, requester, content));
+        notificationCommandService.createForChatRoom(carpool.getHost(), NotificationType.CARPOOL_REQUEST_RECEIVED,
+                carpool.getId(), findChatRoom(carpool), requester.getNickname() + "님이 동승을 요청했어요");
         return new SentJoinRequest(request.getId(), carpoolId, request.getStatus(), request.getCreatedAt());
     }
 
@@ -83,9 +88,10 @@ public class CarpoolRequestService {
                 .findForUpdateByCompanionIdAndUserId(carpool.getId(), requester.getId())
                 .orElse(null);
         carpoolParticipantRepository.save(carpool.join(requester, previous));
-        ChatRoom chatRoom = chatRoomRepository.findByCompanionId(carpool.getId())
-                .orElseThrow(() -> new IllegalStateException("카풀에 채팅방이 없다: " + carpool.getId()));
+        ChatRoom chatRoom = findChatRoom(carpool);
         chatSystemMessageService.enter(chatRoom, requester);
+        notificationCommandService.createForChatRoom(requester, NotificationType.CARPOOL_REQUEST_ACCEPTED,
+                carpool.getId(), chatRoom, carpool.getHost().getNickname() + "님이 동승 요청을 수락했어요");
         return new HandledJoinRequest(request.getId(), request.getStatus(), chatRoom.getId(),
                 carpool.getCurrentCount(), carpool.getCapacity());
     }
@@ -93,6 +99,11 @@ public class CarpoolRequestService {
     private HandledJoinRequest reject(CompanionRequest request) {
         request.reject();
         return HandledJoinRequest.rejected(request.getId());
+    }
+
+    private ChatRoom findChatRoom(Companion carpool) {
+        return chatRoomRepository.findByCompanionId(carpool.getId())
+                .orElseThrow(() -> new IllegalStateException("카풀에 채팅방이 없다: " + carpool.getId()));
     }
 
     private User findActiveUser(Long userId) {

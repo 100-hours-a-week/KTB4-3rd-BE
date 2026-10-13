@@ -11,6 +11,7 @@ import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityCommentRepository;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
@@ -32,6 +33,7 @@ public class CommunityCommentService {
     private final CommunityPostRepository communityPostRepository;
     private final EntityManager entityManager;
     private final ImageUrlResolver imageUrlResolver;
+    private final NotificationCommandService notificationCommandService;
 
     @Transactional
     public CommunityCommentCreateResponse create(Long userId, Long postId, CommunityCommentCreateRequest request) {
@@ -50,6 +52,7 @@ public class CommunityCommentService {
         CommunityComment comment = CommunityComment.create(post, author, request.content());
         communityCommentRepository.save(comment);
         communityPostRepository.increaseCommentCount(postId);
+        notifyPostAuthor(post, author, comment, userId);
 
         return new CommunityCommentCreateResponse(
                 comment.getId(),
@@ -59,6 +62,7 @@ public class CommunityCommentService {
                 post.getCommentCount() + 1
         );
     }
+
 
     @Transactional(readOnly = true)
     public CommunityCommentListResponse findAll(Long postId, Long cursor) {
@@ -82,5 +86,14 @@ public class CommunityCommentService {
                 .toList();
 
         return new CommunityCommentListResponse(items, nextCursor);
+    }
+
+    private void notifyPostAuthor(CommunityPost post, User commenter, CommunityComment comment, Long commenterId) {
+        User postAuthor = post.getAuthor();
+        if (postAuthor.getId().equals(commenterId)) {
+            return;
+        }
+        notificationCommandService.createForComment(
+            postAuthor, comment.getId(), post, commenter.getNickname() + "님이 댓글을 남겼어요");
     }
 }
