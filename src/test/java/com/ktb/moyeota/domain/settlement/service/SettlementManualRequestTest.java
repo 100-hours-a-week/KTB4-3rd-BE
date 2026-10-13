@@ -7,11 +7,17 @@ import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.settlement.entity.MeterAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
@@ -23,6 +29,7 @@ import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import java.util.List;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,11 +41,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import(SettlementService.class)
 class SettlementManualRequestTest {
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     @Autowired
     private SettlementService settlementService;
@@ -58,6 +69,7 @@ class SettlementManualRequestTest {
         rider1 = entityManager.persist(bankAccountHolder("동승자1"));
         rider2 = entityManager.persist(bankAccountHolder("동승자2"));
         pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
+        entityManager.persist(ChatRoom.create(pot));
         riderParticipations = List.of(
                 persistParticipant(host, COMPLETED),
                 persistParticipant(rider1, COMPLETED),
@@ -96,6 +108,20 @@ class SettlementManualRequestTest {
             assertThat(charge.getTransferImageAnalysisTrialCount()).isZero();
             assertThat(charge.getForged()).isNull();
         });
+    }
+
+    @Test
+    @DisplayName("방장을 뺀 동승자마다 정산 요청 알림을 만든다")
+    void notifiesRidersExceptHost() {
+        Settlement settlement = persistSettlement();
+
+        settlementService.requestManually(host.getId(), settlement.getId(), 18000);
+
+        verify(notificationCommandService).createForChatRoom(eq(rider1), eq(NotificationType.SETTLEMENT_REQUESTED),
+                eq(settlement.getId()), any(), eq("정산 요청이 도착했어요"));
+        verify(notificationCommandService).createForChatRoom(eq(rider2), eq(NotificationType.SETTLEMENT_REQUESTED),
+                eq(settlement.getId()), any(), eq("정산 요청이 도착했어요"));
+        verify(notificationCommandService, never()).createForChatRoom(eq(host), any(), any(), any(), any());
     }
 
     @Test
@@ -156,6 +182,7 @@ class SettlementManualRequestTest {
                 TaxiPotErrorCode.HOST_ONLY);
         assertThat(reload(settlement).getStatus()).isEqualTo(SettlementStatus.PENDING);
         assertThat(chargesOf(settlement)).isEmpty();
+        verify(notificationCommandService, never()).createForChatRoom(any(), any(), any(), any(), any());
     }
 
     @Test

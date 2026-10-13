@@ -23,6 +23,7 @@ import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -33,11 +34,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import(SettlementService.class)
 class SettlementCompletionTest {
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     private static final LocalDateTime RIDE_ENDED_AT = LocalDateTime.of(2026, 9, 5, 9, 30);
 

@@ -4,6 +4,8 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
@@ -27,6 +29,7 @@ public class SettlementService {
     private final SettlementRiderRepository settlementRiderRepository;
     private final SettlementParticipantRepository settlementParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final NotificationCommandService notificationCommandService;
 
     @Transactional
     public RequestedSettlement requestManually(Long userId, Long settlementId, int totalAmount) {
@@ -37,6 +40,7 @@ public class SettlementService {
 
         settlement.requestManually(totalAmount);
         chargeRiders(settlement, riders);
+        notifyRiders(settlement, riders);
         return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
                 settlement.getStatus(), settlement.getMeterAnalysisStatus());
     }
@@ -75,6 +79,17 @@ public class SettlementService {
                 .filter(rider -> !settlement.isPaidTo(rider.getUser().getId()))
                 .map(rider -> SettlementParticipant.charge(settlement, rider.getUser(), amountPerPerson))
                 .toList());
+    }
+
+    private void notifyRiders(Settlement settlement, List<CompanionParticipant> riders) {
+        Long companionId = settlement.getCompanion().getId();
+        ChatRoom chatRoom = chatRoomRepository.findByCompanionId(companionId)
+                .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + companionId));
+        riders.stream()
+                .map(CompanionParticipant::getUser)
+                .filter(rider -> !settlement.isPaidTo(rider.getId()))
+                .forEach(rider -> notificationCommandService.createForChatRoom(rider,
+                        NotificationType.SETTLEMENT_REQUESTED, settlement.getId(), chatRoom, "정산 요청이 도착했어요"));
     }
 
     private static void validateHost(Settlement settlement, List<CompanionParticipant> riders, Long userId) {

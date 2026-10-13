@@ -8,6 +8,7 @@ import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageReadUrlIssuer;
@@ -22,6 +23,7 @@ import com.ktb.moyeota.global.crypto.CryptoProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
 import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,12 +33,16 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @DataJpaTest
 @Import({TransferProofService.class, SettlementService.class, AccountNoCipher.class, ImageReadUrlIssuer.class,
         S3PresignerTestSupport.class})
 @EnableConfigurationProperties(CryptoProperties.class)
 class TransferProofMyTransferTest {
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     @Autowired
     private TransferProofService transferProofService;
@@ -61,6 +67,7 @@ class TransferProofMyTransferTest {
         rider = entityManager.persist(bankAccountHolder("동승자"));
         User otherRider = entityManager.persist(bankAccountHolder("동승자2"));
         pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
+        entityManager.persist(ChatRoom.create(pot));
         entityManager.persist(participant(pot, host, COMPLETED));
         entityManager.persist(participant(pot, rider, COMPLETED));
         entityManager.persist(participant(pot, otherRider, COMPLETED));

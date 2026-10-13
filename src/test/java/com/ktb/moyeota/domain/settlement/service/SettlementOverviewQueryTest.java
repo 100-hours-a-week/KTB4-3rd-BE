@@ -25,6 +25,7 @@ import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
 import com.ktb.moyeota.global.external.s3.S3Properties;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import java.time.LocalDateTime;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,12 +36,16 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({SettlementOverviewService.class, SettlementService.class, ImageUrlResolver.class})
 @EnableConfigurationProperties(S3Properties.class)
 class SettlementOverviewQueryTest {
+
+    @MockitoBean
+    private NotificationCommandService notificationCommandService;
 
     private static final LocalDateTime TRANSFERRED_AT = LocalDateTime.of(2026, 9, 7, 9, 1);
 
