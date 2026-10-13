@@ -33,6 +33,8 @@ import com.ktb.moyeota.domain.user.model.AgreementsCommand;
 import com.ktb.moyeota.domain.user.model.BankAccountCommand;
 import com.ktb.moyeota.domain.user.model.MaskedBankAccount;
 import com.ktb.moyeota.domain.user.model.MyProfile;
+import com.ktb.moyeota.domain.user.entity.OwnedCar;
+import com.ktb.moyeota.domain.user.repository.OwnedCarRepository;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
 import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
@@ -85,6 +87,9 @@ class UserServiceTest {
     private UserAgreementRepository userAgreementRepository;
 
     @Autowired
+    private OwnedCarRepository ownedCarRepository;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     private final AuthSessionService authSessionService = mock(AuthSessionService.class);
@@ -100,7 +105,7 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         service = new UserService(userRepository, oAuthAccountRepository, userAgreementRepository,
-                authSessionService, signupSessionStore, accountNoCipher, imagePromotionService, imageUrlResolver,
+                ownedCarRepository, authSessionService, signupSessionStore, accountNoCipher, imagePromotionService, imageUrlResolver,
                 mock(CompanionRepository.class), mock(TaxiPotParticipantRepository.class),
                 mock(CompanionParticipantRepository.class), mock(ChatParticipationService.class),
                 mock(KakaoUnlinkClient.class), mock(PushTokenRepository.class), transactionTemplate,
@@ -297,20 +302,21 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("내 정보는 프로필 이미지 키를 URL로 바꾸고 계좌 등록 여부를 함께 내린다")
+    @DisplayName("내 정보는 프로필 이미지 키를 URL로 바꾸고 계좌 · 차량 등록 여부를 함께 내린다")
     void findMe() {
         User user = UserFixture.bankAccountHolder("길동이");
         user.changeProfileImage(FINAL_KEY);
         userRepository.saveAndFlush(user);
+        ownedCarRepository.saveAndFlush(OwnedCar.register(user, "아반떼", "12가3456"));
 
         MyProfile profile = service.findMe(user.getId());
 
         assertThat(profile).isEqualTo(new MyProfile(
-                user.getId(), "길동이", "https://cdn.moyeota.test/" + FINAL_KEY, true));
+                user.getId(), "길동이", "https://cdn.moyeota.test/" + FINAL_KEY, true, true));
     }
 
     @Test
-    @DisplayName("프로필 이미지가 없으면 URL은 null, 계좌가 없으면 계좌 등록 여부는 false다")
+    @DisplayName("프로필 이미지가 없으면 URL은 null, 계좌 · 차량이 없으면 각 등록 여부는 false다")
     void findMeWithoutImageAndBankAccount() {
         User user = userRepository.saveAndFlush(UserFixture.user("길동이"));
 
@@ -318,6 +324,7 @@ class UserServiceTest {
 
         assertThat(profile.profileImageUrl()).isNull();
         assertThat(profile.hasBankAccount()).isFalse();
+        assertThat(profile.hasCar()).isFalse();
     }
 
     @Test

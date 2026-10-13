@@ -23,7 +23,7 @@ class MyProfileApiTest extends SignupApiTestSupport {
     @DisplayName("토큰의 사용자 정보를 내린다")
     void me() throws Exception {
         given(userService.findMe(42L))
-                .willReturn(new MyProfile(42L, "길동이", "https://cdn.moyeota.test/profile/a.jpg", true));
+                .willReturn(new MyProfile(42L, "길동이", "https://cdn.moyeota.test/profile/a.jpg", true, true));
 
         mockMvc.perform(get(MY_PROFILE).with(member()))
                 .andExpect(status().isOk())
@@ -31,18 +31,20 @@ class MyProfileApiTest extends SignupApiTestSupport {
                 .andExpect(jsonPath("$.data.id").value(42))
                 .andExpect(jsonPath("$.data.nickname").value("길동이"))
                 .andExpect(jsonPath("$.data.profile_image_url").value("https://cdn.moyeota.test/profile/a.jpg"))
-                .andExpect(jsonPath("$.data.has_bank_account").value(true));
+                .andExpect(jsonPath("$.data.has_bank_account").value(true))
+                .andExpect(jsonPath("$.data.has_car").value(true));
     }
 
     @Test
-    @DisplayName("프로필 이미지가 없으면 profile_image_url 은 null 로 내린다")
+    @DisplayName("프로필 이미지가 없으면 profile_image_url 은 null 로, 계좌 · 차량이 없으면 false 로 내린다")
     void withoutProfileImage() throws Exception {
-        given(userService.findMe(42L)).willReturn(new MyProfile(42L, "길동이", null, false));
+        given(userService.findMe(42L)).willReturn(new MyProfile(42L, "길동이", null, false, false));
 
         mockMvc.perform(get(MY_PROFILE).with(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.profile_image_url").isEmpty())
-                .andExpect(jsonPath("$.data.has_bank_account").value(false));
+                .andExpect(jsonPath("$.data.has_bank_account").value(false))
+                .andExpect(jsonPath("$.data.has_car").value(false));
     }
 
     @Test

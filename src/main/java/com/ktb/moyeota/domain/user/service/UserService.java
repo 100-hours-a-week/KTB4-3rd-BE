@@ -24,6 +24,7 @@ import com.ktb.moyeota.domain.user.model.MyProfile;
 import com.ktb.moyeota.domain.user.model.RegisteredUser;
 import com.ktb.moyeota.domain.user.model.SignupCommand;
 import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
+import com.ktb.moyeota.domain.user.repository.OwnedCarRepository;
 import com.ktb.moyeota.domain.user.repository.UserAgreementRepository;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
@@ -52,6 +53,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final OAuthAccountRepository oAuthAccountRepository;
     private final UserAgreementRepository userAgreementRepository;
+    private final OwnedCarRepository ownedCarRepository;
     private final AuthSessionService authSessionService;
     private final SignupSessionStore signupSessionStore;
     private final AccountNoCipher accountNoCipher;
@@ -88,7 +90,8 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
         return new MyProfile(user.getId(), user.getNickname(),
-                imageUrlResolver.toUrl(user.getProfileImageUrl()), user.hasBankAccount());
+                imageUrlResolver.toUrl(user.getProfileImageUrl()), user.hasBankAccount(),
+                ownedCarRepository.existsByUserId(user.getId()));
     }
 
     @Transactional
