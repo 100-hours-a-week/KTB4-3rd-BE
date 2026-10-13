@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.image.service.ImageReadUrlIssuer;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
@@ -20,6 +21,7 @@ import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
+import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,7 +33,8 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TransferProofService.class, SettlementService.class, AccountNoCipher.class})
+@Import({TransferProofService.class, SettlementService.class, AccountNoCipher.class, ImageReadUrlIssuer.class,
+        S3PresignerTestSupport.class})
 @EnableConfigurationProperties(CryptoProperties.class)
 class TransferProofMyTransferTest {
 
