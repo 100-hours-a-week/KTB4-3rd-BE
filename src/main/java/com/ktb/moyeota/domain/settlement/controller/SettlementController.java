@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.settlement.controller;
 
 import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisResponse;
+import com.ktb.moyeota.domain.settlement.dto.MeterImageRequest;
 import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
@@ -11,6 +12,7 @@ import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.service.MeterImageService;
 import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
@@ -19,6 +21,7 @@ import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +39,7 @@ public class SettlementController {
     private final SettlementService settlementService;
     private final SettlementOverviewService settlementOverviewService;
     private final TransferProofService transferProofService;
+    private final MeterImageService meterImageService;
 
     @PutMapping("/settlements/{settlement_id}/amount")
     public ApiResponse<SettlementAmountResponse> inputAmount(
@@ -57,6 +61,16 @@ public class SettlementController {
     public ResponseEntity<Void> complete(@AuthUser Long userId, @PathVariable("settlement_id") Long settlementId) {
         settlementService.complete(userId, settlementId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/settlements/{settlement_id}/meter-image")
+    public ResponseEntity<ApiResponse<MeterAnalysisResponse>> submitMeterImage(
+            @AuthUser Long userId,
+            @PathVariable("settlement_id") Long settlementId,
+            @Valid @RequestBody MeterImageRequest request) {
+        MeterAnalysis analysis = meterImageService.submit(userId, settlementId, request.meterImageKey());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.of(SettlementSuccessCode.METER_SUBMITTED, toResponse(analysis)));
     }
 
     @GetMapping("/settlements/{settlement_id}/analysis-status")
