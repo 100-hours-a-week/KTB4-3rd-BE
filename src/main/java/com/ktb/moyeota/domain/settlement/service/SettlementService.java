@@ -76,8 +76,7 @@ public class SettlementService {
         Settlement settlement = settlementRepository.findById(settlementId)
                 .filter(found -> settlementRiderRepository.existsRider(found.getCompanion().getId(), userId))
                 .orElseThrow(() -> new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
-        return new MeterAnalysis(settlement.getStatus(), settlement.getMeterAnalysisStatus(),
-                settlement.getTotalAmount(), settlement.getAnalysisStartedAt());
+        return MeterAnalysis.from(settlement);
     }
 
     private void chargeRiders(Settlement settlement, List<CompanionParticipant> riders) {

@@ -7,5 +7,6 @@ public record MeterAnalysisResponse(
         String groupSettlementStatus,
         String meterAnalysisStatus,
         Integer totalAmount,
-        @JsonInclude(JsonInclude.Include.NON_NULL) LocalDateTime analysisStartedAt) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) LocalDateTime analysisStartedAt,
+        int remainingMeterAttempts) {
 }

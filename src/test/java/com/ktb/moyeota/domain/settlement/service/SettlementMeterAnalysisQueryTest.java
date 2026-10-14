@@ -60,20 +60,21 @@ class SettlementMeterAnalysisQueryTest {
     }
 
     @Test
-    @DisplayName("운행 종료 직후에는 사진 제출 전 상태와 빈 총액 · 시작 시각을 돌려준다")
+    @DisplayName("운행 종료 직후에는 사진 제출 전 상태와 빈 총액 · 시작 시각, 남은 제출 2회를 돌려준다")
     void beforeSubmission() {
         MeterAnalysis analysis = settlementService.findMeterAnalysis(host.getId(), settlement.getId());
 
         assertThat(analysis).isEqualTo(
-                new MeterAnalysis(SettlementStatus.PENDING, MeterAnalysisStatus.PENDING, null, null));
+                new MeterAnalysis(SettlementStatus.PENDING, MeterAnalysisStatus.PENDING, null, null, 2));
     }
 
     @Test
-    @DisplayName("분석 중이면 분석 상태와 시작 시각을 돌려준다")
+    @DisplayName("분석 중이면 분석 상태와 시작 시각, 남은 제출 횟수를 돌려준다")
     void whileAnalyzing() {
         LocalDateTime startedAt = LocalDateTime.of(2026, 9, 7, 9, 0, 3);
         ReflectionTestUtils.setField(settlement, "meterAnalysisStatus", MeterAnalysisStatus.ANALYZING);
         ReflectionTestUtils.setField(settlement, "analysisStartedAt", startedAt);
+        ReflectionTestUtils.setField(settlement, "analysisTrialCount", 1);
         entityManager.flush();
         entityManager.clear();
 
@@ -81,6 +82,7 @@ class SettlementMeterAnalysisQueryTest {
 
         assertThat(analysis.meterAnalysisStatus()).isEqualTo(MeterAnalysisStatus.ANALYZING);
         assertThat(analysis.analysisStartedAt()).isEqualTo(startedAt);
+        assertThat(analysis.remainingMeterAttempts()).isEqualTo(1);
     }
 
     @Test
@@ -93,7 +95,7 @@ class SettlementMeterAnalysisQueryTest {
         MeterAnalysis analysis = settlementService.findMeterAnalysis(rider.getId(), settlement.getId());
 
         assertThat(analysis).isEqualTo(
-                new MeterAnalysis(SettlementStatus.REQUESTED, MeterAnalysisStatus.MANUAL, 18000, null));
+                new MeterAnalysis(SettlementStatus.REQUESTED, MeterAnalysisStatus.MANUAL, 18000, null, 2));
     }
 
     @Test

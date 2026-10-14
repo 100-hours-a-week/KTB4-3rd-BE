@@ -19,6 +19,10 @@ public enum SettlementErrorCode implements ErrorCode {
 
     ALREADY_REQUESTED(HttpStatus.CONFLICT, "이미 정산 금액이 정해졌어요"),
 
+    METER_ANALYSIS_IN_PROGRESS(HttpStatus.CONFLICT, "미터기 금액을 확인하고 있어요"),
+
+    RETRY_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "사진을 낼 수 있는 횟수를 모두 사용했어요"),
+
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "정산을 완료할 수 있는 상태가 아니에요");
 
     private final HttpStatus status;

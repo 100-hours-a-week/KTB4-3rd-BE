@@ -6,7 +6,9 @@ import java.util.Set;
 
 public enum ImagePurpose {
 
-    PROFILE("tmp/profile/", "profile/", Set.of(ImageType.JPEG, ImageType.PNG, ImageType.WEBP), 5L * 1024 * 1024);
+    PROFILE("tmp/profile/", "profile/", Set.of(ImageType.JPEG, ImageType.PNG, ImageType.WEBP), 5L * 1024 * 1024),
+    METER("tmp/meter/", "meter/", Set.of(ImageType.JPEG, ImageType.PNG), 5L * 1024 * 1024),
+    TRANSFER("tmp/transfer/", "transfer/", Set.of(ImageType.JPEG, ImageType.PNG), 5L * 1024 * 1024);
 
     private final String tmpPrefix;
     private final String finalPrefix;

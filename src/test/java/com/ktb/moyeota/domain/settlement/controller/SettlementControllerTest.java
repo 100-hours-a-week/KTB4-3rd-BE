@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ktb.moyeota.domain.image.error.ImageErrorCode;
 import com.ktb.moyeota.domain.settlement.entity.MeterAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
@@ -22,6 +23,7 @@ import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.service.MeterImageService;
 import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
@@ -70,6 +72,8 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 @EnableConfigurationProperties({AuthProperties.class, CorsProperties.class})
 class SettlementControllerTest {
 
+    private static final String METER_IMAGE = "/api/settlements/77/meter-image";
+    private static final String METER_KEY = "tmp/meter/u-42/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
     private static final String ANALYSIS_STATUS = "/api/settlements/77/analysis-status";
     private static final String MY_TRANSFER = "/api/settlements/77/participants/me";
     private static final String COMPLETION = "/api/settlements/77/completion";
@@ -87,6 +91,9 @@ class SettlementControllerTest {
 
     @MockitoBean
     private SettlementOverviewService settlementOverviewService;
+
+    @MockitoBean
+    private MeterImageService meterImageService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -158,10 +165,68 @@ class SettlementControllerTest {
     }
 
     @Test
+    @DisplayName("미터기 사진을 내면 202와 분석 상태 · 시작 시각 · 남은 횟수를 내린다")
+    void submitMeterImage() throws Exception {
+        given(meterImageService.submit(42L, 77L, METER_KEY)).willReturn(new MeterAnalysis(SettlementStatus.PENDING,
+                MeterAnalysisStatus.ANALYZING, null, LocalDateTime.of(2026, 9, 7, 9, 0, 3), 1));
+
+        mockMvc.perform(submitMeter("{\"meter_image_key\":\"" + METER_KEY + "\"}").with(member()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.message").value("미터기 금액 분석 상태를 확인하세요."))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("PENDING"))
+                .andExpect(jsonPath("$.data.meter_analysis_status").value("ANALYZING"))
+                .andExpect(jsonPath("$.data.total_amount").isEmpty())
+                .andExpect(jsonPath("$.data.analysis_started_at").value("2026-09-07T09:00:03"))
+                .andExpect(jsonPath("$.data.remaining_meter_attempts").value(1));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"{}", "{\"meter_image_key\":null}", "{\"meter_image_key\":\" \"}"})
+    @DisplayName("사진 키가 없으면 422 VALIDATION_ERROR다")
+    void missingMeterImageKey(String body) throws Exception {
+        mockMvc.perform(submitMeter(body).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("meter_image_key"));
+
+        verifyNoInteractions(meterImageService);
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("meterSubmitFailures")
+    @DisplayName("미터기 사진 제출을 서비스가 거절하면 그 상태와 코드를 내린다")
+    void meterSubmitRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        given(meterImageService.submit(42L, 77L, METER_KEY)).willThrow(new BusinessException(errorCode));
+
+        mockMvc.perform(submitMeter("{\"meter_image_key\":\"" + METER_KEY + "\"}").with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> meterSubmitFailures() {
+        return Stream.of(
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
+                Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
+                Arguments.of(SettlementErrorCode.ALREADY_REQUESTED, "ALREADY_REQUESTED", 409),
+                Arguments.of(SettlementErrorCode.METER_ANALYSIS_IN_PROGRESS, "METER_ANALYSIS_IN_PROGRESS", 409),
+                Arguments.of(SettlementErrorCode.RETRY_LIMIT_EXCEEDED, "RETRY_LIMIT_EXCEEDED", 409),
+                Arguments.of(ImageErrorCode.IMAGE_NOT_EXISTS, "IMAGE_NOT_EXISTS", 422));
+    }
+
+    @Test
+    @DisplayName("로그인하지 않고 미터기 사진을 내면 401이다")
+    void submitMeterUnauthenticated() throws Exception {
+        mockMvc.perform(submitMeter("{\"meter_image_key\":\"" + METER_KEY + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(meterImageService);
+    }
+
+    @Test
     @DisplayName("미터기 분석 중이면 200과 정산 상태 · 분석 상태 · 분석 시작 시각을 내린다")
     void meterAnalyzing() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.PENDING,
-                MeterAnalysisStatus.ANALYZING, null, LocalDateTime.of(2026, 9, 7, 9, 0, 3)));
+                MeterAnalysisStatus.ANALYZING, null, LocalDateTime.of(2026, 9, 7, 9, 0, 3), 1));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
@@ -170,14 +235,15 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.meter_analysis_status").value("ANALYZING"))
                 .andExpect(jsonPath("$.data", hasKey("total_amount")))
                 .andExpect(jsonPath("$.data.total_amount").isEmpty())
-                .andExpect(jsonPath("$.data.analysis_started_at").value("2026-09-07T09:00:03"));
+                .andExpect(jsonPath("$.data.analysis_started_at").value("2026-09-07T09:00:03"))
+                .andExpect(jsonPath("$.data.remaining_meter_attempts").value(1));
     }
 
     @Test
     @DisplayName("금액이 정해지면 총액을 내린다")
     void meterAmountDecided() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.REQUESTED,
-                MeterAnalysisStatus.MANUAL, 18000, null));
+                MeterAnalysisStatus.MANUAL, 18000, null, 2));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
@@ -190,7 +256,7 @@ class SettlementControllerTest {
     @DisplayName("미터기 사진을 내기 전이면 분석 시작 시각 키를 내리지 않는다")
     void meterNotSubmitted() throws Exception {
         given(settlementService.findMeterAnalysis(42L, 77L)).willReturn(new MeterAnalysis(SettlementStatus.PENDING,
-                MeterAnalysisStatus.PENDING, null, null));
+                MeterAnalysisStatus.PENDING, null, null, 2));
 
         mockMvc.perform(get(ANALYSIS_STATUS).with(member()))
                 .andExpect(status().isOk())
@@ -421,6 +487,10 @@ class SettlementControllerTest {
         return Stream.of(
                 Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
                 Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404));
+    }
+
+    private static MockHttpServletRequestBuilder submitMeter(String body) {
+        return post(METER_IMAGE).contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
     private static MockHttpServletRequestBuilder inputAmount(String body) {

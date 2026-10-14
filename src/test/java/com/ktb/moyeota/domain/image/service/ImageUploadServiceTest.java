@@ -58,6 +58,18 @@ class ImageUploadServiceTest {
     }
 
     @Test
+    @DisplayName("미터기 · 송금 사진은 용도별 임시 경로에 회원 scope로 둔다")
+    void settlementPhotoKeys() {
+        IssuedUploadUrl meter = service.issue(UploadScope.user(42L),
+                new PresignedUrlCommand(ImagePurpose.METER, ImageType.JPEG, 100L));
+        IssuedUploadUrl transfer = service.issue(UploadScope.user(42L),
+                new PresignedUrlCommand(ImagePurpose.TRANSFER, ImageType.PNG, 100L));
+
+        assertThat(meter.imageKey()).matches("^tmp/meter/u-42/[0-9a-f-]{36}\\.jpg$");
+        assertThat(transfer.imageKey()).matches("^tmp/transfer/u-42/[0-9a-f-]{36}\\.png$");
+    }
+
+    @Test
     @DisplayName("URL은 버킷의 그 키를 가리키고 수명은 설정값이다")
     void urlPointsToBucketKey() {
         IssuedUploadUrl issued = service.issue(UploadScope.user(42L), JPEG_482KB);

@@ -55,6 +55,14 @@ class ImagePromotionServiceTest {
         assertThat(copy.getValue().destinationKey()).isEqualTo("profile/" + FILE_NAME);
     }
 
+    @Test
+    @DisplayName("미터기 사진은 회원 scope의 임시 키를 받아 meter/ 확정 키를 돌려준다")
+    void promotesMeterPhoto() {
+        String finalKey = service.promote(UploadScope.user(42L), ImagePurpose.METER, "tmp/meter/u-42/" + FILE_NAME);
+
+        assertThat(finalKey).isEqualTo("meter/" + FILE_NAME);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "tmp/profile/s-ffffffffffffffff/2aac932d-f68b-4491-9891-fd47671fcf02.jpg",
