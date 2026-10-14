@@ -23,6 +23,7 @@ import com.ktb.moyeota.domain.settlement.entity.MeterAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
+import com.ktb.moyeota.domain.settlement.event.MeterAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -43,11 +44,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({MeterImageService.class, ImageReadUrlIssuer.class, S3PresignerTestSupport.class,
         MeterImageSubmissionTest.Config.class})
+@RecordApplicationEvents
 class MeterImageSubmissionTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
@@ -63,6 +67,9 @@ class MeterImageSubmissionTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private ApplicationEvents events;
 
     private User host;
     private User rider;
@@ -96,6 +103,8 @@ class MeterImageSubmissionTest {
         assertThat(saved.getMeterAnalysisStatus()).isEqualTo(MeterAnalysisStatus.ANALYZING);
         assertThat(saved.getAnalysisTrialCount()).isEqualTo(1);
         assertThat(saved.getAnalysisStartedAt()).isEqualTo(startedAt);
+        assertThat(events.stream(MeterAnalysisRequestedEvent.class))
+                .containsExactly(new MeterAnalysisRequestedEvent(settlement.getId(), METER_KEY, startedAt));
     }
 
     @Test

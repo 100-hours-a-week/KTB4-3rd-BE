@@ -124,6 +124,34 @@ public class Settlement {
         }
     }
 
+    public boolean isAnalyzingMeter(LocalDateTime startedAt) {
+        return meterAnalysisStatus == MeterAnalysisStatus.ANALYZING && startedAt.equals(analysisStartedAt);
+    }
+
+    public void failMeter() {
+        requireAnalyzingMeter();
+        this.meterAnalysisStatus = MeterAnalysisStatus.FAILED;
+    }
+
+    public void failMeterBySystem() {
+        requireAnalyzingMeter();
+        this.meterAnalysisStatus = MeterAnalysisStatus.FAILED;
+        this.analysisTrialCount--;
+    }
+
+    public void requestByMeter(int totalAmount) {
+        requireAnalyzingMeter();
+        this.totalAmount = totalAmount;
+        this.meterAnalysisStatus = MeterAnalysisStatus.PASSED;
+        this.status = SettlementStatus.REQUESTED;
+    }
+
+    private void requireAnalyzingMeter() {
+        if (status != SettlementStatus.PENDING || meterAnalysisStatus != MeterAnalysisStatus.ANALYZING) {
+            throw new IllegalStateException("미터기 분석 중이 아닌 정산이다: " + id);
+        }
+    }
+
     public int remainingMeterAttempts() {
         return Math.max(0, METER_ATTEMPT_LIMIT - analysisTrialCount);
     }

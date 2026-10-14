@@ -22,6 +22,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -43,12 +44,22 @@ public class SettlementService {
         validateHost(settlement, riders, userId);
 
         settlement.requestManually(totalAmount);
+        requestTransfer(settlement, riders);
+        return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
+                settlement.getStatus(), settlement.getMeterAnalysisStatus());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestByMeter(Settlement settlement, int totalAmount) {
+        settlement.requestByMeter(totalAmount);
+        requestTransfer(settlement, settlementRiderRepository.findRiders(settlement.getCompanion().getId()));
+    }
+
+    private void requestTransfer(Settlement settlement, List<CompanionParticipant> riders) {
         chargeRiders(settlement, riders);
         eventPublisher.publishEvent(
                 new SettlementTransferRequestedEvent(settlement.getId(), settlement.getCompanion().getId()));
         notifyRiders(settlement, riders);
-        return new RequestedSettlement(settlement.getParticipantCount(), settlement.amountPerPerson(),
-                settlement.getStatus(), settlement.getMeterAnalysisStatus());
     }
 
     @Transactional
