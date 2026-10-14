@@ -316,7 +316,7 @@ class SettlementControllerTest {
     void myTransferCharged() throws Exception {
         given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
                 Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PENDING, null,
-                        new MyTransfer.Payee("김방장", "kb", "11012345678")))));
+                        new MyTransfer.Payee(7L, "김방장", "kb", "11012345678")))));
 
         mockMvc.perform(get(MY_TRANSFER).with(member()))
                 .andExpect(status().isOk())
@@ -325,6 +325,7 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
                 .andExpect(jsonPath("$.data.member_analysis_status").value("PENDING"))
                 .andExpect(jsonPath("$.data.amount").value(6000))
+                .andExpect(jsonPath("$.data.payee.id").value(7))
                 .andExpect(jsonPath("$.data.payee.name").value("김방장"))
                 .andExpect(jsonPath("$.data.payee.bank_name").value("kb"))
                 .andExpect(jsonPath("$.data.payee.account_no").value("11012345678"))
@@ -337,7 +338,7 @@ class SettlementControllerTest {
     void myTransferDone() throws Exception {
         given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
                 Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PASSED,
-                        LocalDateTime.of(2026, 9, 7, 9, 1), new MyTransfer.Payee("김방장", "kb", "11012345678")))));
+                        LocalDateTime.of(2026, 9, 7, 9, 1), new MyTransfer.Payee(7L, "김방장", "kb", "11012345678")))));
 
         mockMvc.perform(get(MY_TRANSFER).with(member()))
                 .andExpect(jsonPath("$.data.member_analysis_status").value("PASSED"))

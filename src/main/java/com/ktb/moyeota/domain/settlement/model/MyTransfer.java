@@ -14,6 +14,6 @@ public record MyTransfer(int participantCount, SettlementStatus status, Optional
             Payee payee) {
     }
 
-    public record Payee(String name, String bankName, String accountNo) {
+    public record Payee(Long id, String name, String bankName, String accountNo) {
     }
 }

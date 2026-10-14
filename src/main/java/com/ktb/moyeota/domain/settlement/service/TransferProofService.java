@@ -58,7 +58,7 @@ public class TransferProofService {
     }
 
     private MyTransfer.Charge toCharge(Settlement settlement, SettlementParticipant charge) {
-        MyTransfer.Payee payee = new MyTransfer.Payee(settlement.getPayee().getName(),
+        MyTransfer.Payee payee = new MyTransfer.Payee(settlement.getPayee().getId(), settlement.getPayee().getName(),
                 settlement.getPayeeBankName(), accountNoCipher.decrypt(settlement.getPayeeAccountNo()));
         return new MyTransfer.Charge(charge.getAmount(), charge.getAnalysisStatus(), charge.getTransferredAt(), payee);
     }

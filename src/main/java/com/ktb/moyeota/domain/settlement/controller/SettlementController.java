@@ -131,7 +131,7 @@ public class SettlementController {
                         charge.analysisStatus().name(),
                         charge.amount(),
                         charge.transferredAt(),
-                        new MyTransferResponse.Payee(
+                        new MyTransferResponse.Payee(charge.payee().id(),
                                 charge.payee().name(), charge.payee().bankName(), charge.payee().accountNo())))
                 .orElseGet(() -> new MyTransferResponse(
                         transfer.participantCount(), transfer.status().name(), null, null, null, null));
