@@ -69,9 +69,9 @@ class ReportEligibilityTest {
     class MessageReportCase {
 
         @Test
-        @DisplayName("운행을 마친 지 72시간이 안 됐으면 신고할 수 있다")
+        @DisplayName("운행을 마친 지 48시간이 안 됐으면 신고할 수 있다")
         void createsWithinPeriodAfterRide() {
-            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(72).plusMinutes(1)));
+            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(48).plusMinutes(1)));
 
             ReportCreateResponse result =
                     reportService.create(reporter.getId(), messageReport(reportedUser, reportedMessage));
@@ -80,9 +80,9 @@ class ReportEligibilityTest {
         }
 
         @Test
-        @DisplayName("운행을 마친 지 72시간이 지났으면 REPORT_PERIOD_EXPIRED다")
+        @DisplayName("운행을 마친 지 48시간이 지났으면 REPORT_PERIOD_EXPIRED다")
         void expiredAfterPeriod() {
-            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(72)));
+            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(48)));
 
             assertErrorCode(() -> reportService.create(reporter.getId(), messageReport(reportedUser, reportedMessage)),
                     ReportErrorCode.REPORT_PERIOD_EXPIRED);
@@ -138,9 +138,9 @@ class ReportEligibilityTest {
     class UserReportCase {
 
         @Test
-        @DisplayName("운행을 마친 지 72시간이 안 됐으면 신고할 수 있다")
+        @DisplayName("운행을 마친 지 48시간이 안 됐으면 신고할 수 있다")
         void createsWithinPeriodAfterRide() {
-            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(72).plusMinutes(1)));
+            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(48).plusMinutes(1)));
 
             ReportCreateResponse result = reportService.create(reporter.getId(), userReport(reportedUser, pot));
 
@@ -148,9 +148,9 @@ class ReportEligibilityTest {
         }
 
         @Test
-        @DisplayName("운행을 마친 지 72시간이 지났으면 REPORT_PERIOD_EXPIRED다")
+        @DisplayName("운행을 마친 지 48시간이 지났으면 REPORT_PERIOD_EXPIRED다")
         void expiredAfterPeriod() {
-            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(72)));
+            entityManager.persistAndFlush(participant(pot, reporter, COMPLETED, NOW.minusHours(48)));
 
             assertErrorCode(() -> reportService.create(reporter.getId(), userReport(reportedUser, pot)),
                     ReportErrorCode.REPORT_PERIOD_EXPIRED);
