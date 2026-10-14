@@ -1,11 +1,11 @@
 package com.ktb.moyeota.global.websocket;
 
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 
 public class RecordingUserEventSender extends UserEventSender {
 
-    private final List<Sent> sent = new ArrayList<>();
+    private final List<Sent> sent = new CopyOnWriteArrayList<>();
 
     public RecordingUserEventSender() {
         super(null);
