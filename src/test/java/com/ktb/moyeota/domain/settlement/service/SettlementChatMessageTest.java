@@ -150,7 +150,7 @@ class SettlementChatMessageTest {
     }
 
     @Test
-    @DisplayName("정산을 완료하면 정산 완료 메시지가 남고 채팅방이 닫힌다")
+    @DisplayName("정산을 완료하면 정산 완료 메시지가 남고 채팅방은 열어 둔다")
     void leavesSettlementCompletedMessage() {
         settlementService.requestManually(host.getId(), settlement.getId(), 26000);
 
@@ -160,7 +160,7 @@ class SettlementChatMessageTest {
                 .extracting(Message::getMessageType)
                 .containsExactly(MessageType.SYSTEM_TRANSFER_REQUESTED, MessageType.SYSTEM_SETTLEMENT_COMPLETED);
         assertThat(messagesInRoom().getLast().getContent()).isEqualTo("정산이 완료됐어요");
-        assertThat(reloadChatRoom().getClosedAt()).isNotNull();
+        assertThat(reloadChatRoom().getClosedAt()).isNull();
     }
 
     @Test
