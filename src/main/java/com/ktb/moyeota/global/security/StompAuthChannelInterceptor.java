@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String BROKER_PREFIX = "/sub/";
     private static final String CHAT_SUBSCRIBE_PREFIX = "/sub/chat/";
 
     private final JwtDecoder jwtDecoder;
@@ -47,12 +48,18 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private boolean isAuthorizedSubscription(StompHeaderAccessor accessor) {
-        Long roomId = parseChatRoomId(accessor.getDestination());
-        if (roomId == null) {
+        String destination = accessor.getDestination();
+        if (destination == null || !destination.startsWith(BROKER_PREFIX)) {
             return true;
         }
 
         Long userId = extractUserId(accessor.getUser());
+        Long roomId = parseChatRoomId(destination);
+        if (roomId == null) {
+            log.warn("[UNSUPPORTED_SUBSCRIBE] destination={} userId={}", destination, userId);
+            return false;
+        }
+
         boolean authorized = userId != null
                 && companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, userId).isPresent();
 
@@ -63,7 +70,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private Long parseChatRoomId(String destination) {
-        if (destination == null || !destination.startsWith(CHAT_SUBSCRIBE_PREFIX)) {
+        if (!destination.startsWith(CHAT_SUBSCRIBE_PREFIX)) {
             return null;
         }
         try {
