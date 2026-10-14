@@ -44,7 +44,8 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
                 JOIN users u ON u.id = c.host_id
                 LEFT JOIN messages m ON m.id = cr.last_message_id
                 WHERE pp.user_id = :userId
-                  AND pp.left_at IS NULL
+                  AND (pp.left_at IS NULL OR pp.outcome_status = 'COMPLETED')
+                  AND cr.closed_at IS NULL
                   AND (:kind IS NULL OR c.kind = :kind)
             ) t
             WHERE :cursorRoomId IS NULL
@@ -73,4 +74,17 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     @Modifying
     @Query("UPDATE Companion c SET c.currentCount = c.currentCount - 1 WHERE c.id = :id AND c.currentCount > 0")
     int decreaseCurrentCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("""
+            UPDATE ChatRoom cr
+            SET cr.closedAt = :now
+            WHERE cr.closedAt IS NULL
+              AND EXISTS (
+                  SELECT p FROM CompanionParticipant p
+                  WHERE p.companion = cr.companion
+                    AND p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED
+                    AND p.leftAt <= :completedBefore)
+            """)
+    int closeCompletedBefore(@Param("completedBefore") LocalDateTime completedBefore, @Param("now") LocalDateTime now);
 }

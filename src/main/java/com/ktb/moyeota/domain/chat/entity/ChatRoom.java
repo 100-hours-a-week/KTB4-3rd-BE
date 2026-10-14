@@ -6,6 +6,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Entity
@@ -13,6 +14,8 @@ import java.time.LocalDateTime;
 @Table(name = "chat_rooms")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoom {
+
+    public static final Duration OPEN_PERIOD_AFTER_RIDE = Duration.ofHours(48);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

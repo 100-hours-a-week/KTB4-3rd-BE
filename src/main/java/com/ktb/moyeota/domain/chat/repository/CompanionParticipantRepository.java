@@ -19,7 +19,8 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
             JOIN chat_rooms cr ON cr.companion_id = pp.companion_id
             WHERE cr.id = :roomId
               AND pp.user_id = :userId
-              AND pp.left_at IS NULL
+              AND (pp.left_at IS NULL OR pp.outcome_status = 'COMPLETED')
+              AND cr.closed_at IS NULL
             """)
     Optional<CompanionParticipant> findActiveByChatRoomIdAndUserId(
             @Param("roomId") Long roomId, @Param("userId") Long userId);
