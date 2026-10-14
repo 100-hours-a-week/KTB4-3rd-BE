@@ -127,11 +127,35 @@ class StompAuthChannelInterceptorTest {
         }
 
         @Test
-        @DisplayName("채팅방 구독이 아니면 참여자 검증을 하지 않는다")
-        void ignoresNonChatDestinations() {
+        @DisplayName("브로커 주소(/sub) 아래에서 채팅방이 아닌 곳은 구독이 조용히 취소된다")
+        void dropsNonChatBrokerDestinations() {
             Message<byte[]> subscribeMessage = subscribeMessage("/sub/other/123", USER_ID);
 
             Message<?> result = interceptor.preSend(subscribeMessage, null);
+
+            assertThat(result).isNull();
+            verify(companionParticipantRepository, never()).findActiveByChatRoomIdAndUserId(any(), any());
+        }
+
+        @Test
+        @DisplayName("다른 사람의 개인 채널 내부 주소를 직접 구독하면 조용히 취소된다")
+        void dropsDirectUserSessionDestination() {
+            Message<byte[]> subscribeMessage =
+                    subscribeMessage("/sub/settlement-user873e637e-1c6d-4ebc-af3e-57517efb4cef", USER_ID);
+
+            assertThat(interceptor.preSend(subscribeMessage, null)).isNull();
+        }
+
+        @Test
+        @DisplayName("방 번호가 숫자가 아닌 채팅방 주소는 조용히 취소된다")
+        void dropsMalformedChatDestination() {
+            assertThat(interceptor.preSend(subscribeMessage("/sub/chat/abc", USER_ID), null)).isNull();
+        }
+
+        @Test
+        @DisplayName("개인 채널(/user/...) 구독은 참여자 검증 없이 통과한다")
+        void passesUserDestination() {
+            Message<?> result = interceptor.preSend(subscribeMessage("/user/sub/settlement", USER_ID), null);
 
             assertThat(result).isNotNull();
             verify(companionParticipantRepository, never()).findActiveByChatRoomIdAndUserId(any(), any());
