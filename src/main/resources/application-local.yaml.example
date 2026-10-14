@@ -34,6 +34,9 @@ moyeota:
       redirect-uri: http://localhost:8080/api/auth/kakao/callback
   kakao-unlink:
     admin-key:
+  ai:
+    # AI 분석 서버(FastAPI) 주소. 운영은 AI_BASE_URL 환경변수로 주입한다.
+    base-url: http://localhost:8000
   storage:
     s3:
       # 로컬 개발용 버킷. 자격 증명은 yaml이 아니라 AWS_ACCESS_KEY_ID · AWS_SECRET_ACCESS_KEY 환경변수 또는 ~/.aws/credentials 로 준다.

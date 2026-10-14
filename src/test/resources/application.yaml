@@ -45,6 +45,8 @@ moyeota:
     unlink-uri: https://kapi.kakao.com/v1/user/unlink
   kakao-navi:
     directions-uri: https://apis-navi.kakaomobility.com/v1/directions
+  ai:
+    base-url: http://localhost:8000
   taxi-pot:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
