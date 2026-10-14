@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class CarpoolRideStatusTest extends CarpoolRideTestSupport {
 
     @Test
-    @DisplayName("방장이 운행을 종료하면 함께 탄 참여자가 모두 완주하고 채팅방이 닫힌다")
+    @DisplayName("방장이 운행을 종료하면 함께 탄 참여자가 모두 완주하고 채팅방은 열어 둔다")
     void completesRide() {
         Companion carpool = persistCarpool(IN_PROGRESS, 2);
 
@@ -35,7 +35,7 @@ class CarpoolRideStatusTest extends CarpoolRideTestSupport {
             assertThat(participant.getLeftAt()).isNotNull();
         });
         assertThat(messageTypes(carpool)).containsExactly(MessageType.SYSTEM_RIDE_ENDED);
-        assertThat(reloadChatRoom(carpool).getClosedAt()).isNotNull();
+        assertThat(reloadChatRoom(carpool).getClosedAt()).isNull();
     }
 
     @Test

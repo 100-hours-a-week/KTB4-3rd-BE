@@ -79,6 +79,36 @@ class CompanionParticipantRepositoryTest {
         }
 
         @Test
+        @DisplayName("운행을 마친 참여자는 채팅방이 닫히기 전까지 찾는다")
+        void findsRiderUntilRoomCloses() {
+            ChatRoom chatRoom = persist(ChatRoom.create(companion));
+            CompanionParticipant participant = persist(CompanionParticipant.join(companion, host));
+            participant.complete();
+            persist(participant);
+
+            assertThat(companionParticipantRepository
+                    .findActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isPresent();
+
+            chatRoom.close();
+            persist(chatRoom);
+
+            assertThat(companionParticipantRepository
+                    .findActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("닫힌 채팅방의 참여자는 찾지 않는다")
+        void excludesClosedRoom() {
+            ChatRoom chatRoom = persist(ChatRoom.create(companion));
+            persist(CompanionParticipant.join(companion, host));
+            chatRoom.close();
+            persist(chatRoom);
+
+            assertThat(companionParticipantRepository
+                    .findActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isEmpty();
+        }
+
+        @Test
         @DisplayName("다른 채팅방의 참여자는 찾지 않는다")
         void isolatesByRoom() {
             persist(ChatRoom.create(companion));

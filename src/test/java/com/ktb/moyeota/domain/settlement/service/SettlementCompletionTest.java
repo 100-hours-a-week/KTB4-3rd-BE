@@ -115,13 +115,13 @@ class SettlementCompletionTest {
     }
 
     @Test
-    @DisplayName("채팅방이 닫힌다")
-    void closesChatRoom() {
+    @DisplayName("채팅방은 바로 닫지 않는다")
+    void keepsChatRoomOpen() {
         requestPayment();
 
         settlementService.complete(host.getId(), settlement.getId());
 
-        assertThat(reload(ChatRoom.class, chatRoom.getId()).getClosedAt()).isNotNull();
+        assertThat(reload(ChatRoom.class, chatRoom.getId()).getClosedAt()).isNull();
     }
 
     @Test

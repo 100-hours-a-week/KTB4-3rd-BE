@@ -77,9 +77,6 @@ public class SettlementService {
                 .filter(rider -> rider.getOutcomeStatus() == OutcomeStatus.PENDING)
                 .forEach(CompanionParticipant::complete);
         eventPublisher.publishEvent(new SettlementCompletedEvent(settlementId, companionId));
-        chatRoomRepository.findByCompanionId(companionId)
-                .filter(chatRoom -> chatRoom.getClosedAt() == null)
-                .ifPresent(ChatRoom::close);
     }
 
     @Transactional(readOnly = true)

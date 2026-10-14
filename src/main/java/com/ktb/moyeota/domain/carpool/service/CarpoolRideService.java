@@ -117,9 +117,7 @@ public class CarpoolRideService {
 
     private void completeRide(Companion carpool) {
         carpool.completeCarpoolRide(carpoolParticipantRepository.findPendingParticipants(carpool.getId()));
-        ChatRoom chatRoom = findChatRoom(carpool);
-        chatSystemMessageService.rideEnded(chatRoom);
-        chatRoom.close();
+        chatSystemMessageService.rideEnded(findChatRoom(carpool));
     }
 
     private ChatRoom findChatRoom(Companion carpool) {
