@@ -23,6 +23,14 @@ public enum SettlementErrorCode implements ErrorCode {
 
     RETRY_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "사진을 낼 수 있는 횟수를 모두 사용했어요"),
 
+    TRANSFER_NOT_SUBMITTABLE(HttpStatus.CONFLICT, "송금 인증을 할 수 있는 상태가 아니에요"),
+
+    TRANSFER_ANALYSIS_IN_PROGRESS(HttpStatus.CONFLICT, "송금 내역을 확인하고 있어요"),
+
+    ALREADY_TRANSFERRED(HttpStatus.CONFLICT, "이미 송금이 확인됐어요"),
+
+    TRANSFER_RETRY_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "재시도 횟수를 모두 사용했어요. 대면으로 송금 내역을 확인해주세요"),
+
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "정산을 완료할 수 있는 상태가 아니에요");
 
     private final HttpStatus status;
