@@ -85,7 +85,7 @@ class TransferProofMyTransferTest {
     }
 
     @Test
-    @DisplayName("금액이 정해지면 내가 보낼 금액 · 송금 전 상태 · 방장 이름과 복호화한 계좌를 돌려준다")
+    @DisplayName("금액이 정해지면 내가 보낼 금액 · 송금 전 상태 · 방장 id · 이름과 복호화한 계좌를 돌려준다")
     void afterAmountDecided() {
         settlementService.requestManually(host.getId(), settlement.getId(), 18000);
         flushAndClear();
@@ -97,7 +97,7 @@ class TransferProofMyTransferTest {
             assertThat(charge.amount()).isEqualTo(6000);
             assertThat(charge.analysisStatus()).isEqualTo(TransferAnalysisStatus.PENDING);
             assertThat(charge.transferredAt()).isNull();
-            assertThat(charge.payee()).isEqualTo(new MyTransfer.Payee("홍길동", "kb", "11012345678"));
+            assertThat(charge.payee()).isEqualTo(new MyTransfer.Payee(host.getId(), "홍길동", "kb", "11012345678"));
         });
     }
 
@@ -111,7 +111,7 @@ class TransferProofMyTransferTest {
         MyTransfer transfer = transferProofService.findMine(rider.getId(), settlement.getId());
 
         assertThat(transfer.charge()).hasValueSatisfying(charge ->
-                assertThat(charge.payee()).isEqualTo(new MyTransfer.Payee("홍길동", "kb", "11012345678")));
+                assertThat(charge.payee()).isEqualTo(new MyTransfer.Payee(host.getId(), "홍길동", "kb", "11012345678")));
     }
 
     @Test

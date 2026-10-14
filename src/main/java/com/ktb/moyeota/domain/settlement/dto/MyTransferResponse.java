@@ -13,6 +13,6 @@ public record MyTransferResponse(
         @JsonInclude(NON_NULL) LocalDateTime transferredAt,
         @JsonInclude(NON_NULL) Payee payee) {
 
-    public record Payee(String name, String bankName, String accountNo) {
+    public record Payee(Long id, String name, String bankName, String accountNo) {
     }
 }
