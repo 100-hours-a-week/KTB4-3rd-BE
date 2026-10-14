@@ -2,12 +2,14 @@ package com.ktb.moyeota.domain.settlement.controller;
 
 import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisResponse;
 import com.ktb.moyeota.domain.settlement.dto.MeterImageRequest;
+import com.ktb.moyeota.domain.settlement.dto.MeterImageResponse;
 import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementOverviewResponse;
 import com.ktb.moyeota.domain.settlement.dto.TransferProofResponse;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
+import com.ktb.moyeota.domain.settlement.model.MeterImage;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
@@ -71,6 +73,14 @@ public class SettlementController {
         MeterAnalysis analysis = meterImageService.submit(userId, settlementId, request.meterImageKey());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.of(SettlementSuccessCode.METER_SUBMITTED, toResponse(analysis)));
+    }
+
+    @GetMapping("/settlements/{settlement_id}/meter-image")
+    public ApiResponse<MeterImageResponse> getMeterImage(
+            @AuthUser Long userId, @PathVariable("settlement_id") Long settlementId) {
+        MeterImage image = meterImageService.find(userId, settlementId);
+        return ApiResponse.of(SettlementSuccessCode.METER_IMAGE_FOUND,
+                new MeterImageResponse(image.meterAnalysisStatus().name(), image.imageUrl()));
     }
 
     @GetMapping("/settlements/{settlement_id}/analysis-status")

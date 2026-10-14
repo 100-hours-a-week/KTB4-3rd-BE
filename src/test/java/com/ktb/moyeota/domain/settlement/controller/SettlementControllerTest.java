@@ -19,6 +19,7 @@ import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
 import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
+import com.ktb.moyeota.domain.settlement.model.MeterImage;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
@@ -220,6 +221,41 @@ class SettlementControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(meterImageService);
+    }
+
+    @Test
+    @DisplayName("미터기 사진이 있으면 200과 분석 상태 · 만료형 주소를 내린다")
+    void meterImage() throws Exception {
+        given(meterImageService.find(42L, 77L)).willReturn(new MeterImage(MeterAnalysisStatus.ANALYZING,
+                "https://bucket.s3.amazonaws.com/meter/a.jpg?X-Amz-Expires=1800"));
+
+        mockMvc.perform(get(METER_IMAGE).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("미터기 사진을 조회했습니다"))
+                .andExpect(jsonPath("$.data.meter_analysis_status").value("ANALYZING"))
+                .andExpect(jsonPath("$.data.image_url").value("https://bucket.s3.amazonaws.com/meter/a.jpg?X-Amz-Expires=1800"));
+    }
+
+    @Test
+    @DisplayName("미터기 사진이 없으면 분석 상태만 내리고 주소 키는 없다")
+    void meterImageNotSubmitted() throws Exception {
+        given(meterImageService.find(42L, 77L)).willReturn(new MeterImage(MeterAnalysisStatus.MANUAL, null));
+
+        mockMvc.perform(get(METER_IMAGE).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.meter_analysis_status").value("MANUAL"))
+                .andExpect(jsonPath("$.data", not(hasKey("image_url"))));
+    }
+
+    @Test
+    @DisplayName("미터기 사진을 볼 수 없는 정산이면 404 SETTLEMENT_NOT_FOUND다")
+    void meterImageNotFound() throws Exception {
+        given(meterImageService.find(42L, 77L))
+                .willThrow(new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
+
+        mockMvc.perform(get(METER_IMAGE).with(member()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("SETTLEMENT_NOT_FOUND"));
     }
 
     @Test

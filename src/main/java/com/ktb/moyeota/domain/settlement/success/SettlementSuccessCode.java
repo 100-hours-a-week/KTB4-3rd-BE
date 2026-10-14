@@ -12,6 +12,8 @@ public enum SettlementSuccessCode implements SuccessCode {
 
     METER_SUBMITTED("미터기 금액 분석 상태를 확인하세요."),
 
+    METER_IMAGE_FOUND("미터기 사진을 조회했습니다"),
+
     METER_ANALYSIS_FOUND("미터기 금액 인식 상태를 조회했습니다"),
 
     MY_TRANSFER_FOUND("내 송금 상태를 조회했습니다"),
