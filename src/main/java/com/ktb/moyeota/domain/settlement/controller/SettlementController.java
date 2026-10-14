@@ -7,17 +7,21 @@ import com.ktb.moyeota.domain.settlement.dto.MyTransferResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountRequest;
 import com.ktb.moyeota.domain.settlement.dto.SettlementAmountResponse;
 import com.ktb.moyeota.domain.settlement.dto.SettlementOverviewResponse;
+import com.ktb.moyeota.domain.settlement.dto.TransferProofRequest;
 import com.ktb.moyeota.domain.settlement.dto.TransferProofResponse;
+import com.ktb.moyeota.domain.settlement.dto.TransferSubmissionResponse;
 import com.ktb.moyeota.domain.settlement.model.MeterAnalysis;
 import com.ktb.moyeota.domain.settlement.model.MeterImage;
 import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.model.TransferSubmission;
 import com.ktb.moyeota.domain.settlement.service.MeterImageService;
 import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
+import com.ktb.moyeota.domain.settlement.service.TransferProofSubmissionService;
 import com.ktb.moyeota.domain.settlement.success.SettlementSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
@@ -42,6 +46,7 @@ public class SettlementController {
     private final SettlementOverviewService settlementOverviewService;
     private final TransferProofService transferProofService;
     private final MeterImageService meterImageService;
+    private final TransferProofSubmissionService transferProofSubmissionService;
 
     @PutMapping("/settlements/{settlement_id}/amount")
     public ApiResponse<SettlementAmountResponse> inputAmount(
@@ -97,6 +102,17 @@ public class SettlementController {
         return ApiResponse.of(SettlementSuccessCode.MY_TRANSFER_FOUND, toResponse(transfer));
     }
 
+    @PostMapping("/settlements/{settlement_id}/transfer-proof")
+    public ResponseEntity<ApiResponse<TransferSubmissionResponse>> submitTransferProof(
+            @AuthUser Long userId,
+            @PathVariable("settlement_id") Long settlementId,
+            @Valid @RequestBody TransferProofRequest request) {
+        TransferSubmission submission =
+                transferProofSubmissionService.submit(userId, settlementId, request.transferImageKey());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.of(SettlementSuccessCode.TRANSFER_SUBMITTED, toResponse(submission)));
+    }
+
     @GetMapping("/settlements/{settlement_id}/participants/{user_id}/transfer-proof")
     public ApiResponse<TransferProofResponse> getTransferProof(
             @AuthUser Long userId,
@@ -135,6 +151,10 @@ public class SettlementController {
                                 charge.payee().name(), charge.payee().bankName(), charge.payee().accountNo())))
                 .orElseGet(() -> new MyTransferResponse(
                         transfer.participantCount(), transfer.status().name(), null, null, null, null));
+    }
+
+    private static TransferSubmissionResponse toResponse(TransferSubmission submission) {
+        return new TransferSubmissionResponse(submission.status().name(), submission.remainingTransferAttempts());
     }
 
     private static TransferProofResponse toResponse(TransferProof proof) {

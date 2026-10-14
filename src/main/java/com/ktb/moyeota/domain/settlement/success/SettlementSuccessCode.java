@@ -20,6 +20,8 @@ public enum SettlementSuccessCode implements SuccessCode {
 
     TRANSFER_PROOF_FOUND("송금 인증 사진을 조회했습니다"),
 
+    TRANSFER_SUBMITTED("AI 송금 분석 상태를 확인하세요."),
+
     SETTLEMENT_FOUND("정산 상태를 조회했습니다");
 
     private final String message;
