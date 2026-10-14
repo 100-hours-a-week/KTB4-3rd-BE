@@ -18,6 +18,7 @@ import com.ktb.moyeota.domain.image.error.ImageErrorCode;
 import com.ktb.moyeota.domain.image.model.ImagePurpose;
 import com.ktb.moyeota.domain.image.model.UploadScope;
 import com.ktb.moyeota.domain.image.service.ImagePromotionService;
+import com.ktb.moyeota.domain.image.service.ImageReadUrlIssuer;
 import com.ktb.moyeota.domain.settlement.entity.MeterAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
@@ -27,6 +28,7 @@ import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
+import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -44,7 +46,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({MeterImageService.class, MeterImageSubmissionTest.Config.class})
+@Import({MeterImageService.class, ImageReadUrlIssuer.class, S3PresignerTestSupport.class,
+        MeterImageSubmissionTest.Config.class})
 class MeterImageSubmissionTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
