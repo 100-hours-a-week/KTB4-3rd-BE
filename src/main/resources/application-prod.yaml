@@ -42,6 +42,14 @@ management:
       maximum-expected-value:
         http.server.requests: 10s
 
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${SERVICE_NAME:rest}
+
 moyeota:
   auth:
     jwt:
