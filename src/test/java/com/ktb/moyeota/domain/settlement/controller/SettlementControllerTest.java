@@ -537,13 +537,13 @@ class SettlementControllerTest {
     @DisplayName("송금 인증사진을 내면 202와 정산 상태 · 남은 제출 횟수를 내린다")
     void submitTransferProof() throws Exception {
         given(transferProofSubmissionService.submit(42L, 77L, TRANSFER_KEY))
-                .willReturn(new TransferSubmission(SettlementStatus.REQUESTED, 2));
+                .willReturn(new TransferSubmission(SettlementStatus.REQUESTED, 1));
 
         mockMvc.perform(submitTransfer("{\"transfer_image_key\":\"" + TRANSFER_KEY + "\"}").with(member()))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.message").value("AI 송금 분석 상태를 확인하세요."))
                 .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
-                .andExpect(jsonPath("$.data.remaining_transfer_attempts").value(2))
+                .andExpect(jsonPath("$.data.remaining_transfer_attempts").value(1))
                 .andExpect(jsonPath("$.data", not(hasKey("member_analysis_status"))));
     }
 

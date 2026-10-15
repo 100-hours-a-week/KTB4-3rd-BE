@@ -108,7 +108,7 @@ class TransferAnalysisServiceTest {
         assertThat(saved.getAnalysisStatus()).isEqualTo(TransferAnalysisStatus.PASSED);
         assertThat(saved.isTransferCompleted()).isTrue();
         assertThat(userEventSender.sent()).containsExactly(
-                sentTo(rider, "PASSED", true, 2), sentTo(host, "PASSED", true, 2));
+                sentTo(rider, "PASSED", true, 1), sentTo(host, "PASSED", true, 1));
     }
 
     @Test
@@ -123,7 +123,7 @@ class TransferAnalysisServiceTest {
         assertThat(saved.isTransferCompleted()).isFalse();
         assertThat(saved.getTransferImageAnalysisTrialCount()).isEqualTo(1);
         assertThat(userEventSender.sent()).containsExactly(
-                sentTo(rider, "PASSED", false, 2), sentTo(host, "PASSED", false, 2));
+                sentTo(rider, "PASSED", false, 1), sentTo(host, "PASSED", false, 1));
     }
 
     @Test
@@ -135,7 +135,7 @@ class TransferAnalysisServiceTest {
 
         assertFailed(1);
         assertThat(userEventSender.sent()).containsExactly(
-                sentTo(rider, "FAILED", false, 2), sentTo(host, "FAILED", false, 2));
+                sentTo(rider, "FAILED", false, 1), sentTo(host, "FAILED", false, 1));
     }
 
     @Test
@@ -147,16 +147,16 @@ class TransferAnalysisServiceTest {
 
         assertFailed(1);
         assertThat(userEventSender.sent()).containsExactly(
-                sentTo(rider, "FAILED", false, 2), sentTo(host, "FAILED", false, 2));
+                sentTo(rider, "FAILED", false, 1), sentTo(host, "FAILED", false, 1));
     }
 
     @Test
-    @DisplayName("세 번째 제출도 확인되지 않으면 남은 횟수 0으로 알린다")
+    @DisplayName("두 번째 제출도 확인되지 않으면 남은 횟수 0으로 알린다")
     void lastAttemptFailed() {
-        givenAnalyzing(3);
+        givenAnalyzing(2);
         given(aiAnalysisClient.readTransfer(any())).willReturn(new AnalysisOutcome.Read<>(5000));
 
-        transferAnalysisService.analyze(request(3));
+        transferAnalysisService.analyze(request(2));
 
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "PASSED", false, 0), sentTo(host, "PASSED", false, 0));

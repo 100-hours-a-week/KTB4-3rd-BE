@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementParticipant {
 
-    private static final int TRANSFER_ATTEMPT_LIMIT = 3;
+    private static final int TRANSFER_ATTEMPT_LIMIT = 2;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

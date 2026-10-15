@@ -102,7 +102,7 @@ class TransferProofSubmissionTest {
     void submit() {
         TransferSubmission submission = transferProofSubmissionService.submit(rider.getId(), settlement.getId(), tmpKey);
 
-        assertThat(submission).isEqualTo(new TransferSubmission(SettlementStatus.REQUESTED, 2));
+        assertThat(submission).isEqualTo(new TransferSubmission(SettlementStatus.REQUESTED, 1));
         SettlementParticipant saved = reloadCharge();
         assertThat(saved.getTransferImageUrl()).isEqualTo(TRANSFER_KEY);
         assertThat(saved.getAnalysisStatus()).isEqualTo(TransferAnalysisStatus.ANALYZING);
@@ -113,13 +113,13 @@ class TransferProofSubmissionTest {
     }
 
     @Test
-    @DisplayName("AI 분석에 실패했으면 다시 낼 수 있고, 새 사진으로 바뀌며 남은 횟수가 줄어든다")
+    @DisplayName("AI 분석에 실패했으면 한 번 더 낼 수 있고, 새 사진으로 바뀌며 남은 횟수는 0이 된다")
     void resubmitAfterFailure() {
         givenCharge(TransferAnalysisStatus.FAILED, 1, false);
 
         TransferSubmission submission = transferProofSubmissionService.submit(rider.getId(), settlement.getId(), tmpKey);
 
-        assertThat(submission.remainingTransferAttempts()).isEqualTo(1);
+        assertThat(submission.remainingTransferAttempts()).isZero();
         SettlementParticipant saved = reloadCharge();
         assertThat(saved.getAnalysisStatus()).isEqualTo(TransferAnalysisStatus.ANALYZING);
         assertThat(saved.getTransferImageAnalysisTrialCount()).isEqualTo(2);
@@ -130,25 +130,25 @@ class TransferProofSubmissionTest {
     }
 
     @Test
-    @DisplayName("금액이 달랐으면 다시 낼 수 있고, 세 번째 제출이면 남은 횟수는 0이다")
+    @DisplayName("금액이 달랐으면 한 번 더 낼 수 있고, 남은 횟수는 0이 된다")
     void resubmitAfterAmountMismatch() {
-        givenCharge(TransferAnalysisStatus.PASSED, 2, false);
+        givenCharge(TransferAnalysisStatus.PASSED, 1, false);
 
         TransferSubmission submission = transferProofSubmissionService.submit(rider.getId(), settlement.getId(), tmpKey);
 
         assertThat(submission.remainingTransferAttempts()).isZero();
-        assertThat(reloadCharge().getTransferImageAnalysisTrialCount()).isEqualTo(3);
+        assertThat(reloadCharge().getTransferImageAnalysisTrialCount()).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("세 번 모두 냈으면 409 TRANSFER_RETRY_LIMIT_EXCEEDED이고 사진을 복사하지 않는다")
+    @DisplayName("두 번 모두 냈으면 409 TRANSFER_RETRY_LIMIT_EXCEEDED이고 사진을 복사하지 않는다")
     void retryLimitExceeded() {
-        givenCharge(TransferAnalysisStatus.FAILED, 3, false);
+        givenCharge(TransferAnalysisStatus.FAILED, 2, false);
 
         assertRejected(() -> transferProofSubmissionService.submit(rider.getId(), settlement.getId(), tmpKey),
                 SettlementErrorCode.TRANSFER_RETRY_LIMIT_EXCEEDED);
         verifyNoInteractions(imagePromotionService);
-        assertThat(reloadCharge().getTransferImageAnalysisTrialCount()).isEqualTo(3);
+        assertThat(reloadCharge().getTransferImageAnalysisTrialCount()).isEqualTo(2);
     }
 
     @Test
