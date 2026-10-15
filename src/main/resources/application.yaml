@@ -58,8 +58,6 @@ moyeota:
     close-sweep-delay: 10m
   relay:
     env: local
-    subscriber:
-      enabled: true
   storage:
     s3:
       region: ap-northeast-2

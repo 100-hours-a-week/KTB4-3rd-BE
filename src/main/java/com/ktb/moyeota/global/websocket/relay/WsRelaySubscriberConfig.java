@@ -1,7 +1,8 @@
 package com.ktb.moyeota.global.websocket.relay;
 
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.ServerRole;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -10,8 +11,7 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
-@ConditionalOnProperty(prefix = "moyeota.relay.subscriber", name = "enabled",
-        havingValue = "true", matchIfMissing = true)
+@ConditionalOnServerRole({ServerRole.WEBSOCKET, ServerRole.ALL})
 public class WsRelaySubscriberConfig {
 
     public static final String LISTENER_EXECUTOR = "wsRelayListenerExecutor";

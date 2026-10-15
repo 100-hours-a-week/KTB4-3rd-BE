@@ -18,7 +18,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -26,7 +25,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Import({RedisTestContainerConfig.class, RelayChannel.class, RedisWsRelayPublisher.class, WsRelayListener.class,
         WsRelaySubscriberConfig.class, WsRelaySubscriberIntegrationTest.Config.class})
 @EnableConfigurationProperties(RelayProperties.class)
-@TestPropertySource(properties = "moyeota.relay.subscriber.enabled=true")
 class WsRelaySubscriberIntegrationTest {
 
     private static final String PROBE_CHANNEL = "moyeota:local:ws:v1:probe";

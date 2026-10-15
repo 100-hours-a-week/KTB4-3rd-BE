@@ -3,6 +3,7 @@ package com.ktb.moyeota.global.config;
 import com.ktb.moyeota.global.security.StompAuthChannelInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -20,9 +21,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
     private final CorsProperties corsProperties;
+    private final Environment environment;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        if (!ServerRole.from(environment.getProperty(ServerRole.ENV_NAME)).acceptsWebSocket()) {
+            return;
+        }
         registry.addEndpoint(ENDPOINT)
                 .setAllowedOrigins(corsProperties.allowedOrigins().toArray(String[]::new));
     }
