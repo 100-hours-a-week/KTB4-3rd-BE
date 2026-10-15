@@ -4,6 +4,8 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: moyeota-main
 
   jpa:
     hibernate:
@@ -33,6 +35,12 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+      slo:
+        http.server.requests: 1s,2500ms
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 10s
 
 moyeota:
   auth:
