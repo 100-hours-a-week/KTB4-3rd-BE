@@ -65,6 +65,8 @@ moyeota:
     close-sweep-delay: 10m
   relay:
     env: local
+    subscriber:
+      enabled: false
   storage:
     s3:
       bucket: moyeota-test-images
