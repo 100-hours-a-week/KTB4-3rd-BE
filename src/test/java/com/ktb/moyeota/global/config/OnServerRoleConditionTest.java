@@ -16,7 +16,7 @@ class OnServerRoleConditionTest {
     @Test
     @DisplayName("rest 역할이면 rest 전용 빈만 만든다")
     void restRole() {
-        runner.withPropertyValues("SERVICE_NAME=rest").run(context -> {
+        runner.withPropertyValues("APP_ROLE=rest").run(context -> {
             assertThat(context).hasBean("restBean");
             assertThat(context).doesNotHaveBean("webSocketBean");
         });
@@ -25,14 +25,14 @@ class OnServerRoleConditionTest {
     @Test
     @DisplayName("websocket 역할이면 websocket 전용 빈만 만든다")
     void webSocketRole() {
-        runner.withPropertyValues("SERVICE_NAME=websocket").run(context -> {
+        runner.withPropertyValues("APP_ROLE=websocket").run(context -> {
             assertThat(context).doesNotHaveBean("restBean");
             assertThat(context).hasBean("webSocketBean");
         });
     }
 
     @Test
-    @DisplayName("서비스 이름이 없으면 모든 빈을 만든다")
+    @DisplayName("APP_ROLE이 없으면 모든 빈을 만든다")
     void allRoleByDefault() {
         runner.run(context -> {
             assertThat(context).hasBean("restBean");
@@ -41,9 +41,9 @@ class OnServerRoleConditionTest {
     }
 
     @Test
-    @DisplayName("알 수 없는 서비스 이름이면 기동에 실패한다")
+    @DisplayName("알 수 없는 APP_ROLE 값이면 기동에 실패한다")
     void failsOnUnknownRole() {
-        runner.withPropertyValues("SERVICE_NAME=websockets")
+        runner.withPropertyValues("APP_ROLE=websockets")
                 .run(context -> assertThat(context).hasFailed());
     }
 

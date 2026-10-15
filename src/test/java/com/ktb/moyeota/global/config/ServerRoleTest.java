@@ -12,13 +12,13 @@ class ServerRoleTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @DisplayName("서비스 이름이 없으면 모든 역할을 맡는다")
+    @DisplayName("APP_ROLE이 없으면 모든 역할을 맡는다")
     void defaultsToAll(String value) {
         assertThat(ServerRole.from(value)).isEqualTo(ServerRole.ALL);
     }
 
     @Test
-    @DisplayName("서비스 이름을 역할로 바꾼다")
+    @DisplayName("APP_ROLE 값을 역할로 바꾼다")
     void parsesServiceName() {
         assertThat(ServerRole.from("rest")).isEqualTo(ServerRole.REST);
         assertThat(ServerRole.from("websocket")).isEqualTo(ServerRole.WEBSOCKET);
@@ -26,7 +26,7 @@ class ServerRoleTest {
     }
 
     @Test
-    @DisplayName("알 수 없는 서비스 이름이면 기동을 막는다")
+    @DisplayName("알 수 없는 APP_ROLE 값이면 기동을 막는다")
     void rejectsUnknownServiceName() {
         assertThatThrownBy(() -> ServerRole.from("websockets"))
                 .isInstanceOf(IllegalStateException.class);
