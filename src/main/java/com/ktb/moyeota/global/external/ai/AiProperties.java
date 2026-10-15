@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record AiProperties(
         String baseUrl,
         @DefaultValue("2s") Duration connectTimeout,
-        @DefaultValue("30s") Duration readTimeout) {
+        @DefaultValue("60s") Duration readTimeout) {
 
     public AiProperties {
         if (baseUrl == null || baseUrl.isBlank()) {
