@@ -1,0 +1,8 @@
+name: moyeota-local
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: moyeota-redis
+    ports:
+      - "6379:6379"
