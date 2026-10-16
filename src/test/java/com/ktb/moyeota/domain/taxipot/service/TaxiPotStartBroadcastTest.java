@@ -13,6 +13,7 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
+import com.ktb.moyeota.global.websocket.relay.WsRelayPublisher;
 import java.time.Clock;
 import java.time.ZoneId;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +23,6 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ class TaxiPotStartBroadcastTest {
     private UserRepository userRepository;
 
     @MockitoBean
-    private SimpMessagingTemplate messagingTemplate;
+    private WsRelayPublisher wsRelayPublisher;
 
     @Test
     @DisplayName("매칭이 커밋되면 채팅방 구독자에게 입장 메시지를 보낸다")
@@ -49,7 +49,7 @@ class TaxiPotStartBroadcastTest {
 
         CurrentTaxiPot pot = taxiPotService.start(me.getId(), startCommand(DEPARTURE_AT));
 
-        verify(messagingTemplate).convertAndSend(eq("/sub/chat/" + pot.chatRoomId()), any(MessageItem.class));
+        verify(wsRelayPublisher).toRoom(eq(pot.chatRoomId()), eq("/sub/chat/" + pot.chatRoomId()), any(MessageItem.class));
     }
 
     @TestConfiguration
