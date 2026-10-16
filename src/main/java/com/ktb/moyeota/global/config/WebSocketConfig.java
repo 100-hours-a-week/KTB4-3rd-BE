@@ -1,6 +1,8 @@
 package com.ktb.moyeota.global.config;
 
 import com.ktb.moyeota.global.security.StompAuthChannelInterceptor;
+import com.ktb.moyeota.global.trace.StompConnectTraceInterceptor;
+import com.ktb.moyeota.global.trace.TraceIdHandshakeInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -19,11 +21,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private static final String BROKER_PREFIX = "/sub";
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
+    private final StompConnectTraceInterceptor stompConnectTraceInterceptor;
+    private final TraceIdHandshakeInterceptor traceIdHandshakeInterceptor;
     private final CorsProperties corsProperties;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint(ENDPOINT)
+                .addInterceptors(traceIdHandshakeInterceptor)
                 .setAllowedOrigins(corsProperties.allowedOrigins().toArray(String[]::new));
     }
 
@@ -35,6 +40,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(stompAuthChannelInterceptor);
+        registration.interceptors(stompAuthChannelInterceptor, stompConnectTraceInterceptor);
     }
 }

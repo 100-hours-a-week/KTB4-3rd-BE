@@ -41,7 +41,7 @@ public class AiAnalysisClient {
         } catch (RestClientResponseException e) {
             return toOutcome(path, e);
         } catch (ResourceAccessException e) {
-            log.warn("[AI_ANALYSIS_FAILED] AI 서버에 연결하지 못했습니다. path={}", path, e);
+            log.error("[AI_ANALYSIS_FAILED] AI 서버에 연결하지 못했습니다. path={}", path, e);
             return new AnalysisOutcome.SystemFailure<>(NETWORK_ERROR);
         } catch (RestClientException e) {
             log.error("[AI_ANALYSIS_FAILED] AI 응답을 읽지 못했습니다. path={}", path, e);
@@ -70,7 +70,7 @@ public class AiAnalysisClient {
         if (errorCode.filter(AiErrorCode.REQUEST_INVALID::equals).isPresent()) {
             log.error("[AI_ANALYSIS_FAILED] AI 요청이 명세와 다릅니다. path={} status={}", path, e.getStatusCode().value());
         } else {
-            log.warn("[AI_ANALYSIS_FAILED] AI 서버 오류. path={} status={} code={}",
+            log.error("[AI_ANALYSIS_FAILED] AI 서버 오류. path={} status={} code={}",
                     path, e.getStatusCode().value(), failure);
         }
         return new AnalysisOutcome.SystemFailure<>(failure);
