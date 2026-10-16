@@ -2,6 +2,7 @@ package com.ktb.moyeota.global.websocket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.converter.SimpleMessageConverter;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
@@ -29,12 +32,14 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RedisTestContainerConfig.class)
 class UserEventSenderIntegrationTest {
 
     private static final String DESTINATION = "/sub/settlement";
     private static final String USER_DESTINATION = "/user" + DESTINATION;
     private static final long HOST_ID = 7L;
     private static final long RIDER_ID = 8L;
+    private static final String PROBE_CHANNEL = "moyeota:local:ws:v1:probe";
 
     record Event(String type, Long settlementId) {
     }
@@ -51,12 +56,16 @@ class UserEventSenderIntegrationTest {
     @Autowired
     private SimpUserRegistry simpUserRegistry;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
     private final List<StompSession> sessions = new ArrayList<>();
     private final ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
 
     @BeforeEach
-    void startScheduler() {
+    void startScheduler() throws InterruptedException {
         scheduler.initialize();
+        awaitRelaySubscription();
     }
 
     @AfterEach
@@ -115,6 +124,18 @@ class UserEventSenderIntegrationTest {
 
         assertThat(host.poll(3, TimeUnit.SECONDS)).isNotNull();
         assertThat(eavesdropper.poll(500, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    private void awaitRelaySubscription() throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            Long receivers = redisTemplate.convertAndSend(PROBE_CHANNEL, "probe");
+            if (receivers != null && receivers > 0) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        throw new IllegalStateException("Redis 구독이 준비되지 않았습니다.");
     }
 
     private BlockingQueue<String> subscribe(long userId, String destination) throws Exception {
