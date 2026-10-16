@@ -48,7 +48,7 @@ logging:
       console: ecs
     ecs:
       service:
-        name: ${SERVICE_NAME:rest}
+        name: ${APP_ROLE:rest}
 
 moyeota:
   auth:
