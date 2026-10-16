@@ -9,6 +9,7 @@ import com.ktb.moyeota.domain.chat.dto.ChatMessageSendRequest;
 import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.service.ChatMessageSendService;
+import com.ktb.moyeota.global.websocket.relay.WsRelayPublisher;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -18,12 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-/**
- * STOMP(@MessageMapping) 컨트롤러라 MockMvc/@WebMvcTest 대상이 아니다.
- * 순수 단위 테스트로 send()의 위임/조건부 브로드캐스트 로직만 검증한다.
- */
 @ExtendWith(MockitoExtension.class)
 class ChatStompControllerTest {
 
@@ -34,7 +30,7 @@ class ChatStompControllerTest {
     private ChatMessageSendService chatMessageSendService;
 
     @Mock
-    private SimpMessagingTemplate messagingTemplate;
+    private WsRelayPublisher wsRelayPublisher;
 
     @Mock
     private Principal principal;
@@ -43,7 +39,7 @@ class ChatStompControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ChatStompController(chatMessageSendService, messagingTemplate);
+        controller = new ChatStompController(chatMessageSendService, wsRelayPublisher);
         given(principal.getName()).willReturn(String.valueOf(USER_ID));
     }
 
@@ -59,7 +55,7 @@ class ChatStompControllerTest {
 
         controller.send(ROOM_ID, request, principal);
 
-        verify(messagingTemplate).convertAndSend(eq("/sub/chat/" + ROOM_ID), eq(item));
+        verify(wsRelayPublisher).toRoom(eq(ROOM_ID), eq("/sub/chat/" + ROOM_ID), eq(item));
     }
 
     @Test
@@ -70,7 +66,7 @@ class ChatStompControllerTest {
 
         controller.send(ROOM_ID, request, principal);
 
-        verifyNoInteractions(messagingTemplate);
+        verifyNoInteractions(wsRelayPublisher);
     }
 
     @Test
