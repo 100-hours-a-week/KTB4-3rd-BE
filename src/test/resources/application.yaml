@@ -63,6 +63,8 @@ moyeota:
     auto-cancel-sweep-delay: 10m
   chat:
     close-sweep-delay: 10m
+  relay:
+    env: local
   storage:
     s3:
       bucket: moyeota-test-images
