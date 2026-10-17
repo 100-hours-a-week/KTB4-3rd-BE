@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ktb.moyeota.domain.chat.controller.ChatStompController;
 import com.ktb.moyeota.domain.chat.dto.ChatMessageSendRequest;
 import com.ktb.moyeota.domain.chat.dto.ChatSendErrorResponse;
+import com.ktb.moyeota.global.common.ErrorResponse;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.security.Principal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -71,6 +73,27 @@ class ChatStompExceptionHandlerTest {
         ChatSendErrorResponse response = handler.handleMalformed(new MessageConversionException("bad json"));
 
         assertThat(response.error().getCode()).isEqualTo("MALFORMED_REQUEST");
+    }
+
+    @Test
+    @DisplayName("저장 요청이 실패하면 받은 오류에 client_message_id를 붙여 돌려준다")
+    void sendFailed() {
+        ChatSendErrorResponse response = handler.handleSendFailed(new ChatSendFailedException(
+                "uuid-1", "동행에 대한 채팅방을 찾을 수 없습니다.", ErrorResponse.of("COMPANION_CHATROOM_NOT_FOUND")));
+
+        assertThat(response.clientMessageId()).isEqualTo("uuid-1");
+        assertThat(response.message()).isEqualTo("동행에 대한 채팅방을 찾을 수 없습니다.");
+        assertThat(response.error().getCode()).isEqualTo("COMPANION_CHATROOM_NOT_FOUND");
+    }
+
+    @Test
+    @DisplayName("rest에 닿지 못한 실패는 INTERNAL_ERROR와 client_message_id를 돌려준다")
+    void sendUnreachable() {
+        ChatSendErrorResponse response = handler.handleSendFailed(new ChatSendFailedException("uuid-1"));
+
+        assertThat(response.clientMessageId()).isEqualTo("uuid-1");
+        assertThat(response.error().getCode()).isEqualTo("INTERNAL_ERROR");
+        assertThat(response.message()).isEqualTo(CommonErrorCode.INTERNAL_ERROR.getMessage());
     }
 
     @Test
