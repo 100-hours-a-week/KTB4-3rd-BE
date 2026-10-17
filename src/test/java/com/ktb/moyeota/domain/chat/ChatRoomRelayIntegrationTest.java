@@ -1,7 +1,7 @@
 package com.ktb.moyeota.domain.chat;
 
 import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
-import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
+import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,7 +12,6 @@ import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.event.ChatMessageBroadcaster;
 import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
 import com.ktb.moyeota.domain.companion.entity.Companion;
-import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
@@ -90,8 +89,8 @@ class ChatRoomRelayIntegrationTest {
             User host = persist(user("방장"));
             User rider = persist(user("동승자"));
             User outsider = persist(user("다른방사람"));
-            Companion pot = persist(taxiPot(host, CompanionStatus.RECRUITING, 2));
-            Companion otherPot = persist(taxiPot(outsider, CompanionStatus.RECRUITING, 1));
+            Companion pot = persist(companionPost(host));
+            Companion otherPot = persist(companionPost(outsider));
             roomId = persist(ChatRoom.create(pot)).getId();
             otherRoomId = persist(ChatRoom.create(otherPot)).getId();
             persist(participant(pot, host, PENDING));
