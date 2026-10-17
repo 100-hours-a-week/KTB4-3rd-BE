@@ -18,7 +18,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +29,19 @@ public class ChatMessageSendService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final ImageUrlResolver imageUrlResolver;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public Optional<MessageItem> send(Long userId, Long roomId, ChatMessageSendRequest request) {
+        try {
+            return transactionTemplate.execute(status -> save(userId, roomId, request));
+        } catch (DataIntegrityViolationException e) {
+            return transactionTemplate.execute(status -> Optional.of(toItem(
+                    messageRepository.findByChatRoomIdAndClientMessageId(roomId, request.clientMessageId())
+                            .orElseThrow(() -> e))));
+        }
+    }
+
+    private Optional<MessageItem> save(Long userId, Long roomId, ChatMessageSendRequest request) {
         Optional<CompanionParticipant> participant =
                 companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, userId);
         if (participant.isEmpty()) {
@@ -43,19 +53,16 @@ public class ChatMessageSendService {
         User sender = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
 
-        Message saved;
-        try {
-            saved = messageRepository.save(
-                    Message.createGeneralMessage(chatRoom, sender, request.clientMessageId(), request.content()));
-            chatRoom.updateLastMessageId(saved.getId());
-        } catch (DataIntegrityViolationException e) {
-            saved = messageRepository.findByChatRoomIdAndClientMessageId(roomId, request.clientMessageId())
-                    .orElseThrow(() -> e);
-        }
-
+        Message saved = messageRepository.save(
+                Message.createGeneralMessage(chatRoom, sender, request.clientMessageId(), request.content()));
+        chatRoom.updateLastMessageId(saved.getId());
         companionParticipantRepository.updateLastReadMessageIfNewer(
                 participant.get().getId(), saved, saved.getId());
 
-        return Optional.of(MessageItem.from(saved, imageUrlResolver.toUrl(saved.getSender().getProfileImageUrl())));
+        return Optional.of(toItem(saved));
+    }
+
+    private MessageItem toItem(Message message) {
+        return MessageItem.from(message, imageUrlResolver.toUrl(message.getSender().getProfileImageUrl()));
     }
 }
