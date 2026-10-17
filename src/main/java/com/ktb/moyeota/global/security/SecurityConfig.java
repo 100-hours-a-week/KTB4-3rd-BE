@@ -4,6 +4,7 @@ import com.ktb.moyeota.global.security.handler.ApiAccessDeniedHandler;
 import com.ktb.moyeota.global.security.handler.ApiAuthenticationEntryPoint;
 import com.ktb.moyeota.global.security.jwt.UserIdJwtAuthenticationConverter;
 import com.ktb.moyeota.global.security.signup.SignupSessionAuthenticator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -97,6 +98,31 @@ public class SecurityConfig {
         filter.setSuccessHandler((request, response, authentication) -> {
         });
         return filter;
+    }
+
+    @Bean
+    @Order(Ordered.HIGHEST_PRECEDENCE + 1)
+    public SecurityFilterChain internalApiFilterChain(
+            HttpSecurity http,
+            ApiAuthenticationEntryPoint authenticationEntryPoint,
+            ApiAccessDeniedHandler accessDeniedHandler,
+            @Value("${moyeota.internal.api-key:}") String internalApiKey) throws Exception {
+        http
+                .securityMatcher("/internal/**")
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .logout(logout -> logout.disable())
+                .requestCache(cache -> cache.disable())
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authorize -> authorize
+                        .anyRequest().hasAuthority(InternalApiKeyFilter.AUTHORITY))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
+                .addFilterBefore(new InternalApiKeyFilter(internalApiKey), AuthorizationFilter.class);
+        return http.build();
     }
 
     @Bean

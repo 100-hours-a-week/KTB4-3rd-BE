@@ -60,6 +60,8 @@ moyeota:
     close-sweep-delay: 10m
   relay:
     env: local
+  internal:
+    api-key: ${INTERNAL_API_KEY:}
   storage:
     s3:
       region: ap-northeast-2
