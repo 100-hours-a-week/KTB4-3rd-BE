@@ -61,6 +61,11 @@ public class ChatRoomService {
     }
 
     @Transactional(readOnly = true)
+    public boolean isActiveParticipant(Long roomId, Long userId) {
+        return companionParticipantRepository.existsActiveByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    @Transactional(readOnly = true)
     public ChatRoomDetailResponse findDetail(Long userId, Long roomId) {
         CompanionParticipant participant = companionParticipantRepository
                 .findActiveByChatRoomIdAndUserId(roomId, userId)
