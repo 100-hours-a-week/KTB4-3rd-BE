@@ -25,6 +25,16 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
     Optional<CompanionParticipant> findActiveByChatRoomIdAndUserId(
             @Param("roomId") Long roomId, @Param("userId") Long userId);
 
+    @Query("""
+            select count(p) > 0 from CompanionParticipant p
+              join ChatRoom cr on cr.companion = p.companion
+             where cr.id = :roomId
+               and p.user.id = :userId
+               and (p.leftAt is null or p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED)
+               and cr.closedAt is null
+            """)
+    boolean existsActiveByChatRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
 
     @Modifying
     @Query("""
