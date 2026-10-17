@@ -21,11 +21,16 @@ public class AiAnalysisClient {
     static final String INVALID_RESPONSE = "INVALID_RESPONSE";
 
     private static final String TAXI_METER_PATH = "/taxi_meter";
+    private static final String RECEIPT_PATH = "/receipt";
 
     private final RestClient aiRestClient;
 
     public AnalysisOutcome<Integer> readMeter(String imageUrl) {
         return analyze(TAXI_METER_PATH, imageUrl, AiMeterResponse.class, AiMeterResponse::cost);
+    }
+
+    public AnalysisOutcome<Integer> readTransfer(String imageUrl) {
+        return analyze(RECEIPT_PATH, imageUrl, AiReceiptResponse.class, AiReceiptResponse::amountCost);
     }
 
     private <R extends AiSuccessResponse, T> AnalysisOutcome<T> analyze(

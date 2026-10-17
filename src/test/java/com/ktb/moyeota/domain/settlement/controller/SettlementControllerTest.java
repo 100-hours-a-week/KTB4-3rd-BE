@@ -24,10 +24,12 @@ import com.ktb.moyeota.domain.settlement.model.MyTransfer;
 import com.ktb.moyeota.domain.settlement.model.RequestedSettlement;
 import com.ktb.moyeota.domain.settlement.model.SettlementOverview;
 import com.ktb.moyeota.domain.settlement.model.TransferProof;
+import com.ktb.moyeota.domain.settlement.model.TransferSubmission;
 import com.ktb.moyeota.domain.settlement.service.MeterImageService;
 import com.ktb.moyeota.domain.settlement.service.SettlementOverviewService;
 import com.ktb.moyeota.domain.settlement.service.SettlementService;
 import com.ktb.moyeota.domain.settlement.service.TransferProofService;
+import com.ktb.moyeota.domain.settlement.service.TransferProofSubmissionService;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
@@ -80,6 +82,8 @@ class SettlementControllerTest {
     private static final String COMPLETION = "/api/settlements/77/completion";
     private static final String SETTLEMENT = "/api/settlements/77";
     private static final String TRANSFER_PROOF = "/api/settlements/77/participants/43/transfer-proof";
+    private static final String TRANSFER_SUBMIT = "/api/settlements/77/transfer-proof";
+    private static final String TRANSFER_KEY = "tmp/transfer/u-42/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
 
     @Autowired
     private MockMvc mockMvc;
@@ -95,6 +99,9 @@ class SettlementControllerTest {
 
     @MockitoBean
     private MeterImageService meterImageService;
+
+    @MockitoBean
+    private TransferProofSubmissionService transferProofSubmissionService;
 
     @MockitoBean
     private SignupSessionAuthenticator signupSessionAuthenticator;
@@ -524,6 +531,67 @@ class SettlementControllerTest {
         return Stream.of(
                 Arguments.of(TaxiPotErrorCode.HOST_ONLY, "HOST_ONLY", 403),
                 Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404));
+    }
+
+    @Test
+    @DisplayName("송금 인증사진을 내면 202와 정산 상태 · 남은 제출 횟수를 내린다")
+    void submitTransferProof() throws Exception {
+        given(transferProofSubmissionService.submit(42L, 77L, TRANSFER_KEY))
+                .willReturn(new TransferSubmission(SettlementStatus.REQUESTED, 1));
+
+        mockMvc.perform(submitTransfer("{\"transfer_image_key\":\"" + TRANSFER_KEY + "\"}").with(member()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.message").value("AI 송금 분석 상태를 확인하세요."))
+                .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
+                .andExpect(jsonPath("$.data.remaining_transfer_attempts").value(1))
+                .andExpect(jsonPath("$.data", not(hasKey("member_analysis_status"))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"{}", "{\"transfer_image_key\":null}", "{\"transfer_image_key\":\" \"}"})
+    @DisplayName("송금 사진 키가 없으면 422 VALIDATION_ERROR다")
+    void missingTransferImageKey(String body) throws Exception {
+        mockMvc.perform(submitTransfer(body).with(member()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("transfer_image_key"));
+
+        verifyNoInteractions(transferProofSubmissionService);
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("transferSubmitFailures")
+    @DisplayName("송금 인증사진 제출을 서비스가 거절하면 그 상태와 코드를 내린다")
+    void transferSubmitRejected(ErrorCode errorCode, String expectedCode, int expectedStatus) throws Exception {
+        given(transferProofSubmissionService.submit(42L, 77L, TRANSFER_KEY)).willThrow(new BusinessException(errorCode));
+
+        mockMvc.perform(submitTransfer("{\"transfer_image_key\":\"" + TRANSFER_KEY + "\"}").with(member()))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.error.code").value(expectedCode));
+    }
+
+    static Stream<Arguments> transferSubmitFailures() {
+        return Stream.of(
+                Arguments.of(SettlementErrorCode.SETTLEMENT_NOT_FOUND, "SETTLEMENT_NOT_FOUND", 404),
+                Arguments.of(SettlementErrorCode.PAYEE_HAS_NO_TRANSFER, "PAYEE_HAS_NO_TRANSFER", 403),
+                Arguments.of(SettlementErrorCode.TRANSFER_NOT_SUBMITTABLE, "TRANSFER_NOT_SUBMITTABLE", 409),
+                Arguments.of(SettlementErrorCode.TRANSFER_ANALYSIS_IN_PROGRESS, "TRANSFER_ANALYSIS_IN_PROGRESS", 409),
+                Arguments.of(SettlementErrorCode.ALREADY_TRANSFERRED, "ALREADY_TRANSFERRED", 409),
+                Arguments.of(SettlementErrorCode.TRANSFER_RETRY_LIMIT_EXCEEDED, "TRANSFER_RETRY_LIMIT_EXCEEDED", 409),
+                Arguments.of(ImageErrorCode.IMAGE_NOT_EXISTS, "IMAGE_NOT_EXISTS", 422));
+    }
+
+    @Test
+    @DisplayName("로그인하지 않고 송금 인증사진을 내면 401이다")
+    void submitTransferUnauthenticated() throws Exception {
+        mockMvc.perform(submitTransfer("{\"transfer_image_key\":\"" + TRANSFER_KEY + "\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(transferProofSubmissionService);
+    }
+
+    private static MockHttpServletRequestBuilder submitTransfer(String body) {
+        return post(TRANSFER_SUBMIT).contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
     private static MockHttpServletRequestBuilder submitMeter(String body) {

@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.settlement.entity;
 
+import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +28,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementParticipant {
+
+    private static final int TRANSFER_ATTEMPT_LIMIT = 2;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,5 +80,51 @@ public class SettlementParticipant {
 
     public void confirmTransfer() {
         this.transferCompleted = true;
+    }
+
+    public void submitTransfer(String transferImageKey) {
+        checkTransferSubmittable();
+        this.transferImageUrl = transferImageKey;
+        this.analysisStatus = TransferAnalysisStatus.ANALYZING;
+        this.transferImageAnalysisTrialCount++;
+    }
+
+    public void checkTransferSubmittable() {
+        if (analysisStatus == TransferAnalysisStatus.ANALYZING) {
+            throw new BusinessException(SettlementErrorCode.TRANSFER_ANALYSIS_IN_PROGRESS);
+        }
+        if (transferCompleted) {
+            throw new BusinessException(SettlementErrorCode.ALREADY_TRANSFERRED);
+        }
+        if (transferImageAnalysisTrialCount >= TRANSFER_ATTEMPT_LIMIT) {
+            throw new BusinessException(SettlementErrorCode.TRANSFER_RETRY_LIMIT_EXCEEDED);
+        }
+    }
+
+    public boolean isAnalyzingTransfer(int attempt) {
+        return analysisStatus == TransferAnalysisStatus.ANALYZING && transferImageAnalysisTrialCount == attempt;
+    }
+
+    public void recordTransferAmount(int readAmount) {
+        requireAnalyzingTransfer();
+        this.analysisStatus = TransferAnalysisStatus.PASSED;
+        if (amount == readAmount) {
+            confirmTransfer();
+        }
+    }
+
+    public void failTransfer() {
+        requireAnalyzingTransfer();
+        this.analysisStatus = TransferAnalysisStatus.FAILED;
+    }
+
+    public int remainingTransferAttempts() {
+        return Math.max(0, TRANSFER_ATTEMPT_LIMIT - transferImageAnalysisTrialCount);
+    }
+
+    private void requireAnalyzingTransfer() {
+        if (analysisStatus != TransferAnalysisStatus.ANALYZING) {
+            throw new IllegalStateException("송금 인증 분석 중이 아닌 청구다: " + id);
+        }
     }
 }

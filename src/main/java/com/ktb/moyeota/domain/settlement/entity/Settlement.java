@@ -152,6 +152,12 @@ public class Settlement {
         }
     }
 
+    public void checkTransferSubmittable() {
+        if (status != SettlementStatus.REQUESTED) {
+            throw new BusinessException(SettlementErrorCode.TRANSFER_NOT_SUBMITTABLE);
+        }
+    }
+
     public int remainingMeterAttempts() {
         return Math.max(0, METER_ATTEMPT_LIMIT - analysisTrialCount);
     }
