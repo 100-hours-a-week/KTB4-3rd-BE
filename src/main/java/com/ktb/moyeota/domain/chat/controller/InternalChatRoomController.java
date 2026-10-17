@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.chat.controller;
 
 import com.ktb.moyeota.domain.chat.dto.ParticipantCheckResponse;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
+import com.ktb.moyeota.domain.chat.success.ChatSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,6 @@ public class InternalChatRoomController {
             @PathVariable("user_id") Long userId
     ) {
         boolean isParticipant = chatRoomService.isActiveParticipant(roomId, userId);
-        return ResponseEntity.ok(ApiResponse.success("참여 여부를 확인했습니다", new ParticipantCheckResponse(isParticipant)));
+        return ResponseEntity.ok(ApiResponse.of(ChatSuccessCode.PARTICIPANT_CHECKED, new ParticipantCheckResponse(isParticipant)));
     }
 }
