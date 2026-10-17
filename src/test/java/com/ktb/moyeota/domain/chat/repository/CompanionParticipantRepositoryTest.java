@@ -123,6 +123,64 @@ class CompanionParticipantRepositoryTest {
     }
 
     @Nested
+    @DisplayName("existsActiveByChatRoomIdAndUserId")
+    class ExistsActiveByChatRoomIdAndUserId {
+
+        @Test
+        @DisplayName("활성 참여자면 true")
+        void active() {
+            ChatRoom chatRoom = persist(ChatRoom.create(companion));
+            persist(CompanionParticipant.join(companion, host));
+
+            assertThat(companionParticipantRepository
+                    .existsActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isTrue();
+        }
+
+        @Test
+        @DisplayName("나간 참여자면 false")
+        void left() {
+            ChatRoom chatRoom = persist(ChatRoom.create(companion));
+            CompanionParticipant participant = persist(CompanionParticipant.join(companion, host));
+            participant.leave();
+            persist(participant);
+
+            assertThat(companionParticipantRepository
+                    .existsActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isFalse();
+        }
+
+        @Test
+        @DisplayName("운행을 마친 참여자는 채팅방이 닫히기 전까지 true")
+        void completedUntilRoomCloses() {
+            ChatRoom chatRoom = persist(ChatRoom.create(companion));
+            CompanionParticipant participant = persist(CompanionParticipant.join(companion, host));
+            participant.complete();
+            persist(participant);
+
+            assertThat(companionParticipantRepository
+                    .existsActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isTrue();
+
+            chatRoom.close();
+            persist(chatRoom);
+
+            assertThat(companionParticipantRepository
+                    .existsActiveByChatRoomIdAndUserId(chatRoom.getId(), host.getId())).isFalse();
+        }
+
+        @Test
+        @DisplayName("다른 채팅방이면 false")
+        void otherRoom() {
+            persist(ChatRoom.create(companion));
+            persist(CompanionParticipant.join(companion, host));
+
+            Companion otherCompanion = persist(companionPost(persist(user("다른방장"))));
+            ChatRoom otherRoom = persist(ChatRoom.create(otherCompanion));
+
+            assertThat(companionParticipantRepository
+                    .existsActiveByChatRoomIdAndUserId(otherRoom.getId(), host.getId())).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("updateLastReadMessageIfNewer")
     class UpdateLastReadMessageIfNewer {
 
