@@ -61,6 +61,7 @@ class InternalChatRoomControllerTest {
 
         mockMvc.perform(get(PATH).header(InternalApiKeyFilter.HEADER, KEY))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("채팅방 참여 여부를 확인했습니다"))
                 .andExpect(jsonPath("$.data.is_participant").value(true));
     }
 
