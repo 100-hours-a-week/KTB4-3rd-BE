@@ -1,8 +1,8 @@
 package com.ktb.moyeota.global.security;
 
-import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
+import com.ktb.moyeota.global.websocket.subscription.ChatRoomParticipantChecker;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final String CHAT_SUBSCRIBE_PREFIX = "/sub/chat/";
 
     private final JwtDecoder jwtDecoder;
-    private final CompanionParticipantRepository companionParticipantRepository;
+    private final ChatRoomParticipantChecker participantChecker;
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
@@ -61,7 +61,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
 
         boolean authorized = userId != null
-                && companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, userId).isPresent();
+                && participantChecker.isParticipant(roomId, userId);
 
         if (!authorized) {
             log.warn("[NON_PARTICIPANT_SUBSCRIBE] roomId={} userId={}", roomId, userId);
