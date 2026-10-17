@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.redis.test.autoconfigure.DataRedisTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -44,6 +45,9 @@ class WsRelaySubscriberIntegrationTest {
     @Autowired
     private BlockingQueue<Handled> handled;
 
+    @Autowired
+    private ConfigurableApplicationContext context;
+
     @Test
     @DisplayName("발행한 채팅방 메시지가 Redis 구독을 거쳐 채팅방 처리기에 도착한다")
     void deliversRoomMessageToHandler() throws Exception {
@@ -57,6 +61,17 @@ class WsRelaySubscriberIntegrationTest {
         assertThat(result.message().destination()).isEqualTo("/sub/chat/7");
         assertThat(result.message().payload())
                 .isEqualTo(Map.of("message_id", 900, "content", "출발지 앞이에요"));
+    }
+
+    @Test
+    @DisplayName("컨텍스트가 멈췄다 다시 시작되면 Redis 구독도 다시 시작한다")
+    void resubscribesAfterRestart() throws Exception {
+        awaitSubscription();
+
+        context.pause();
+        context.restart();
+
+        awaitSubscription();
     }
 
     private void awaitSubscription() throws InterruptedException {
