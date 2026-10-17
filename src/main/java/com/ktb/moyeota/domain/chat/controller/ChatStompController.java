@@ -1,8 +1,7 @@
 package com.ktb.moyeota.domain.chat.controller;
 
 import com.ktb.moyeota.domain.chat.dto.ChatMessageSendRequest;
-import com.ktb.moyeota.domain.chat.service.ChatMessageSendService;
-import com.ktb.moyeota.global.websocket.relay.WsRelayPublisher;
+import com.ktb.moyeota.global.websocket.send.ChatMessageSender;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
@@ -16,18 +15,12 @@ import org.springframework.stereotype.Controller;
 @RequiredArgsConstructor
 public class ChatStompController {
 
-    private static final String BROKER_DESTINATION_PREFIX = "/sub/chat/";
-
-    private final ChatMessageSendService chatMessageSendService;
-    private final WsRelayPublisher wsRelayPublisher;
+    private final ChatMessageSender chatMessageSender;
 
     @MessageMapping("/{room_id}")
     public void send(@DestinationVariable("room_id") Long roomId,
                      @Valid @Payload ChatMessageSendRequest request,
                      Principal principal) {
-        Long userId = Long.valueOf(principal.getName());
-
-        chatMessageSendService.send(userId, roomId, request)
-                .ifPresent(item -> wsRelayPublisher.toRoom(roomId, BROKER_DESTINATION_PREFIX + roomId, item));
+        chatMessageSender.send(roomId, Long.valueOf(principal.getName()), request);
     }
 }
