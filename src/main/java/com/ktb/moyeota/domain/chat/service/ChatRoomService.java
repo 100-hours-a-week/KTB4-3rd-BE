@@ -16,7 +16,11 @@ import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
+import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
@@ -35,6 +39,7 @@ public class ChatRoomService {
     private final MessageRepository messageRepository;
     private final ChatRoomCursorCodec chatRoomCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
+    private final SettlementRepository settlementRepository;
 
     @Transactional(readOnly = true)
     public ChatRoomListResponse findMyChatRooms(Long userId, CompanionKind kind, String cursor) {
@@ -75,8 +80,9 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
         Long lastReadMessageId = (participant.getMessage() != null) ? participant.getMessage().getId() : null;
+        SettlementStatus settlementStatus = resolveSettlementStatus(chatRoom.getCompanion());
 
-        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId);
+        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId, settlementStatus);
     }
 
     @Transactional
@@ -105,6 +111,15 @@ public class ChatRoomService {
     public void createChatRoomForCompanion(Companion companion, User host) {
         chatRoomRepository.save(ChatRoom.create(companion));
         companionParticipantRepository.save(CompanionParticipant.join(companion, host));
+    }
+
+    private SettlementStatus resolveSettlementStatus(Companion companion) {
+        if (companion.getStatus() != CompanionStatus.COMPLETED || companion.getKind() != CompanionKind.TAXI_POT) {
+            return null;
+        }
+        return settlementRepository.findWithPayeeByCompanionId(companion.getId())
+                .map(Settlement::getStatus)
+                .orElse(null);
     }
 
     private boolean hasUnread(ChatRoomListProjection row) {
