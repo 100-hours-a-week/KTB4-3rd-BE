@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,6 +22,7 @@ import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.global.config.ClockConfig;
 import com.ktb.moyeota.global.config.CorsConfig;
 import com.ktb.moyeota.global.config.CorsProperties;
@@ -116,14 +118,30 @@ class ChatRoomControllerTest {
         ChatRoomDetailResponse response = new ChatRoomDetailResponse(
                 30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
-                2, 4, CompanionStatus.RECRUITING, null, 99L);
+                2, 4, CompanionStatus.RECRUITING, null, null, 99L);
         given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
 
         mockMvc.perform(get("/api/chat-rooms/30").with(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(30))
                 .andExpect(jsonPath("$.data.host_id").value(7))
+                .andExpect(jsonPath("$.data.settlement_status").value(nullValue()))
                 .andExpect(jsonPath("$.data.last_read_message_id").value(99));
+    }
+
+    @Test
+    @DisplayName("운행 완료 + 택시팟이면 settlement_status를 함께 내린다")
+    void detailWithSettlementStatus() throws Exception {
+        ChatRoomDetailResponse response = new ChatRoomDetailResponse(
+                30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
+                "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
+                2, 4, CompanionStatus.COMPLETED, SettlementStatus.REQUESTED, null, 99L);
+        given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
+
+        mockMvc.perform(get("/api/chat-rooms/30").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.companion_status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.settlement_status").value("REQUESTED"));
     }
 
     @Test
