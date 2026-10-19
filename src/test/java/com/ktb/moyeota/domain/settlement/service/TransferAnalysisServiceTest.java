@@ -203,7 +203,8 @@ class TransferAnalysisServiceTest {
     private RecordingUserEventSender.Sent sentTo(
             User recipient, String memberAnalysisStatus, boolean transferCompleted, int remainingTransferAttempts) {
         return new RecordingUserEventSender.Sent(recipient.getId(), UserChannel.SETTLEMENT, new TransferAnalyzedMessage(
-                "TRANSFER_ANALYZED", settlement.getId(), rider.getId(), memberAnalysisStatus, transferCompleted,
+                "TRANSFER_ANALYZED", settlement.getId(), rider.getId(), rider.getName(), memberAnalysisStatus,
+                transferCompleted,
                 remainingTransferAttempts));
     }
 
