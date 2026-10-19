@@ -1,5 +1,12 @@
 name: BE CI
 
+# 원본: KTB4-3rd-CLOUD .github/workflows/v2/v2-be-ci.yaml → BE 레포 .github/workflows/dev-be-ci.yaml
+#   - PR               : 테스트·빌드 검증만 (ECR push 없음)
+#   - dev push         : dev-<sha> → BE V2 Dev CD
+#   - release/vX.Y.Z   : rc-vX.Y.Z-<sha> → BE Stg CD
+#   - hotfix/vX.Y.Z    : hf-vX.Y.Z-<sha> → (main 머지 후) BE Prod CD가 승격
+#   - main push        : 빌드 검증만. Prod CD가 검증된 digest를 승격한다 (재빌드 금지)
+
 on:
   # PR 은 검증만 수행하고 ECR push 와 배포는 하지 않는다.
   # hotfix/* 는 main 으로 PR 을 보내므로 아래 main 대상 PR 에 포함된다.
@@ -11,11 +18,13 @@ on:
 
   # dev, main, release/* 로의 직접 push 는 branch protection 으로 차단되므로
   # 이 이벤트는 사실상 "PR 이 병합되어 ref 가 전진했을 때"의 push를 의미한다.
+  # hotfix/* 는 작업 브랜치이므로 push 마다 hf- 이미지를 만든다.
   push:
     branches:
       - dev
       - main
       - 'release/**'
+      - 'hotfix/**'
 
   workflow_dispatch:
 
@@ -32,7 +41,69 @@ env:
 
 
 jobs:
+  # 브랜치 정책 가드 (모든 요청에서 실행, 해당하지 않으면 step만 건너뛴다)
+  #   1) main으로 가는 PR은 release/vX.Y.Z 또는 hotfix/vX.Y.Z에서만 받는다.
+  #      Prod CD가 다른 원본을 거부하므로, 머지 전에 PR 단계에서 먼저 막는다.
+  #   2) hotfix는 main에서 만든 브랜치여야 한다. dev에만 있는(아직 출시되지 않은) 커밋이 섞이면 실패한다.
+  branch-policy:
+    name: Branch policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      INTEGRATION_BRANCH: dev
+      IS_HOTFIX: ${{ startsWith(github.ref_name, 'hotfix/') || startsWith(github.head_ref, 'hotfix/') }}
+
+    steps:
+      - name: Check main PR source branch
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -Eeuo pipefail
+          if [[ ! "$HEAD_REF" =~ ^(release|hotfix)/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error title=main PR 원본 브랜치 오류::main은 release/vX.Y.Z 또는 hotfix/vX.Y.Z에서만 머지한다 (현재: ${HEAD_REF})"
+            exit 1
+          fi
+
+      # hotfix일 때만 전체 히스토리를 받는다.
+      - name: Checkout
+        if: env.IS_HOTFIX == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check hotfix branch base
+        if: env.IS_HOTFIX == 'true'
+        run: |
+          set -Eeuo pipefail
+
+          unreleased="$(comm -12 \
+            <(git rev-list "origin/main..HEAD" | sort) \
+            <(git rev-list "origin/main..origin/${INTEGRATION_BRANCH}" | sort))"
+
+          if [[ -n "$unreleased" ]]; then
+            echo "::error title=hotfix 브랜치 기준 오류::${INTEGRATION_BRANCH}에만 있는 커밋이 hotfix에 섞여 있다. main에서 브랜치를 다시 만들고 수정만 cherry-pick한다."
+            git log --oneline --no-walk --stdin <<<"$unreleased" | head -20
+            exit 1
+          fi
+
+      # hotfix는 Stg 리허설 없이 Prod에 가므로 스키마 변경을 받지 않는다.
+      - name: Block DB migrations in hotfix
+        if: env.IS_HOTFIX == 'true'
+        run: |
+          set -Eeuo pipefail
+
+          changed="$(git diff --name-only "origin/main...HEAD" -- src/main/resources/db/migration)"
+          if [[ -n "$changed" ]]; then
+            echo "::error title=hotfix DB 마이그레이션 금지::hotfix에는 Flyway 마이그레이션을 넣지 않는다. release/vX.Y.Z로 Stg 리허설 후 배포한다."
+            echo "$changed"
+            exit 1
+          fi
+
   ci:
+    needs: branch-policy
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -76,8 +147,12 @@ jobs:
             release_version="$version"
             push_image=true
           elif [[ "$GITHUB_REF_NAME" == hotfix/* ]]; then
-            image_tag="hf-${GITHUB_SHA:0:7}"
-            push_image=false
+            # main에서 만든 긴급 수정. Stg를 거치지 않고 Prod CD가 이 digest를 승격한다.
+            version="${GITHUB_REF_NAME#hotfix/}"
+            [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            image_tag="hf-${version}-${GITHUB_SHA:0:7}"
+            release_version="$version"
+            push_image=true
           else
             image_tag="pr-${GITHUB_SHA:0:7}"
             push_image=false
