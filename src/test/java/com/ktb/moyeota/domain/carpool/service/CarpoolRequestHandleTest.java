@@ -96,7 +96,7 @@ class CarpoolRequestHandleTest {
         });
         assertThat(handled).isEqualTo(new HandledJoinRequest(request.getId(), ACCEPTED, chatRoom.getId(), 2, 4));
         verify(notificationCommandService).createForChatRoom(
-                any(User.class), eq(NotificationType.CARPOOL_REQUEST_ACCEPTED), eq(carpool.getId()),
+                any(User.class), eq(NotificationType.CARPOOL_REQUEST_ACCEPTED), eq(request.getId()),
                 any(ChatRoom.class), eq("방장님이 동승 요청을 수락했어요"));
     }
 

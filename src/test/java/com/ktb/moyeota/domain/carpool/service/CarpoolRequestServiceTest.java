@@ -89,7 +89,7 @@ class CarpoolRequestServiceTest {
         assertThat(sent.status()).isEqualTo(CompanionRequestStatus.PENDING);
         assertThat(sent.createdAt()).isNotNull();
         verify(notificationCommandService).createForChatRoom(
-                any(User.class), eq(NotificationType.CARPOOL_REQUEST_RECEIVED), eq(carpool.getId()),
+                any(User.class), eq(NotificationType.CARPOOL_REQUEST_RECEIVED), eq(sent.id()),
                 any(ChatRoom.class), eq("요청자님이 동승을 요청했어요"));
     }
 
