@@ -6,6 +6,7 @@ public record TransferAnalyzedMessage(
         String type,
         Long settlementId,
         Long userId,
+        String name,
         String memberAnalysisStatus,
         boolean transferCompleted,
         int remainingTransferAttempts) {
@@ -13,7 +14,8 @@ public record TransferAnalyzedMessage(
     private static final String TYPE = "TRANSFER_ANALYZED";
 
     public static TransferAnalyzedMessage from(Long settlementId, Long userId, SettlementParticipant charge) {
-        return new TransferAnalyzedMessage(TYPE, settlementId, userId, charge.getAnalysisStatus().name(),
+        return new TransferAnalyzedMessage(TYPE, settlementId, userId, charge.getUser().getName(),
+                charge.getAnalysisStatus().name(),
                 charge.isTransferCompleted(), charge.remainingTransferAttempts());
     }
 }
