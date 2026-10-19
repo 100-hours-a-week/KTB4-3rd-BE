@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.settlement.event.SettlementCompletedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,11 @@ public class SettlementChatMessagePublisher {
     @EventListener
     public void onCompleted(SettlementCompletedEvent event) {
         openChatRoom(event.companionId()).ifPresent(chatSystemMessageService::completeSettlement);
+    }
+
+    @EventListener
+    public void onTransferExhausted(SettlementTransferExhaustedEvent event) {
+        openChatRoom(event.companionId()).ifPresent(chatSystemMessageService::notifyTransferUnverified);
     }
 
     private Optional<ChatRoom> openChatRoom(Long companionId) {

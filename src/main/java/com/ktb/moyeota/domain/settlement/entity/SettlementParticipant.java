@@ -122,6 +122,10 @@ public class SettlementParticipant {
         return Math.max(0, TRANSFER_ATTEMPT_LIMIT - transferImageAnalysisTrialCount);
     }
 
+    public boolean isTransferAnalysisExhausted() {
+        return !transferCompleted && remainingTransferAttempts() == 0;
+    }
+
     private void requireAnalyzingTransfer() {
         if (analysisStatus != TransferAnalysisStatus.ANALYZING) {
             throw new IllegalStateException("송금 인증 분석 중이 아닌 청구다: " + id);
