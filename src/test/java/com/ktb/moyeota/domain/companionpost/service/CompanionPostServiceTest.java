@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
+import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.entity.TransportType;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -55,12 +57,16 @@ class CompanionPostServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private CompanionPostService service;
 
     @BeforeEach
     void setUp() {
         service = new CompanionPostService(
-                companionPostRepository, chatRoomService, companionParticipantRepository, entityManager);
+                companionPostRepository, chatRoomService, companionParticipantRepository, entityManager,
+                eventPublisher);
     }
 
     private User activeUser() {
@@ -104,6 +110,17 @@ class CompanionPostServiceTest {
             verify(companionPostRepository).save(captor.capture());
             assertThat(captor.getValue().getCapacity()).isEqualTo(4);
             // assertThat(response.chatRoomId()).isNull(); // TODO: Chat 도메인 연동 전까지 null
+        }
+
+        @Test
+        @DisplayName("저장하면 출발지 좌표로 지도 핀 변경 이벤트를 발행한다")
+        void publishesMapPinChangedEvent() {
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+
+            service.create(USER_ID, validRequest());
+
+            verify(eventPublisher).publishEvent(
+                    new MapPinChangedEvent(BigDecimal.valueOf(37.3945), BigDecimal.valueOf(127.1112)));
         }
 
         @Test
