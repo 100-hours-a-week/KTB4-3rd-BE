@@ -218,9 +218,11 @@ class NotificationPushJobRepositoryTest {
         return persist(job);
     }
 
+    private long nextEventId = 1L;
+
     private Notification notification() {
         return Notification.createForChatRoom(
-                recipient, NotificationType.MATCHING_COMPLETED, 1L, chatRoom, "매칭이 완료됐어요");
+                recipient, NotificationType.MATCHING_COMPLETED, nextEventId++, chatRoom, "매칭이 완료됐어요");
     }
 
     private NotificationPushJob reload(NotificationPushJob job) {
