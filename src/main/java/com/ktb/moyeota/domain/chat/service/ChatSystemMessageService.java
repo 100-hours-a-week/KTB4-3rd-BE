@@ -69,6 +69,12 @@ public class ChatSystemMessageService {
         publish(chatRoom, Message.settlementCompletedSystemMessage(chatRoom, newSystemMessageKey(), "정산이 완료됐어요"));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyTransferUnverified(ChatRoom chatRoom) {
+        publish(chatRoom, Message.transferUnverifiedSystemMessage(chatRoom, newSystemMessageKey(),
+                "송금 확인이 어려워요. 대면으로 송금 내역을 확인한 뒤 방장이 정산을 완료해주세요"));
+    }
+
     private void publish(ChatRoom chatRoom, Message message) {
         publish(chatRoom, message, null);
     }

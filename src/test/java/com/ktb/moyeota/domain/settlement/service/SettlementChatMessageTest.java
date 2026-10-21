@@ -20,6 +20,7 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
@@ -34,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -59,6 +61,9 @@ class SettlementChatMessageTest {
 
     @Autowired
     private ApplicationEvents events;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -175,6 +180,31 @@ class SettlementChatMessageTest {
 
         assertThat(messagesInRoom()).isEmpty();
         assertThat(reloadChatRoom().getClosedAt()).isEqualTo(closedAt);
+    }
+
+    @Test
+    @DisplayName("송금 분석 기회가 소진되면 채팅방에 대면 확인 요청 메시지가 남는다")
+    void leavesTransferExhaustedMessage() {
+        eventPublisher.publishEvent(new SettlementTransferExhaustedEvent(
+                settlement.getId(), settlement.getCompanion().getId()));
+
+        assertThat(messagesInRoom()).singleElement().satisfies(message -> {
+            assertThat(message.getMessageType()).isEqualTo(MessageType.SYSTEM_TRANSFER_UNVERIFIED);
+            assertThat(message.getContent()).isEqualTo("송금 확인이 어려워요. 대면으로 송금 내역을 확인한 뒤 방장이 정산을 완료해주세요");
+            assertThat(message.getSender()).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("닫힌 방에는 대면 확인 요청 메시지를 남기지 않는다")
+    void noExhaustedMessageInClosedRoom() {
+        ReflectionTestUtils.setField(chatRoom, "closedAt", LocalDateTime.of(2026, 9, 5, 9, 30));
+        entityManager.flush();
+
+        eventPublisher.publishEvent(new SettlementTransferExhaustedEvent(
+                settlement.getId(), settlement.getCompanion().getId()));
+
+        assertThat(messagesInRoom()).isEmpty();
     }
 
     private MessageItem.Settlement expectedSummary() {

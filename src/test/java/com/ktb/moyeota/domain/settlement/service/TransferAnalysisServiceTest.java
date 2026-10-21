@@ -21,6 +21,7 @@ import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.external.ai.AiAnalysisClient;
@@ -44,9 +45,12 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
+@RecordApplicationEvents
 @Import({TransferAnalysisService.class, TransferAnalysisResultWriter.class, ImageReadUrlIssuer.class,
         S3PresignerTestSupport.class, TransferAnalysisServiceTest.Config.class})
 @EnableConfigurationProperties(TransferAnalysisProperties.class)
@@ -68,6 +72,9 @@ class TransferAnalysisServiceTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private ApplicationEvents events;
 
     private User host;
     private User rider;
@@ -109,6 +116,7 @@ class TransferAnalysisServiceTest {
         assertThat(saved.isTransferCompleted()).isTrue();
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "PASSED", true, 1), sentTo(host, "PASSED", true, 1));
+        assertThat(exhaustedEventCount()).isZero();
     }
 
     @Test
@@ -136,6 +144,7 @@ class TransferAnalysisServiceTest {
         assertFailed(1);
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "FAILED", false, 1), sentTo(host, "FAILED", false, 1));
+        assertThat(exhaustedEventCount()).isZero();
     }
 
     @Test
@@ -160,6 +169,20 @@ class TransferAnalysisServiceTest {
 
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "PASSED", false, 0), sentTo(host, "PASSED", false, 0));
+        assertThat(exhaustedEventCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("두 번째 제출도 못 읽으면 남은 횟수 0으로 알리고 대면 확인 이벤트를 낸다")
+    void lastAttemptUnreadable() {
+        givenAnalyzing(2);
+        given(aiAnalysisClient.readTransfer(any())).willReturn(new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+
+        transferAnalysisService.analyze(request(2));
+
+        assertThat(userEventSender.sent()).containsExactly(
+                sentTo(rider, "FAILED", false, 0), sentTo(host, "FAILED", false, 0));
+        assertThat(exhaustedEventCount()).isEqualTo(1);
     }
 
     @Test
@@ -228,6 +251,10 @@ class TransferAnalysisServiceTest {
     private SettlementParticipant reloadCharge() {
         flushAndClear();
         return entityManager.find(SettlementParticipant.class, charge.getId());
+    }
+
+    private long exhaustedEventCount() {
+        return events.stream(SettlementTransferExhaustedEvent.class).count();
     }
 
     private void flushAndClear() {

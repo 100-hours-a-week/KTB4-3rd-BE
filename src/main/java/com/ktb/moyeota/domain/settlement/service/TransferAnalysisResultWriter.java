@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.settlement.service;
 import com.ktb.moyeota.domain.settlement.dto.TransferAnalyzedMessage;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.settlement.repository.SettlementParticipantRepository;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
@@ -10,6 +11,7 @@ import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class TransferAnalysisResultWriter {
 
     private final SettlementRepository settlementRepository;
     private final SettlementParticipantRepository settlementParticipantRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Optional<Delivery> write(TransferAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
@@ -46,6 +49,10 @@ public class TransferAnalysisResultWriter {
             case AnalysisOutcome.Read<Integer> read -> charge.recordTransferAmount(read.result());
             case AnalysisOutcome.Unreadable<Integer> unreadable -> charge.failTransfer();
             case AnalysisOutcome.SystemFailure<Integer> failure -> charge.failTransfer();
+        }
+        if (charge.isTransferAnalysisExhausted()) {
+            eventPublisher.publishEvent(
+                    new SettlementTransferExhaustedEvent(settlement.getId(), settlement.getCompanion().getId()));
         }
         return Optional.of(new Delivery(List.of(request.userId(), settlement.getPayee().getId()),
                 TransferAnalyzedMessage.from(request.settlementId(), request.userId(), charge)));

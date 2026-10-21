@@ -54,8 +54,8 @@ public record MessageItem(
             case SYSTEM_RIDE_STARTED -> rideStarted(message);
             case SYSTEM_RIDE_ENDED -> rideEnded(message);
             case SYSTEM_TRANSFER_REQUESTED -> transferRequested(message, settlement);
-            case SYSTEM_METER_REQUESTED, SYSTEM_TRANSFER_DONE, SYSTEM_SETTLEMENT_CONFIRM_REQUESTED,
-                 SYSTEM_SETTLEMENT_COMPLETED -> systemNotice(message);
+            case SYSTEM_METER_REQUESTED, SYSTEM_TRANSFER_DONE, SYSTEM_TRANSFER_UNVERIFIED,
+                 SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, SYSTEM_SETTLEMENT_COMPLETED -> systemNotice(message);
         };
     }
 
