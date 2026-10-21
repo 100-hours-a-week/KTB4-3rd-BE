@@ -52,7 +52,7 @@ public class CarpoolRequestService {
 
         CompanionRequest request = save(CompanionRequest.send(carpool, requester, content));
         notificationCommandService.createForChatRoom(carpool.getHost(), NotificationType.CARPOOL_REQUEST_RECEIVED,
-                carpool.getId(), findChatRoom(carpool), requester.getNickname() + "님이 동승을 요청했어요");
+                request.getId(), findChatRoom(carpool), requester.getNickname() + "님이 동승을 요청했어요");
         return new SentJoinRequest(request.getId(), carpoolId, request.getStatus(), request.getCreatedAt());
     }
 
@@ -91,7 +91,7 @@ public class CarpoolRequestService {
         ChatRoom chatRoom = findChatRoom(carpool);
         chatSystemMessageService.enter(chatRoom, requester);
         notificationCommandService.createForChatRoom(requester, NotificationType.CARPOOL_REQUEST_ACCEPTED,
-                carpool.getId(), chatRoom, carpool.getHost().getNickname() + "님이 동승 요청을 수락했어요");
+                request.getId(), chatRoom, carpool.getHost().getNickname() + "님이 동승 요청을 수락했어요");
         return new HandledJoinRequest(request.getId(), request.getStatus(), chatRoom.getId(),
                 carpool.getCurrentCount(), carpool.getCapacity());
     }

@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.notification.service;
 import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
@@ -13,6 +14,7 @@ import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
 import com.ktb.moyeota.domain.notification.event.NotificationPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
+import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -28,6 +30,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 
@@ -53,6 +56,9 @@ class NotificationCommandServiceTest {
 
     @Autowired
     private NotificationPushJobRepository jobRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -107,6 +113,31 @@ class NotificationCommandServiceTest {
                 events.stream(NotificationPushRequestedEvent.class).toList();
         assertThat(published).hasSize(1);
         assertThat(published.getFirst().jobId()).isEqualTo(onlyJob().getId());
+    }
+
+    @Test
+    @DisplayName("같은 수신자에게 같은 타입·같은 이벤트로 알림을 두 번 만들 수 없다")
+    void rejectsDuplicateEvent() {
+        commandService.createForChatRoom(
+                recipient, NotificationType.SETTLEMENT_REQUESTED, 7L, chatRoom, "정산 요청이 도착했어요");
+        entityManager.flush();
+
+        assertThatThrownBy(() -> {
+            commandService.createForChatRoom(
+                    recipient, NotificationType.SETTLEMENT_REQUESTED, 7L, chatRoom, "정산 요청이 도착했어요");
+            entityManager.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("event_id가 같아도 타입이 다르면 다른 알림이다 (원천 테이블이 다름)")
+    void allowsSameEventIdAcrossTypes() {
+        commandService.createForComment(recipient, 7L, post, "우림님이 댓글을 남겼어요");
+        commandService.createForChatRoom(
+                recipient, NotificationType.SETTLEMENT_REQUESTED, 7L, chatRoom, "정산 요청이 도착했어요");
+        entityManager.flush();
+
+        assertThat(notificationRepository.count()).isEqualTo(2);
     }
 
     private NotificationPushJob onlyJob() {

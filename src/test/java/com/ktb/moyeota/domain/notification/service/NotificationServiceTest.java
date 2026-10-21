@@ -439,9 +439,11 @@ class NotificationServiceTest {
         }
     }
 
+    private long nextEventId = 1L;
+
     private Notification unread(User to) {
         return Notification.createForChatRoom(
-                to, NotificationType.MATCHING_COMPLETED, 1L, chatRoom, "매칭이 완료됐어요");
+                to, NotificationType.MATCHING_COMPLETED, nextEventId++, chatRoom, "매칭이 완료됐어요");
     }
 
     private Notification read(User to) {

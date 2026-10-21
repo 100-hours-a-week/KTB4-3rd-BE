@@ -326,9 +326,11 @@ class NotificationPushServiceTest {
         return jobWith(PushJobStatus.SENDING, attempts, LEASE_UNTIL);
     }
 
+    private long nextEventId = 1L;
+
     private NotificationPushJob jobWith(PushJobStatus status, int attempts, LocalDateTime nextAttemptAt) {
         Notification notification = entityManager.persist(Notification.createForChatRoom(
-                recipient, NotificationType.CARPOOL_REQUEST_RECEIVED, 31L, chatRoom, "민준님이 동승을 요청했어요"));
+                recipient, NotificationType.CARPOOL_REQUEST_RECEIVED, nextEventId++, chatRoom, "민준님이 동승을 요청했어요"));
         NotificationPushJob job = NotificationPushJob.create(notification, NOW.minusMinutes(1));
         ReflectionTestUtils.setField(job, "status", status);
         ReflectionTestUtils.setField(job, "attempts", attempts);

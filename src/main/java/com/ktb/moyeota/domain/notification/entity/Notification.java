@@ -16,6 +16,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,9 @@ import java.time.LocalDateTime;
 @Getter
 @Table(
         name = "notifications",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_notifications_recipient_type_event",
+                columnNames = {"recipient_id", "type", "event_id"}),
         indexes = @Index(name = "idx_recipient_created", columnList = "recipient_id, id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification {
