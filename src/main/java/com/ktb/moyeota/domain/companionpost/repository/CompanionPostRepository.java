@@ -36,6 +36,27 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
             @Param("neLng") BigDecimal neLng,
             @Param("limit") int limit);
 
+    @Query(nativeQuery = true, value = """
+            SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
+                   c.origin_lat AS originLat, c.origin_lng AS originLng
+            FROM companions c
+            WHERE c.kind = 'COMPANION'
+              AND c.status = 'RECRUITING'
+              AND MBRIntersects(
+                    ST_GeomFromText(CONCAT('POLYGON((', :minLat, ' ', :minLng, ',', :maxLat, ' ', :minLng, ',', :maxLat, ' ', :maxLng, ',', :minLat, ' ', :maxLng, ',', :minLat, ' ', :minLng, '))'), 4326),
+                    c.origin_location
+                  )
+              AND c.origin_lat >= :minLat AND c.origin_lat < :maxLat
+              AND c.origin_lng >= :minLng AND c.origin_lng < :maxLng
+            LIMIT :limit
+            """)
+    List<CompanionPinProjection> findPinsInCell(
+            @Param("minLat") BigDecimal minLat,
+            @Param("minLng") BigDecimal minLng,
+            @Param("maxLat") BigDecimal maxLat,
+            @Param("maxLng") BigDecimal maxLng,
+            @Param("limit") int limit);
+
 
     @Query(nativeQuery = true, value = """
             SELECT cp.user_id

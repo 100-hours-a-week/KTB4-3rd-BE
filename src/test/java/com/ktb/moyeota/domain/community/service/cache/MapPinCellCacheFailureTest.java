@@ -51,7 +51,7 @@ class MapPinCellCacheFailureTest {
     }
 
     @Test
-    @DisplayName("Redis에 연결하지 못하면 예외 없이 모든 칸을 캐시 미스로 본다")
+    @DisplayName("Redis에 연결하지 못하면 예외 없이 읽기 실패(빈 Optional)로 알린다")
     void readFailureIsMiss() {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.multiGet(anyList())).willThrow(new RedisConnectionFailureException("Redis down"));
@@ -61,7 +61,7 @@ class MapPinCellCacheFailureTest {
     }
 
     @Test
-    @DisplayName("Redis 응답이 늦어 타임아웃이 나도 캐시 미스로 본다")
+    @DisplayName("Redis 응답이 늦어 타임아웃이 나도 읽기 실패(빈 Optional)로 알린다")
     void readTimeoutIsMiss() {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.multiGet(anyList())).willThrow(new QueryTimeoutException("Redis timeout"));
@@ -76,7 +76,7 @@ class MapPinCellCacheFailureTest {
         given(valueOperations.multiGet(anyList()))
                 .willReturn(Arrays.asList("not-json", "{\"overflow\":false,\"pins\":[]}"));
 
-        assertThat(cache.readCells(CELLS)).containsOnlyKeys(CELLS.get(1));
+        assertThat(cache.readCells(CELLS).orElseThrow()).containsOnlyKeys(CELLS.get(1));
         assertThat(count("read", "error")).isEqualTo(1.0);
         assertThat(count("read", "hit")).isEqualTo(1.0);
     }

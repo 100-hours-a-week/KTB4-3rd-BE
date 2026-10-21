@@ -58,7 +58,7 @@ class MapPinCellCacheTest {
 
         cache.writeCell(GANGNAM, written);
 
-        assertThat(cache.readCells(List.of(GANGNAM))).containsExactly(Map.entry(GANGNAM, written));
+        assertThat(cache.readCells(List.of(GANGNAM)).orElseThrow()).containsExactly(Map.entry(GANGNAM, written));
     }
 
     @Test
@@ -75,7 +75,7 @@ class MapPinCellCacheTest {
     void emptyCellIsHit() {
         cache.writeCell(EMPTY_AREA, CellPins.of(List.of()));
 
-        Map<GridCell, CellPins> found = cache.readCells(List.of(EMPTY_AREA));
+        Map<GridCell, CellPins> found = cache.readCells(List.of(EMPTY_AREA)).orElseThrow();
 
         assertThat(found).containsKey(EMPTY_AREA);
         assertThat(found.get(EMPTY_AREA).pins()).isEmpty();
@@ -87,7 +87,7 @@ class MapPinCellCacheTest {
     void missingCellIsLeftOut() {
         cache.writeCell(GANGNAM, CellPins.of(List.of()));
 
-        Map<GridCell, CellPins> found = cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM));
+        Map<GridCell, CellPins> found = cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM)).orElseThrow();
 
         assertThat(found).containsOnlyKeys(GANGNAM);
     }
@@ -97,7 +97,7 @@ class MapPinCellCacheTest {
     void overflowedCell() {
         cache.writeCell(GANGNAM, CellPins.overflowed());
 
-        CellPins found = cache.readCells(List.of(GANGNAM)).get(GANGNAM);
+        CellPins found = cache.readCells(List.of(GANGNAM)).orElseThrow().get(GANGNAM);
 
         assertThat(found.overflow()).isTrue();
         assertThat(found.pins()).isEmpty();
@@ -119,7 +119,7 @@ class MapPinCellCacheTest {
 
         cache.evictCells(List.of(GANGNAM, NEXT_TO_GANGNAM));
 
-        assertThat(cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM))).isEmpty();
+        assertThat(cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM)).orElseThrow()).isEmpty();
     }
 
     @Test
@@ -136,7 +136,7 @@ class MapPinCellCacheTest {
     @Test
     @DisplayName("빈 칸 목록은 Redis에 묻지 않고 빈 결과를 돌려준다")
     void emptyRequest() {
-        assertThat(cache.readCells(List.of())).isEmpty();
+        assertThat(cache.readCells(List.of()).orElseThrow()).isEmpty();
         cache.evictCells(List.of());
 
         assertThat(meterRegistry.find(MapPinCellCache.METRIC).counters()).isEmpty();

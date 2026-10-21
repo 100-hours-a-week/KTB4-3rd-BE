@@ -19,6 +19,9 @@ import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityNearbyProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPinProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
+import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
+import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
@@ -30,6 +33,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,13 +59,20 @@ class HomeServiceTest {
     @Mock
     private NearbyPostCursorCodec cursorCodec;
 
+    @Mock
+    private MapPinCellCache mapPinCellCache;
+
+    @Mock
+    private MapPinCellLoader mapPinCellLoader;
+
     private HomeService service;
 
     @BeforeEach
     void setUp() {
         service = new HomeService(communityPostRepository, companionPostRepository, cursorCodec,
                 new ImageUrlResolver(new S3Properties(
-                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
+                        "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
+                new MapGrid(10_000, 6, 4), mapPinCellCache, mapPinCellLoader);
     }
 
     private CommunityPinProjection communityPin(Long id) {
@@ -83,6 +94,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("커뮤니티 핀과 동행 핀을 하나의 목록으로 합친다")
     void mergesBothPinTypes() {
+        given(mapPinCellCache.readCells(any())).willReturn(Optional.empty());
         CommunityPinProjection communityPin = communityPin(1L);
         CompanionPinProjection companionPin = companionPin(2L);
         given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
@@ -105,6 +117,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("합산 결과가 500건 이하면 그대로 반환한다")
     void returnsItemsWhenUnderLimit() {
+        given(mapPinCellCache.readCells(any())).willReturn(Optional.empty());
         CommunityPinProjection communityPin = communityPin(1L);
         given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
                 .willReturn(List.of(communityPin));
@@ -120,6 +133,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("한쪽 조회가 501건을 돌려주면 빈 목록과 limitExceeded=true를 반환한다")
     void returnsEmptyWhenOverLimit() {
+        given(mapPinCellCache.readCells(any())).willReturn(Optional.empty());
         List<CommunityPinProjection> manyPins = new ArrayList<>(PIN_LIMIT + 1);
         for (long id = 1; id <= PIN_LIMIT + 1; id++) {
             manyPins.add(mock(CommunityPinProjection.class));
@@ -138,6 +152,7 @@ class HomeServiceTest {
     @Test
     @DisplayName("두 조회가 각각 500건 이하라도 합이 500건을 넘으면 limitExceeded=true를 반환한다")
     void returnsEmptyWhenSumOverLimit() {
+        given(mapPinCellCache.readCells(any())).willReturn(Optional.empty());
         List<CommunityPinProjection> communityPins = new ArrayList<>(300);
         for (int i = 0; i < 300; i++) {
             communityPins.add(mock(CommunityPinProjection.class));
