@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -35,21 +36,21 @@ public class MapPinCellCache {
     private final JsonMapper jsonMapper;
     private final MeterRegistry meterRegistry;
 
-    public Map<GridCell, CellPins> readCells(List<GridCell> cells) {
+    public Optional<Map<GridCell, CellPins>> readCells(List<GridCell> cells) {
         if (cells.isEmpty()) {
-            return Map.of();
+            return Optional.of(Map.of());
         }
         List<String> values;
         try {
             values = redisTemplate.opsForValue().multiGet(keysOf(cells));
         } catch (DataAccessException e) {
-            log.warn("[MAP_PIN_CACHE_READ_FAILED] Redis에서 칸을 읽지 못해 캐시 미스로 처리합니다. cells={}", cells.size(), e);
+            log.warn("[MAP_PIN_CACHE_READ_FAILED] Redis에서 칸을 읽지 못해 캐시 없이 조회합니다. cells={}", cells.size(), e);
             count(READ, ERROR, cells.size());
-            return Map.of();
+            return Optional.empty();
         }
         if (values == null) {
             count(READ, ERROR, cells.size());
-            return Map.of();
+            return Optional.empty();
         }
 
         Map<GridCell, CellPins> found = new LinkedHashMap<>();
@@ -67,7 +68,7 @@ public class MapPinCellCache {
                 count(READ, ERROR, 1);
             }
         }
-        return found;
+        return Optional.of(found);
     }
 
     public void writeCell(GridCell cell, CellPins pins) {
