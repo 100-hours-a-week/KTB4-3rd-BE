@@ -12,6 +12,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostCreateRequest;
 import com.ktb.moyeota.domain.community.dto.CommunityPostCreateResponse;
 import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
+import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class CommunityPostServiceTest {
@@ -46,12 +48,16 @@ class CommunityPostServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private CommunityPostService service;
 
     @BeforeEach
     void setUp() {
         service = new CommunityPostService(communityPostRepository, entityManager, new ImageUrlResolver(new S3Properties(
-                "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")));
+                "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
+                eventPublisher);
     }
 
     private User activeUser() {
@@ -89,6 +95,17 @@ class CommunityPostServiceTest {
         }
 
         @Test
+        @DisplayName("저장하면 글 좌표로 지도 핀 변경 이벤트를 발행한다")
+        void publishesMapPinChangedEvent() {
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+
+            service.create(USER_ID, request);
+
+            verify(eventPublisher).publishEvent(
+                    new MapPinChangedEvent(BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0)));
+        }
+
+        @Test
         @DisplayName("탈퇴한 유저면 401을 던지고 저장하지 않는다")
         void rejectsWithdrawnUser() {
             given(entityManager.getReference(User.class, USER_ID)).willReturn(withdrawnUser());
@@ -99,6 +116,7 @@ class CommunityPostServiceTest {
                     .isEqualTo(CommonErrorCode.UNAUTHORIZED);
 
             verify(communityPostRepository, never()).save(any());
+            verify(eventPublisher, never()).publishEvent(any(Object.class));
         }
     }
 

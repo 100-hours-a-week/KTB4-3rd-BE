@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostCreateRequest;
 import com.ktb.moyeota.domain.community.dto.CommunityPostCreateResponse;
 import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
+import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
@@ -12,6 +13,7 @@ import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class CommunityPostService {
     private final CommunityPostRepository communityPostRepository;
     private final EntityManager entityManager;
     private final ImageUrlResolver imageUrlResolver;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CommunityPostCreateResponse create(Long userId, CommunityPostCreateRequest request) {
@@ -33,6 +36,7 @@ public class CommunityPostService {
         CommunityPost post = CommunityPost.create(
                 author, request.title(), request.content(), request.lat(), request.lng());
         communityPostRepository.save(post);
+        eventPublisher.publishEvent(new MapPinChangedEvent(post.getLat(), post.getLng()));
 
         return new CommunityPostCreateResponse(post.getId());
     }

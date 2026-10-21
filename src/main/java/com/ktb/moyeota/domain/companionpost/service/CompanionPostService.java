@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.companionpost.service;
 
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
+import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -17,6 +18,7 @@ import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class CompanionPostService {
     private final ChatRoomService chatRoomService;
     private final CompanionParticipantRepository companionParticipantRepository;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CompanionPostCreateResponse create(Long userId, CompanionPostCreateRequest request) {
@@ -47,6 +50,7 @@ public class CompanionPostService {
                 .orElseThrow(() -> new BusinessException(CompanionPostErrorCode.COMPANION_POST_RECRUIT_COUNT_OUT_OF_RANGE));
 
         companionPostRepository.save(companion);
+        eventPublisher.publishEvent(new MapPinChangedEvent(companion.getOriginLat(), companion.getOriginLng()));
 
         chatRoomService.createChatRoomForCompanion(companion, host);
 
