@@ -18,6 +18,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.rating.repository.CompanionRatingRepository;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
@@ -40,6 +41,7 @@ public class ChatRoomService {
     private final ChatRoomCursorCodec chatRoomCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
     private final SettlementRepository settlementRepository;
+    private final CompanionRatingRepository companionRatingRepository;
 
     @Transactional(readOnly = true)
     public ChatRoomListResponse findMyChatRooms(Long userId, CompanionKind kind, String cursor) {
@@ -81,8 +83,9 @@ public class ChatRoomService {
 
         Long lastReadMessageId = (participant.getMessage() != null) ? participant.getMessage().getId() : null;
         SettlementStatus settlementStatus = resolveSettlementStatus(chatRoom.getCompanion());
+        Boolean rated = resolveRated(userId, chatRoom.getCompanion(), participant, settlementStatus);
 
-        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId, settlementStatus);
+        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId, settlementStatus, rated);
     }
 
     @Transactional
@@ -120,6 +123,26 @@ public class ChatRoomService {
         return settlementRepository.findWithPayeeByCompanionId(companion.getId())
                 .map(Settlement::getStatus)
                 .orElse(null);
+    }
+
+    private Boolean resolveRated(
+            Long userId, Companion companion, CompanionParticipant viewer, SettlementStatus settlementStatus) {
+        if (!isRatingOpen(companion, settlementStatus) || !viewer.isCompleted()
+                || !companionParticipantRepository.existsOtherCompletedParticipant(companion.getId(), userId)) {
+            return null;
+        }
+        return companionRatingRepository.existsByCompanionIdAndRaterId(companion.getId(), userId);
+    }
+
+    private boolean isRatingOpen(Companion companion, SettlementStatus settlementStatus) {
+        if (companion.getStatus() != CompanionStatus.COMPLETED) {
+            return false;
+        }
+        return switch (companion.getKind()) {
+            case TAXI_POT -> settlementStatus == SettlementStatus.COMPLETED;
+            case CARPOOL -> true;
+            case COMPANION -> false;
+        };
     }
 
     private boolean hasUnread(ChatRoomListProjection row) {
