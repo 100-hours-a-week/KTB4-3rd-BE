@@ -3,37 +3,41 @@ package com.ktb.moyeota.domain.taxipot.matching;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
 
 public class BatchMatcher {
 
     private static final Comparator<MatchRequest> BY_REQUEST_ID = Comparator.comparingLong(MatchRequest::requestId);
-    private static final Comparator<Candidate> PRIORITY = Comparator
-            .comparingInt(Candidate::potSize).reversed()
-            .thenComparingDouble(Candidate::spreadMeters)
+    private static final Comparator<MatchCandidate> PRIORITY = Comparator
+            .comparingInt(MatchCandidate::potSize).reversed()
+            .thenComparingDouble(MatchCandidate::spreadMeters)
             .thenComparing(candidate -> candidate.result().resultId());
 
     private final MatchingRules rules;
     private final MatchingCondition condition;
     private final int neighborLimit;
+    private final CandidateSelector selector;
 
     public BatchMatcher(MatchingRules rules, int neighborLimit) {
+        this(rules, neighborLimit, new ExactSelector());
+    }
+
+    public BatchMatcher(MatchingRules rules, int neighborLimit, CandidateSelector selector) {
         this.rules = rules;
         this.condition = new MatchingCondition(rules);
         this.neighborLimit = neighborLimit;
+        this.selector = selector;
     }
 
     public List<MatchResult> match(List<MatchRequest> waiting, List<OpenPot> openPots) {
         List<MatchResult> results = new ArrayList<>();
         List<MatchRequest> rest = fillSamePlaces(waiting.stream().sorted(BY_REQUEST_ID).toList(), results);
 
-        Map<String, Candidate> candidates = new LinkedHashMap<>();
+        Map<String, MatchCandidate> candidates = new LinkedHashMap<>();
         for (MatchRequest seed : rest) {
             List<MatchRequest> neighbors = nearest(rest, List.of(seed), other -> distance(seed, other));
             collect(null, List.of(seed), neighbors, 0, new ArrayList<>(), candidates);
@@ -42,7 +46,7 @@ public class BatchMatcher {
             List<MatchRequest> neighbors = nearest(rest, pot.members(), other -> distanceToPot(pot, other));
             collect(pot, pot.members(), neighbors, 0, new ArrayList<>(), candidates);
         }
-        results.addAll(select(candidates.values().stream().sorted(PRIORITY).toList()));
+        results.addAll(selector.select(candidates.values().stream().sorted(PRIORITY).toList()));
         return results;
     }
 
@@ -85,7 +89,7 @@ public class BatchMatcher {
 
     private void collect(
             OpenPot pot, List<MatchRequest> fixed, List<MatchRequest> options, int from,
-            List<MatchRequest> picked, Map<String, Candidate> candidates) {
+            List<MatchRequest> picked, Map<String, MatchCandidate> candidates) {
         for (int i = from; i < options.size(); i++) {
             MatchRequest request = options.get(i);
             if (!closeToAll(request, picked)) {
@@ -108,37 +112,16 @@ public class BatchMatcher {
     }
 
     private void addIfGroupable(
-            OpenPot pot, List<MatchRequest> fixed, List<MatchRequest> picked, Map<String, Candidate> candidates) {
+            OpenPot pot, List<MatchRequest> fixed, List<MatchRequest> picked, Map<String, MatchCandidate> candidates) {
         List<MatchRequest> group = Stream.concat(fixed.stream(), picked.stream()).sorted(BY_REQUEST_ID).toList();
         condition.evaluate(group).ifPresent(fit -> {
             MatchResult result = pot == null
                     ? MatchResult.openPot(group, fit.origin().requestId(), fit.dest().requestId(),
                             group.get(0).departureAt())
                     : MatchResult.joinPot(pot, picked.stream().sorted(BY_REQUEST_ID).toList());
-            candidates.putIfAbsent(result.resultId(), new Candidate(
+            candidates.putIfAbsent(result.resultId(), new MatchCandidate(
                     result, group.size(), fit.origin().spreadMeters() + fit.dest().spreadMeters()));
         });
-    }
-
-    private List<MatchResult> select(List<Candidate> candidates) {
-        Set<Long> matchedRequestIds = new HashSet<>();
-        Set<String> joinedPotKeys = new HashSet<>();
-        List<MatchResult> results = new ArrayList<>();
-        for (Candidate candidate : candidates) {
-            MatchResult result = candidate.result();
-            boolean requestTaken = result.requests().stream()
-                    .anyMatch(request -> matchedRequestIds.contains(request.requestId()));
-            boolean potTaken = !result.opensPot() && joinedPotKeys.contains(result.potKey());
-            if (requestTaken || potTaken) {
-                continue;
-            }
-            result.requests().forEach(request -> matchedRequestIds.add(request.requestId()));
-            if (!result.opensPot()) {
-                joinedPotKeys.add(result.potKey());
-            }
-            results.add(result);
-        }
-        return results;
     }
 
     private record SamePlace(GeoPoint origin, GeoPoint dest, LocalDateTime departureAt) {
@@ -146,8 +129,5 @@ public class BatchMatcher {
         static SamePlace of(MatchRequest request) {
             return new SamePlace(request.origin().point(), request.dest().point(), request.departureAt());
         }
-    }
-
-    private record Candidate(MatchResult result, int potSize, double spreadMeters) {
     }
 }

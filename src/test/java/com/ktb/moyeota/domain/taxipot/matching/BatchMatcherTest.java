@@ -125,6 +125,30 @@ class BatchMatcherTest {
     }
 
     @Test
+    @DisplayName("50m 간격으로 선 네 명은 탐욕이면 3명과 혼자 1명이지만 최적 선택은 2명씩 모두 묶는다")
+    void exactSelectionMatchesEveryoneWhereGreedyStrandsOne() {
+        List<MatchRequest> line = List.of(request(1, 0), request(2, 449), request(3, 898), request(4, 1_347));
+        BatchMatcher greedy = new BatchMatcher(new MatchingRules(50, 4), NEIGHBOR_LIMIT, new GreedySelector());
+
+        List<MatchResult> greedyResults = greedy.match(line, List.of());
+        List<MatchResult> exactResults = matcher.match(line, List.of());
+
+        assertThat(greedyResults).extracting(this::requestIds).containsExactly(List.of(1L, 2L, 3L));
+        assertThat(exactResults).extracting(this::requestIds).containsExactlyInAnyOrder(List.of(1L, 2L), List.of(3L, 4L));
+    }
+
+    @Test
+    @DisplayName("묶이는 인원이 같으면 최적 선택도 서로 더 가까운 조합을 고른다")
+    void exactSelectionBreaksTiesByCloseness() {
+        BatchMatcher pairs = new BatchMatcher(new MatchingRules(50, 2), NEIGHBOR_LIMIT);
+
+        List<MatchResult> results = pairs.match(
+                List.of(request(1, 0), request(2, 100), request(3, 400), request(4, 450)), List.of());
+
+        assertThat(results).extracting(this::requestIds).containsExactlyInAnyOrder(List.of(1L, 2L), List.of(3L, 4L));
+    }
+
+    @Test
     @DisplayName("좌표가 완전히 같은 요청은 번호 순으로 4명씩 먼저 묶는다")
     void fillsSamePlaceRequestsByRequestIdFirst() {
         List<MatchRequest> nine = LongStream.rangeClosed(9, 17).mapToObj(id -> request(id, 0)).toList();
