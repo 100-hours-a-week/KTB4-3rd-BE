@@ -50,8 +50,11 @@ public class TaxiPotController {
     public ResponseEntity<ApiResponse<CurrentTaxiPotResponse>> start(
             @AuthUser Long userId, @Valid @RequestBody TaxiPotStartRequest request) {
         CurrentTaxiPot taxiPot = taxiPotService.start(userId, toCommand(request));
-        return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id()))
-                .body(ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot)));
+        ApiResponse<CurrentTaxiPotResponse> body = ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot));
+        if (taxiPot.isMatching()) {
+            return ResponseEntity.accepted().body(body);
+        }
+        return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id())).body(body);
     }
 
     @DeleteMapping("/taxi-pots/{companion_id}/participants/me")

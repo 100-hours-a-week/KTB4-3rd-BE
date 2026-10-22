@@ -241,6 +241,22 @@ class TaxiPotControllerTest {
     }
 
     @Test
+    @DisplayName("찾는 중으로 접수되면 202와 status MATCHING을 내리고 Location은 없다")
+    void startMatchAccepted() throws Exception {
+        given(taxiPotService.start(any(), any())).willReturn(CurrentTaxiPot.matching());
+
+        mockMvc.perform(startMatch(startBody()).with(member()))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(jsonPath("$.message").value("매칭을 시작했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
+    }
+
+    @Test
     @DisplayName("요청 값을 제자리의 명령 필드로 옮긴다")
     void startMatchCommand() throws Exception {
         given(taxiPotService.start(any(), any()))

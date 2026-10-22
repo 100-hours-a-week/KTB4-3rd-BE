@@ -145,6 +145,18 @@ class TaxiPotServiceTest {
         }
 
         @Test
+        @DisplayName("찾는 중인 매칭 요청이 있으면 MATCH_ALREADY_IN_PROGRESS다")
+        void alreadyMatching() {
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "찾는중")));
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotMatchRequestRepository.existsByUserIdAndStatus(USER_ID, TaxiPotMatchRequestStatus.MATCHING))
+                    .willReturn(true);
+
+            assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)),
+                    TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
+        }
+
+        @Test
         @DisplayName("데드락으로 튕기면 새 트랜잭션으로 다시 시도한다")
         void retriesOnDeadlock() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
