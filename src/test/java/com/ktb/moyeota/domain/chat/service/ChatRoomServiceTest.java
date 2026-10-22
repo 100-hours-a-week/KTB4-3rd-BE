@@ -20,6 +20,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.rating.repository.CompanionRatingRepository;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
@@ -58,6 +59,9 @@ class ChatRoomServiceTest {
     @Mock
     private SettlementRepository settlementRepository;
 
+    @Mock
+    private CompanionRatingRepository companionRatingRepository;
+
     private ChatRoomService service;
 
     @BeforeEach
@@ -65,7 +69,7 @@ class ChatRoomServiceTest {
         service = new ChatRoomService(chatRoomRepository, companionParticipantRepository, messageRepository,
                 new ChatRoomCursorCodec(), new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                settlementRepository);
+                settlementRepository, companionRatingRepository);
     }
 
     @Test

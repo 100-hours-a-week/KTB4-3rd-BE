@@ -118,7 +118,7 @@ class ChatRoomControllerTest {
         ChatRoomDetailResponse response = new ChatRoomDetailResponse(
                 30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
-                2, 4, CompanionStatus.RECRUITING, null, null, 99L);
+                2, 4, CompanionStatus.RECRUITING, null, null, null, 99L);
         given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
 
         mockMvc.perform(get("/api/chat-rooms/30").with(member()))
@@ -126,6 +126,7 @@ class ChatRoomControllerTest {
                 .andExpect(jsonPath("$.data.id").value(30))
                 .andExpect(jsonPath("$.data.host_id").value(7))
                 .andExpect(jsonPath("$.data.settlement_status").value(nullValue()))
+                .andExpect(jsonPath("$.data.rated").doesNotExist())
                 .andExpect(jsonPath("$.data.last_read_message_id").value(99));
     }
 
@@ -135,13 +136,14 @@ class ChatRoomControllerTest {
         ChatRoomDetailResponse response = new ChatRoomDetailResponse(
                 30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
-                2, 4, CompanionStatus.COMPLETED, SettlementStatus.REQUESTED, null, 99L);
+                2, 4, CompanionStatus.COMPLETED, SettlementStatus.COMPLETED, false, null, 99L);
         given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
 
         mockMvc.perform(get("/api/chat-rooms/30").with(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.companion_status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data.settlement_status").value("REQUESTED"));
+                .andExpect(jsonPath("$.data.settlement_status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.rated").value(false));
     }
 
     @Test
