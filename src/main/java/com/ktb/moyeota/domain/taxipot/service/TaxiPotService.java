@@ -9,11 +9,13 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotMatchRequestRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -43,6 +45,7 @@ public class TaxiPotService {
 
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
+    private final TaxiPotMatchRequestRepository taxiPotMatchRequestRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final SettlementRepository settlementRepository;
@@ -54,7 +57,8 @@ public class TaxiPotService {
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
         return taxiPotParticipantRepository.findCurrentTaxiPot(userId)
-                .map(taxiPot -> toCurrentTaxiPot(taxiPot, findChatRoom(taxiPot).getId()));
+                .map(taxiPot -> toCurrentTaxiPot(taxiPot, findChatRoom(taxiPot).getId()))
+                .or(() -> hasMatchingRequest(userId) ? Optional.of(CurrentTaxiPot.matching()) : Optional.empty());
     }
 
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
@@ -198,6 +202,10 @@ public class TaxiPotService {
                 .orElse(null);
         taxiPotParticipantRepository.save(taxiPot.join(user, previous));
         return findChatRoom(taxiPot);
+    }
+
+    private boolean hasMatchingRequest(Long userId) {
+        return taxiPotMatchRequestRepository.existsByUserIdAndStatus(userId, TaxiPotMatchRequestStatus.MATCHING);
     }
 
     private ChatRoom findChatRoom(Companion taxiPot) {

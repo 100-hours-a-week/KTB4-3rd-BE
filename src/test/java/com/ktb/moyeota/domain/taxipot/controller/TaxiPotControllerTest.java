@@ -97,6 +97,21 @@ class TaxiPotControllerTest {
     }
 
     @Test
+    @DisplayName("찾는 중이면 status MATCHING과 팟 필드 null을 내린다")
+    void currentMatching() throws Exception {
+        given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.of(CurrentTaxiPot.matching()));
+
+        mockMvc.perform(get(CURRENT_TAXI_POT).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
+    }
+
+    @Test
     @DisplayName("진행 중인 택시팟이 없어도 404가 아니라 200과 data null이다")
     void none() throws Exception {
         given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.empty());

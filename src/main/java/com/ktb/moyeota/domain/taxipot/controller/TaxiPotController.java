@@ -31,6 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TaxiPotController {
 
+    private static final String MATCHING_STATUS = "MATCHING";
+
     private final TaxiPotService taxiPotService;
 
     @GetMapping("/users/me/current-taxi-pot")
@@ -88,7 +90,8 @@ public class TaxiPotController {
 
     private static CurrentTaxiPotResponse toResponse(CurrentTaxiPot taxiPot) {
         return new CurrentTaxiPotResponse(
-                taxiPot.id(), taxiPot.chatRoomId(), taxiPot.status().name(), taxiPot.currentCount(), taxiPot.capacity());
+                taxiPot.id(), taxiPot.chatRoomId(), taxiPot.isMatching() ? MATCHING_STATUS : taxiPot.status().name(),
+                taxiPot.currentCount(), taxiPot.capacity());
     }
 
     private static TaxiPotDetailResponse toResponse(TaxiPotDetail detail) {
