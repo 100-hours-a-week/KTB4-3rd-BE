@@ -26,10 +26,12 @@ import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotMatchRequestRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -65,6 +67,9 @@ class TaxiPotServiceTest {
 
     @Mock
     private TaxiPotParticipantRepository taxiPotParticipantRepository;
+
+    @Mock
+    private TaxiPotMatchRequestRepository taxiPotMatchRequestRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -140,6 +145,18 @@ class TaxiPotServiceTest {
         }
 
         @Test
+        @DisplayName("찾는 중인 매칭 요청이 있으면 MATCH_ALREADY_IN_PROGRESS다")
+        void alreadyMatching() {
+            given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "찾는중")));
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotMatchRequestRepository.existsByUserIdAndStatus(USER_ID, TaxiPotMatchRequestStatus.MATCHING))
+                    .willReturn(true);
+
+            assertErrorCode(() -> service.start(USER_ID, startCommand(DEPARTURE_AT)),
+                    TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
+        }
+
+        @Test
         @DisplayName("데드락으로 튕기면 새 트랜잭션으로 다시 시도한다")
         void retriesOnDeadlock() {
             given(userRepository.findByIdForUpdate(USER_ID)).willReturn(Optional.of(bankAccountHolder(USER_ID, "재시도")));
@@ -189,6 +206,23 @@ class TaxiPotServiceTest {
             given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
 
             assertThat(service.findMyCurrent(USER_ID)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("참여 중인 택시팟은 없고 찾는 중인 매칭 요청이 있으면 찾는 중으로 조회된다")
+        void findsMatching() {
+            given(taxiPotParticipantRepository.findCurrentTaxiPot(USER_ID)).willReturn(Optional.empty());
+            given(taxiPotMatchRequestRepository.existsByUserIdAndStatus(USER_ID, TaxiPotMatchRequestStatus.MATCHING))
+                    .willReturn(true);
+
+            assertThat(service.findMyCurrent(USER_ID))
+                    .hasValueSatisfying(current -> {
+                        assertThat(current.isMatching()).isTrue();
+                        assertThat(current.id()).isNull();
+                        assertThat(current.chatRoomId()).isNull();
+                        assertThat(current.currentCount()).isNull();
+                        assertThat(current.capacity()).isEqualTo(4);
+                    });
         }
     }
 

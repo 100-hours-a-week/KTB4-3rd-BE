@@ -97,6 +97,21 @@ class TaxiPotControllerTest {
     }
 
     @Test
+    @DisplayName("찾는 중이면 status MATCHING과 팟 필드 null을 내린다")
+    void currentMatching() throws Exception {
+        given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.of(CurrentTaxiPot.matching()));
+
+        mockMvc.perform(get(CURRENT_TAXI_POT).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
+    }
+
+    @Test
     @DisplayName("진행 중인 택시팟이 없어도 404가 아니라 200과 data null이다")
     void none() throws Exception {
         given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.empty());
@@ -223,6 +238,22 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.id").value(30))
                 .andExpect(jsonPath("$.data.chat_room_id").value(501))
                 .andExpect(jsonPath("$.data.current_count").value(2));
+    }
+
+    @Test
+    @DisplayName("찾는 중으로 접수되면 202와 status MATCHING을 내리고 Location은 없다")
+    void startMatchAccepted() throws Exception {
+        given(taxiPotService.start(any(), any())).willReturn(CurrentTaxiPot.matching());
+
+        mockMvc.perform(startMatch(startBody()).with(member()))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(jsonPath("$.message").value("매칭을 시작했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
     }
 
     @Test
