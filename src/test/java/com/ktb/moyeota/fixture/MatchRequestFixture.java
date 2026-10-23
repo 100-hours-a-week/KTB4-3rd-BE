@@ -1,8 +1,11 @@
 package com.ktb.moyeota.fixture;
 
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.matching.GeoPoint;
 import com.ktb.moyeota.domain.taxipot.matching.MatchRequest;
 import com.ktb.moyeota.domain.taxipot.matching.Place;
+import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
+import com.ktb.moyeota.domain.user.entity.User;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -18,5 +21,13 @@ public final class MatchRequestFixture {
 
     public static MatchRequest matchRequest(long requestId) {
         return new MatchRequest(requestId, requestId, ORIGIN, DEST, DEPARTURE_AT, REQUESTED_AT);
+    }
+
+    public static TaxiPotMatchRequest matchingRequest(
+            User user, String originName, String destName, LocalDateTime departureAt) {
+        return TaxiPotMatchRequest.start(user,
+                originName, new BigDecimal("37.394726"), new BigDecimal("127.111209"),
+                destName, new BigDecimal("37.498086"), new BigDecimal("127.028001"),
+                departureAt, new RegionCell(16_871, 63_599));
     }
 }
