@@ -115,6 +115,23 @@ public class TaxiPotMatchRequest {
                 destName, destLat, destLng, departureAt, region);
     }
 
+    public boolean isMatching() {
+        return status == TaxiPotMatchRequestStatus.MATCHING;
+    }
+
+    public boolean isMatchedTo(Long companionId) {
+        return status == TaxiPotMatchRequestStatus.MATCHED && companion != null
+                && companion.getId().equals(companionId);
+    }
+
+    public void matchTo(Companion companion) {
+        if (!isMatching()) {
+            throw new IllegalStateException("찾는 중이 아닌 요청은 매칭할 수 없다: " + id);
+        }
+        this.status = TaxiPotMatchRequestStatus.MATCHED;
+        this.companion = companion;
+    }
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();
