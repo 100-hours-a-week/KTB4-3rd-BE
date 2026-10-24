@@ -54,6 +54,7 @@ moyeota:
     auto-cancel-sweep-delay: 10m
     matching:
       mode: instant
+      sweep-delay: 30s
       cell-meters: 2000
       radius-meters: 100
       neighbor-limit: 8
