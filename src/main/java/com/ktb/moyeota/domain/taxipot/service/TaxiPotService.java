@@ -9,13 +9,13 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.matching.GeoPoint;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
-import com.ktb.moyeota.domain.taxipot.matching.RegionGrid;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
@@ -33,7 +33,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,14 +43,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
+@EnableConfigurationProperties(TaxiPotMatchingProperties.class)
 public class TaxiPotService {
 
     private static final Duration MAX_DEPARTURE_LEAD_TIME = Duration.ofHours(3);
     private static final int MAX_START_ATTEMPTS = 3;
     private static final Duration AUTO_CANCEL_AFTER_DEPARTURE = Duration.ofHours(12);
-
-    private static final String BATCH_MATCHING = "batch";
-    private static final RegionGrid REGION_GRID = new RegionGrid(2_000);
 
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
@@ -62,9 +60,7 @@ public class TaxiPotService {
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
-
-    @Value("${moyeota.taxi-pot.matching-mode:instant}")
-    private String matchingMode = "instant";
+    private final TaxiPotMatchingProperties matchingProperties;
 
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
@@ -81,7 +77,7 @@ public class TaxiPotService {
 
         for (int attempt = 1; ; attempt++) {
             try {
-                return transactionTemplate.execute(status -> isBatchMatching()
+                return transactionTemplate.execute(status -> matchingProperties.isBatch()
                         ? requestMatching(userId, command, departureAt)
                         : joinOrOpen(userId, command, departureAt));
             } catch (CannotAcquireLockException e) {
@@ -94,7 +90,8 @@ public class TaxiPotService {
 
     private CurrentTaxiPot requestMatching(Long userId, TaxiPotStartCommand command, LocalDateTime departureAt) {
         User user = lockStartableUser(userId);
-        RegionCell region = REGION_GRID.cellOf(GeoPoint.of(command.originLat(), command.originLng()));
+        RegionCell region = matchingProperties.regionGrid()
+                .cellOf(GeoPoint.of(command.originLat(), command.originLng()));
         try {
             taxiPotMatchRequestRepository.saveAndFlush(TaxiPotMatchRequest.start(user,
                     command.originName(), command.originLat(), command.originLng(),
@@ -238,10 +235,6 @@ public class TaxiPotService {
 
     private boolean hasMatchingRequest(Long userId) {
         return taxiPotMatchRequestRepository.existsByUserIdAndStatus(userId, TaxiPotMatchRequestStatus.MATCHING);
-    }
-
-    private boolean isBatchMatching() {
-        return BATCH_MATCHING.equalsIgnoreCase(matchingMode);
     }
 
     private ChatRoom findChatRoom(Companion taxiPot) {

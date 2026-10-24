@@ -26,6 +26,8 @@ import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
+import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties.MatchingMode;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
@@ -88,6 +90,10 @@ class TaxiPotServiceTest {
 
     @Spy
     private Clock clock = Clock.fixed(DEPARTURE_AT.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
+
+    @Spy
+    private TaxiPotMatchingProperties matchingProperties =
+            new TaxiPotMatchingProperties(MatchingMode.INSTANT, 2_000, 100, 8);
 
     @Spy
     private TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));

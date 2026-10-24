@@ -52,7 +52,12 @@ moyeota:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
     auto-cancel-sweep-delay: 10m
-    matching-mode: instant # instant 또는 batch (defalut: instant)
+    matching:
+      mode: instant
+      sweep-delay: 30s
+      cell-meters: 2000
+      radius-meters: 100
+      neighbor-limit: 8
   carpool:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s

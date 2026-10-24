@@ -41,7 +41,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @DataJpaTest
 @Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotBatchStartTest.FixedClock.class})
-@TestPropertySource(properties = "moyeota.taxi-pot.matching-mode=batch")
+@TestPropertySource(properties = "moyeota.taxi-pot.matching.mode=batch")
 class TaxiPotBatchStartTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
