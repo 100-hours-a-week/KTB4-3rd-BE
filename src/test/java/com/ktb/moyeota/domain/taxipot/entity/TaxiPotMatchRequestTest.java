@@ -1,9 +1,12 @@
 package com.ktb.moyeota.domain.taxipot.entity;
 
+import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
 import com.ktb.moyeota.domain.user.entity.User;
 import jakarta.persistence.PersistenceException;
@@ -86,6 +89,30 @@ class TaxiPotMatchRequestTest {
 
         assertThat(matchingUserIdOf(mine)).isEqualTo(requester.getId());
         assertThat(matchingUserIdOf(others)).isEqualTo(other.getId());
+    }
+
+    @Test
+    @DisplayName("찾는 중 요청을 팟에 매칭하면 매칭됨이 되고 팟을 가리키며 중복 검사에서 빠진다")
+    void matchesToTaxiPot() {
+        Companion pot = entityManager.persist(taxiPot(requester, CompanionStatus.RECRUITING));
+        TaxiPotMatchRequest request = entityManager.persistAndFlush(request(requester));
+
+        request.matchTo(pot);
+        entityManager.flush();
+
+        assertThat(request.getStatus()).isEqualTo(TaxiPotMatchRequestStatus.MATCHED);
+        assertThat(request.isMatchedTo(pot.getId())).isTrue();
+        assertThat(matchingUserIdOf(request.getId())).isNull();
+    }
+
+    @Test
+    @DisplayName("찾는 중이 아닌 요청은 팟에 매칭할 수 없다")
+    void rejectsMatchingFinishedRequest() {
+        Companion pot = entityManager.persist(taxiPot(requester, CompanionStatus.RECRUITING));
+        TaxiPotMatchRequest request = entityManager.persistAndFlush(request(requester));
+        request.matchTo(pot);
+
+        assertThatThrownBy(() -> request.matchTo(pot)).isInstanceOf(IllegalStateException.class);
     }
 
     private static TaxiPotMatchRequest request(User user) {
