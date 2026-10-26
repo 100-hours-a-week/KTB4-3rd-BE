@@ -57,6 +57,12 @@ public class TaxiPotController {
         return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id())).body(body);
     }
 
+    @DeleteMapping("/taxi-pots/match-requests/me")
+    public ResponseEntity<Void> cancelMatching(@AuthUser Long userId) {
+        taxiPotService.cancelMatching(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/taxi-pots/{companion_id}/participants/me")
     public ResponseEntity<Void> leave(@AuthUser Long userId, @PathVariable("companion_id") Long taxiPotId) {
         taxiPotService.leave(userId, taxiPotId);

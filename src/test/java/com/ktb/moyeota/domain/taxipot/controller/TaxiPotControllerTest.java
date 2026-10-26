@@ -323,6 +323,29 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.error.code").value("RIDE_IN_PROGRESS"));
     }
 
+    @Test
+    @DisplayName("찾는 중 매칭을 취소하면 204이고 본문이 없다")
+    void cancelMatching() throws Exception {
+        mockMvc.perform(delete("/api/taxi-pots/match-requests/me").with(member()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(taxiPotService).cancelMatching(42L);
+    }
+
+    @ParameterizedTest(name = "{0}이면 {1}")
+    @CsvSource({
+            "MATCH_REQUEST_NOT_FOUND, 404",
+            "MATCH_ALREADY_COMPLETED, 409"})
+    @DisplayName("취소할 찾는 중 매칭이 없거나 이미 묶였으면 그에 맞는 코드로 응답한다")
+    void cancelMatchingRejected(TaxiPotErrorCode errorCode, int status) throws Exception {
+        willThrow(new BusinessException(errorCode)).given(taxiPotService).cancelMatching(42L);
+
+        mockMvc.perform(delete("/api/taxi-pots/match-requests/me").with(member()))
+                .andExpect(status().is(status))
+                .andExpect(jsonPath("$.error.code").value(errorCode.name()));
+    }
+
     private static final Map<String, String> START_VALUES = Map.of(
             "origin_lat", "37.394500",
             "dest_lng", "127.027600",

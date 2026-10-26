@@ -113,6 +113,21 @@ public class TaxiPotService {
         return toCurrentTaxiPot(chatRoom.getCompanion(), chatRoom.getId());
     }
 
+    public void cancelMatching(Long userId) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        Boolean canceled = transactionTemplate.execute(status -> taxiPotMatchRequestRepository
+                .findMatchingIdByUserId(userId)
+                .map(requestId -> taxiPotMatchRequestRepository.cancel(requestId, now) == 1)
+                .orElse(false));
+        if (Boolean.TRUE.equals(canceled)) {
+            return;
+        }
+        if (taxiPotParticipantRepository.existsCurrentTaxiPot(userId)) {
+            throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_COMPLETED);
+        }
+        throw new BusinessException(TaxiPotErrorCode.MATCH_REQUEST_NOT_FOUND);
+    }
+
     @Transactional
     public void leave(Long userId, Long taxiPotId) {
         Companion taxiPot = taxiPotRepository.findTaxiPotForParticipantForUpdate(taxiPotId, userId)
