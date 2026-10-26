@@ -41,6 +41,7 @@ import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Optional;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -93,7 +94,7 @@ class TaxiPotServiceTest {
 
     @Spy
     private TaxiPotMatchingProperties matchingProperties =
-            new TaxiPotMatchingProperties(MatchingMode.INSTANT, 2_000, 100, 8);
+            new TaxiPotMatchingProperties(MatchingMode.INSTANT, 2_000, 100, 8, Duration.ofSeconds(30), null);
 
     @Spy
     private TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));

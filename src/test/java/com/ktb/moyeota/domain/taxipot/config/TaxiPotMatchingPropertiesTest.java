@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.taxipot.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties.MatchingMode;
+import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -30,6 +31,8 @@ class TaxiPotMatchingPropertiesTest {
             assertThat(properties.cellMeters()).isEqualTo(2_000);
             assertThat(properties.radiusMeters()).isEqualTo(100);
             assertThat(properties.neighborLimit()).isEqualTo(8);
+            assertThat(properties.sweepDelay()).isEqualTo(Duration.ofSeconds(30));
+            assertThat(properties.leaseDuration()).isEqualTo(Duration.ofSeconds(90));
         });
     }
 
@@ -62,6 +65,23 @@ class TaxiPotMatchingPropertiesTest {
     @DisplayName("칸 크기가 0 이하이면 서버가 뜨지 않는다")
     void failsOnInvalidCellMeters() {
         runner.withPropertyValues("moyeota.taxi-pot.matching.cell-meters=0")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("담당 기한을 정하지 않으면 주기의 3배를 쓴다")
+    void leaseDefaultsToThreeSweeps() {
+        runner.withPropertyValues("moyeota.taxi-pot.matching.sweep-delay=5s")
+                .run(context -> assertThat(context.getBean(TaxiPotMatchingProperties.class).leaseDuration())
+                        .isEqualTo(Duration.ofSeconds(15)));
+    }
+
+    @Test
+    @DisplayName("담당 기한이 주기의 2배보다 짧으면 서버가 뜨지 않는다")
+    void failsOnLeaseShorterThanTwoSweeps() {
+        runner.withPropertyValues(
+                        "moyeota.taxi-pot.matching.sweep-delay=30s",
+                        "moyeota.taxi-pot.matching.lease-duration=59s")
                 .run(context -> assertThat(context).hasFailed());
     }
 }
