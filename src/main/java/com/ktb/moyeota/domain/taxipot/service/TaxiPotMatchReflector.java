@@ -5,6 +5,8 @@ import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchedEvent;
 import com.ktb.moyeota.domain.taxipot.matching.MatchRequest;
@@ -34,11 +36,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TaxiPotMatchReflector {
 
+    private static final String MATCHED_NOTICE = "택시팟 매칭이 완료됐어요";
+
     private final TaxiPotMatchRequestRepository taxiPotMatchRequestRepository;
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatSystemMessageService chatSystemMessageService;
+    private final NotificationCommandService notificationCommandService;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -128,6 +133,8 @@ public class TaxiPotMatchReflector {
         for (TaxiPotMatchRequest request : requests) {
             request.matchTo(taxiPot);
             chatSystemMessageService.enter(chatRoom, request.getUser());
+            notificationCommandService.createForChatRoom(request.getUser(), NotificationType.MATCHING_COMPLETED,
+                    request.getId(), chatRoom, MATCHED_NOTICE);
         }
         eventPublisher.publishEvent(new TaxiPotMatchedEvent(taxiPot.getId(), chatRoom.getId(),
                 requests.stream().map(request -> request.getUser().getId()).toList()));

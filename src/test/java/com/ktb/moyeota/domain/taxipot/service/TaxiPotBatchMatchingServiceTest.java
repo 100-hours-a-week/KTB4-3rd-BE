@@ -8,6 +8,7 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotRegionLease;
@@ -31,7 +32,8 @@ import org.springframework.context.annotation.Import;
 
 @DataJpaTest
 @Import({TaxiPotBatchMatchingService.class, TaxiPotMatchReflector.class, ChatSystemMessageService.class,
-        RegionLeaseService.class, MatchingServerId.class, TaxiPotBatchMatchingServiceTest.FixedClock.class})
+        RegionLeaseService.class, MatchingServerId.class, NotificationCommandService.class,
+        TaxiPotBatchMatchingServiceTest.FixedClock.class})
 class TaxiPotBatchMatchingServiceTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
