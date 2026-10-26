@@ -23,6 +23,19 @@ public interface TaxiPotMatchRequestRepository extends JpaRepository<TaxiPotMatc
     @Query("select r.companion.id from TaxiPotMatchRequest r where r.id = :id")
     Optional<Long> findCompanionIdById(Long id);
 
+    @Query("select r.id from TaxiPotMatchRequest r where r.matchingUserId = :userId")
+    Optional<Long> findMatchingIdByUserId(Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update TaxiPotMatchRequest r
+               set r.status = com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus.CANCELED,
+                   r.updatedAt = :now
+             where r.id = :id
+               and r.status = com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus.MATCHING
+            """)
+    int cancel(Long id, LocalDateTime now);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update TaxiPotMatchRequest r

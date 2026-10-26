@@ -23,7 +23,11 @@ public enum TaxiPotErrorCode implements ErrorCode {
 
     MATCH_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 매칭이 있어요"),
 
-    MATCH_BUSY(HttpStatus.CONFLICT, "요청이 몰려 매칭하지 못했어요. 잠시 후 다시 시도해주세요");
+    MATCH_BUSY(HttpStatus.CONFLICT, "요청이 몰려 매칭하지 못했어요. 잠시 후 다시 시도해주세요"),
+
+    MATCH_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "찾는 중인 매칭이 없어요"),
+
+    MATCH_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 매칭이 완료됐어요");
 
     private final HttpStatus status;
     private final String message;
