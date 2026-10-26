@@ -31,8 +31,8 @@ class TaxiPotMatchingPropertiesTest {
             assertThat(properties.cellMeters()).isEqualTo(2_000);
             assertThat(properties.radiusMeters()).isEqualTo(100);
             assertThat(properties.neighborLimit()).isEqualTo(8);
-            assertThat(properties.sweepDelay()).isEqualTo(Duration.ofSeconds(30));
-            assertThat(properties.leaseDuration()).isEqualTo(Duration.ofSeconds(90));
+            assertThat(properties.sweepDelay()).isEqualTo(Duration.ofSeconds(5));
+            assertThat(properties.leaseDuration()).isEqualTo(Duration.ofSeconds(15));
         });
     }
 

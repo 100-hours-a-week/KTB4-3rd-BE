@@ -15,7 +15,7 @@ public class TaxiPotBatchMatchingScheduler {
 
     private final TaxiPotBatchMatchingService taxiPotBatchMatchingService;
 
-    @Scheduled(fixedDelayString = "${moyeota.taxi-pot.matching.sweep-delay:30s}")
+    @Scheduled(fixedDelayString = "${moyeota.taxi-pot.matching.sweep-delay:5s}")
     public void sweep() {
         try {
             taxiPotBatchMatchingService.runOnce();
