@@ -73,3 +73,6 @@ moyeota:
     base-url: ${AI_BASE_URL:http://localhost:8000}
   cors:
     allowed-origins: ${FRONT_URL},${EXTRA_FRONT_ORIGINS:}
+  notification:
+    push:
+      enabled: ${MOYEOTA_NOTIFICATION_PUSH_ENABLED:false}
