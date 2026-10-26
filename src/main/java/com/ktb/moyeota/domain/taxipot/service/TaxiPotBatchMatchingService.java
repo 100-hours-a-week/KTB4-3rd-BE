@@ -40,6 +40,7 @@ public class TaxiPotBatchMatchingService {
 
     private final TaxiPotMatchRequestRepository taxiPotMatchRequestRepository;
     private final TaxiPotMatchReflector reflector;
+    private final RegionLeaseService regionLeaseService;
     private final TaxiPotMatchingProperties matchingProperties;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -73,9 +74,9 @@ public class TaxiPotBatchMatchingService {
     }
 
     private List<RegionCell> findTargetRegions() {
-        return taxiPotMatchRequestRepository.findMatchingRegions().stream()
+        return regionLeaseService.claim(taxiPotMatchRequestRepository.findMatchingRegions().stream()
                 .map(MatchingRegion::toCell)
-                .toList();
+                .toList());
     }
 
     private List<MatchBatch> loadBatches(RegionCell region, LocalDateTime cutoff) {

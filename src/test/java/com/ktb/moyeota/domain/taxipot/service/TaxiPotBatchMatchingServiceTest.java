@@ -10,6 +10,7 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotRegionLease;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotBatchMatchingService.BatchMatchingSummary;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -30,7 +31,7 @@ import org.springframework.context.annotation.Import;
 
 @DataJpaTest
 @Import({TaxiPotBatchMatchingService.class, TaxiPotMatchReflector.class, ChatSystemMessageService.class,
-        TaxiPotBatchMatchingServiceTest.FixedClock.class})
+        RegionLeaseService.class, MatchingServerId.class, TaxiPotBatchMatchingServiceTest.FixedClock.class})
 class TaxiPotBatchMatchingServiceTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
@@ -145,6 +146,24 @@ class TaxiPotBatchMatchingServiceTest {
         assertThat(second.regions()).isZero();
         assertThat(second.applied()).isZero();
         assertThat(companionCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("다른 서버가 담당 중인 칸은 건너뛰고 내가 잡은 칸만 묶는다")
+    void skipsRegionOwnedByOtherServer() {
+        entityManager.persistAndFlush(TaxiPotRegionLease.claim(GANGNAM, "다른서버", NOW.plusMinutes(1), NOW));
+        TaxiPotMatchRequest gangnam = request(GANGNAM, PANGYO_STATION, DEPARTURE_AT);
+        request(GANGNAM, PANGYO_STATION, DEPARTURE_AT);
+        TaxiPotMatchRequest pangyo = request(PANGYO, PANGYO_STATION, DEPARTURE_AT);
+        request(PANGYO, PANGYO_STATION, DEPARTURE_AT);
+
+        BatchMatchingSummary summary = service.runOnce();
+
+        assertThat(summary.regions()).isEqualTo(1);
+        assertThat(summary.applied()).isEqualTo(1);
+        List<TaxiPotMatchRequest> reloaded = reload(gangnam, pangyo);
+        assertThat(reloaded.get(0).getStatus()).isEqualTo(TaxiPotMatchRequestStatus.MATCHING);
+        assertThat(reloaded.get(1).getStatus()).isEqualTo(TaxiPotMatchRequestStatus.MATCHED);
     }
 
     private TaxiPotMatchRequest request(RegionCell region, Spot origin, LocalDateTime departureAt) {
