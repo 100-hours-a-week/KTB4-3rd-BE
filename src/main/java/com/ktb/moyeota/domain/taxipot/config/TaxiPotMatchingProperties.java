@@ -11,7 +11,7 @@ public record TaxiPotMatchingProperties(
         @DefaultValue("2000") int cellMeters,
         @DefaultValue("100") int radiusMeters,
         @DefaultValue("8") int neighborLimit,
-        @DefaultValue("30s") Duration sweepDelay,
+        @DefaultValue("5s") Duration sweepDelay,
         Duration leaseDuration
 ) {
 

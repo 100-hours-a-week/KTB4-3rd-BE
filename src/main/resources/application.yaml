@@ -53,8 +53,8 @@ moyeota:
     ride-end-sweep-delay: 10s
     auto-cancel-sweep-delay: 10m
     matching:
-      mode: instant
-      sweep-delay: 30s
+      mode: batch
+      sweep-delay: 5s
       cell-meters: 2000
       radius-meters: 100
       neighbor-limit: 8
