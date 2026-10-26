@@ -11,6 +11,9 @@ import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.notification.entity.Notification;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.matching.MatchRequest;
@@ -36,7 +39,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @RecordApplicationEvents
-@Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, TaxiPotMatchReflectorTestSupport.FixedClock.class})
+@Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, NotificationCommandService.class,
+        TaxiPotMatchReflectorTestSupport.FixedClock.class})
 abstract class TaxiPotMatchReflectorTestSupport {
 
     protected static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
@@ -143,6 +147,14 @@ abstract class TaxiPotMatchReflectorTestSupport {
                 .getResultList().stream()
                 .map(m -> m.getSender().getId())
                 .toList();
+    }
+
+    protected List<Notification> matchedNotifications() {
+        entityManager.flush();
+        return entityManager.getEntityManager()
+                .createQuery("SELECT n FROM Notification n WHERE n.type = :type ORDER BY n.id", Notification.class)
+                .setParameter("type", NotificationType.MATCHING_COMPLETED)
+                .getResultList();
     }
 
     @TestConfiguration

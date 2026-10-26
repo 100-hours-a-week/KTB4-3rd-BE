@@ -87,6 +87,20 @@ class TaxiPotMatchReflectorJoinTest extends TaxiPotMatchReflectorTestSupport {
     }
 
     @Test
+    @DisplayName("합류를 반영하면 새로 들어온 사람에게만 매칭 완료 알림이 생긴다")
+    void notifiesOnlyJoiners() {
+        List<TaxiPotMatchRequest> founders = requests(2);
+        reflector.apply(openResult(founders));
+        List<TaxiPotMatchRequest> joiners = requests(1);
+
+        reflector.apply(joinResult(founders, joiners));
+
+        assertThat(matchedNotifications()).extracting(notification -> notification.getRecipient().getId())
+                .containsExactly(founders.get(0).getUser().getId(), founders.get(1).getUser().getId(),
+                        joiners.getFirst().getUser().getId());
+    }
+
+    @Test
     @DisplayName("반영하면 팟·채팅방·묶인 사용자를 담은 매칭 완료 이벤트를 낸다")
     void publishesMatchedEvent() {
         List<TaxiPotMatchRequest> founders = requests(2);

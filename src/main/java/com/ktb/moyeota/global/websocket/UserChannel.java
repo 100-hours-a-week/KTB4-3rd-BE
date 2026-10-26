@@ -2,7 +2,8 @@ package com.ktb.moyeota.global.websocket;
 
 public enum UserChannel {
 
-    SETTLEMENT("/sub/settlement");
+    SETTLEMENT("/sub/settlement"),
+    TAXI_POT("/sub/taxi-pot");
 
     private final String destination;
 
