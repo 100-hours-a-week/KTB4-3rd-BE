@@ -16,6 +16,8 @@ spring:
       connect-timeout: 1s
       repositories:
         enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   task:
     execution:
       mode: force
