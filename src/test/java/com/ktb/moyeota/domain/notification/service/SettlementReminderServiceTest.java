@@ -40,6 +40,7 @@ class SettlementReminderServiceTest {
 
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
+    private static final LocalDateTime ROUND = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
     private static final LocalDateTime PREVIOUS_ROUND = LocalDateTime.of(2026, 10, 28, 9, 0, 0);
 
     @TestConfiguration
@@ -87,7 +88,7 @@ class SettlementReminderServiceTest {
     @Test
     @DisplayName("처음 보낼 때 방장과 동승자에게 역할별 문구로 알림과 PENDING 발송 작업을 만든다")
     void createsForHostAndRider() {
-        reminderService.remind(settlement.getId());
+        reminderService.remind(settlement.getId(), ROUND);
         entityManager.flush();
         entityManager.clear();
 
@@ -108,7 +109,7 @@ class SettlementReminderServiceTest {
     void reusesExistingRows(PushJobStatus finished) {
         Notification previous = previousReminder(host, finished);
 
-        reminderService.remind(settlement.getId());
+        reminderService.remind(settlement.getId(), ROUND);
         entityManager.flush();
         entityManager.clear();
 
@@ -129,7 +130,7 @@ class SettlementReminderServiceTest {
     void keepsInFlightJob(PushJobStatus inFlight) {
         previousReminder(host, inFlight);
 
-        reminderService.remind(settlement.getId());
+        reminderService.remind(settlement.getId(), ROUND);
         entityManager.flush();
         entityManager.clear();
 
@@ -140,6 +141,27 @@ class SettlementReminderServiceTest {
     }
 
     @Test
+    @DisplayName("다른 서버가 이번 회차를 이미 처리했으면 건너뛴다")
+    void skipsSameRound() {
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+        NotificationPushJob first = jobOf(reminderOf(host));
+        ReflectionTestUtils.setField(first, "status", PushJobStatus.SENT);
+        entityManager.merge(first);
+        entityManager.flush();
+        entityManager.clear();
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(notificationRepository.findAll()).hasSize(2);
+        assertThat(jobRepository.findAll()).hasSize(2);
+        assertThat(jobOf(reminderOf(host)).getStatus()).isEqualTo(PushJobStatus.SENT);
+    }
+
+    @Test
     @DisplayName("정산이 완료됐으면 보내지 않는다")
     void skipsCompletedSettlement() {
         Settlement completed = entityManager.find(Settlement.class, settlement.getId());
@@ -147,7 +169,7 @@ class SettlementReminderServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        reminderService.remind(settlement.getId());
+        reminderService.remind(settlement.getId(), ROUND);
         entityManager.flush();
 
         assertThat(notificationRepository.findAll()).isEmpty();

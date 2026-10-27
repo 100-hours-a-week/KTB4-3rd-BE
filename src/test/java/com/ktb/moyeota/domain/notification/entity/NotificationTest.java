@@ -46,6 +46,16 @@ class NotificationTest {
     }
 
     @Test
+    @DisplayName("isRemindedSince: 회차 시각 이후에 보냈으면 true")
+    void isRemindedSince() {
+        Notification notification = Notification.createSettlementReminder(
+                mock(User.class), 77L, mock(ChatRoom.class), "문구", LATER.plusSeconds(1));
+
+        assertThat(notification.isRemindedSince(LATER)).isTrue();
+        assertThat(notification.isRemindedSince(LATER.plusSeconds(2))).isFalse();
+    }
+
+    @Test
     @DisplayName("remind: 리마인드 알림이 아니면 다시 보낼 수 없다")
     void remindOnlyReminder() {
         Notification notification = Notification.createForChatRoom(

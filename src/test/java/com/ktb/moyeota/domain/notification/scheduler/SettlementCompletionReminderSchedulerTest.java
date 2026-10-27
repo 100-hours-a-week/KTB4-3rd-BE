@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.notification.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -9,36 +10,43 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.notification.service.SettlementReminderService;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class SettlementCompletionReminderSchedulerTest {
 
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final LocalDateTime FIRED_AT = LocalDateTime.of(2026, 10, 28, 21, 0, 1, 300_000_000);
+    private static final LocalDateTime ROUND = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
+
     private final SettlementReminderService reminderService = mock(SettlementReminderService.class);
-    private final SettlementCompletionReminderScheduler scheduler =
-            new SettlementCompletionReminderScheduler(reminderService);
+    private final SettlementCompletionReminderScheduler scheduler = new SettlementCompletionReminderScheduler(
+            reminderService, Clock.fixed(FIRED_AT.atZone(SEOUL).toInstant(), SEOUL));
 
     @Test
-    @DisplayName("REQUESTED로 남은 정산마다 리마인드를 보낸다")
+    @DisplayName("REQUESTED로 남은 정산마다 실행 시각을 정시로 자른 회차로 리마인드를 보낸다")
     void remindsEachSettlement() {
         given(reminderService.findSettlementIdsToRemind()).willReturn(List.of(1L, 2L));
 
         scheduler.remind();
 
-        verify(reminderService).remind(1L);
-        verify(reminderService).remind(2L);
+        verify(reminderService).remind(1L, ROUND);
+        verify(reminderService).remind(2L, ROUND);
     }
 
     @Test
     @DisplayName("한 정산이 실패해도 나머지 정산은 계속 보낸다")
     void continuesAfterFailure() {
         given(reminderService.findSettlementIdsToRemind()).willReturn(List.of(1L, 2L));
-        willThrow(new IllegalStateException("fail")).given(reminderService).remind(1L);
+        willThrow(new IllegalStateException("fail")).given(reminderService).remind(1L, ROUND);
 
         assertThatCode(scheduler::remind).doesNotThrowAnyException();
 
-        verify(reminderService).remind(2L);
+        verify(reminderService).remind(2L, ROUND);
     }
 
     @Test
@@ -48,6 +56,6 @@ class SettlementCompletionReminderSchedulerTest {
 
         assertThatCode(scheduler::remind).doesNotThrowAnyException();
 
-        verify(reminderService, never()).remind(anyLong());
+        verify(reminderService, never()).remind(anyLong(), any());
     }
 }

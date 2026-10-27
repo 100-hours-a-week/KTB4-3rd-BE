@@ -112,6 +112,10 @@ public class Notification {
         this.readAt = null;
     }
 
+    public boolean isRemindedSince(LocalDateTime round) {
+        return !createdAt.isBefore(round);
+    }
+
     @PrePersist
     private void prePersist() {
         if (this.createdAt == null) {
