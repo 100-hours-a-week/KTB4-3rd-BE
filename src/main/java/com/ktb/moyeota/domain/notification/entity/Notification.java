@@ -63,7 +63,7 @@ public class Notification {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     private Notification(User recipient, NotificationType type, Long eventId,
@@ -95,8 +95,27 @@ public class Notification {
         return new Notification(recipient, NotificationType.COMMENT_CREATED, commentId, null, targetPost, content);
     }
 
+    public static Notification createSettlementReminder(User recipient, Long settlementId, ChatRoom targetChatRoom,
+                                                        String content, LocalDateTime now) {
+        Notification notification = createForChatRoom(recipient, NotificationType.SETTLEMENT_COMPLETION_REMINDER,
+                settlementId, targetChatRoom, content);
+        notification.createdAt = now;
+        return notification;
+    }
+
+    public void remind(String content, LocalDateTime now) {
+        if (type != NotificationType.SETTLEMENT_COMPLETION_REMINDER) {
+            throw new IllegalStateException("정산 완료 리마인드 알림만 다시 보낼 수 있습니다. type=" + type);
+        }
+        this.content = content;
+        this.createdAt = now;
+        this.readAt = null;
+    }
+
     @PrePersist
     private void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 }

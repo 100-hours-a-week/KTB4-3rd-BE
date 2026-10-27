@@ -117,6 +117,45 @@ class NotificationPushJobTest {
         }
     }
 
+    @Nested
+    @DisplayName("reopen")
+    class Reopen {
+
+        @ParameterizedTest
+        @EnumSource(value = PushJobStatus.class, names = {"SENT", "FAILED", "SKIPPED"})
+        @DisplayName("끝난 작업은 시도 0회, 바로 보낼 수 있는 PENDING으로 되돌린다")
+        void reopensFinished(PushJobStatus status) {
+            NotificationPushJob job = withStatus(status);
+            ReflectionTestUtils.setField(job, "attempts", 3);
+            ReflectionTestUtils.setField(job, "lastError", "UNAVAILABLE");
+            ReflectionTestUtils.setField(job, "sentAt", NOW);
+
+            job.reopen(LATER);
+
+            assertThat(job.getStatus()).isEqualTo(PushJobStatus.PENDING);
+            assertThat(job.getAttempts()).isZero();
+            assertThat(job.getNextAttemptAt()).isEqualTo(LATER);
+            assertThat(job.getLastError()).isNull();
+            assertThat(job.getSentAt()).isNull();
+            assertThat(job.getUpdatedAt()).isEqualTo(LATER);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = PushJobStatus.class, names = {"PENDING", "SENDING"})
+        @DisplayName("아직 보내기 전이거나 보내는 중인 작업은 그대로 둔다")
+        void keepsInFlight(PushJobStatus status) {
+            NotificationPushJob job = withStatus(status);
+            ReflectionTestUtils.setField(job, "attempts", 1);
+
+            job.reopen(LATER);
+
+            assertThat(job.getStatus()).isEqualTo(status);
+            assertThat(job.getAttempts()).isEqualTo(1);
+            assertThat(job.getNextAttemptAt()).isEqualTo(NOW);
+            assertThat(job.getUpdatedAt()).isEqualTo(NOW);
+        }
+    }
+
     @Test
     @DisplayName("hasAttemptsLeft: 시도 횟수가 최대 횟수보다 적을 때만 true")
     void hasAttemptsLeft() {

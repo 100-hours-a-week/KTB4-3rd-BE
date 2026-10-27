@@ -28,6 +28,8 @@ public interface NotificationPushJobRepository extends JpaRepository<Notificatio
             """)
     Optional<NotificationPushJob> findWithNotificationById(@Param("id") Long id);
 
+    Optional<NotificationPushJob> findByNotificationId(Long notificationId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE NotificationPushJob j
