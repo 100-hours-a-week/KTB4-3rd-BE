@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnServerRole({ServerRole.REST, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.REST, ServerRole.WORKER, ServerRole.ALL})
 @RequiredArgsConstructor
 public class LocalChatRoomParticipantChecker implements ChatRoomParticipantChecker {
 
