@@ -22,6 +22,7 @@ class ServerRoleTest {
     void parsesServiceName() {
         assertThat(ServerRole.from("rest")).isEqualTo(ServerRole.REST);
         assertThat(ServerRole.from("websocket")).isEqualTo(ServerRole.WEBSOCKET);
+        assertThat(ServerRole.from("worker")).isEqualTo(ServerRole.WORKER);
         assertThat(ServerRole.from("all")).isEqualTo(ServerRole.ALL);
     }
 
@@ -37,6 +38,7 @@ class ServerRoleTest {
     void acceptsWebSocketOnlyForWebSocketAndAll() {
         assertThat(ServerRole.REST.acceptsWebSocket()).isFalse();
         assertThat(ServerRole.WEBSOCKET.acceptsWebSocket()).isTrue();
+        assertThat(ServerRole.WORKER.acceptsWebSocket()).isFalse();
         assertThat(ServerRole.ALL.acceptsWebSocket()).isTrue();
     }
 }

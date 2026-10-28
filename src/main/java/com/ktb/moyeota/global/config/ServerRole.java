@@ -4,6 +4,7 @@ public enum ServerRole {
 
     REST,
     WEBSOCKET,
+    WORKER,
     ALL;
 
     public static final String ENV_NAME = "APP_ROLE";
@@ -15,8 +16,9 @@ public enum ServerRole {
         return switch (value.trim()) {
             case "rest" -> REST;
             case "websocket" -> WEBSOCKET;
+            case "worker" -> WORKER;
             case "all" -> ALL;
-            default -> throw new IllegalStateException("APP_ROLE은 rest, websocket, all 중 하나여야 합니다.");
+            default -> throw new IllegalStateException("APP_ROLE은 rest, websocket, worker, all 중 하나여야 합니다.");
         };
     }
 
