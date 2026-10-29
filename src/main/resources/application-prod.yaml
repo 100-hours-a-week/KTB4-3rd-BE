@@ -53,6 +53,9 @@ management:
           service.name: ${APP_ROLE:rest}
           service.namespace: ${OTLP_SERVICE_NAMESPACE:}
           deployment.environment: ${STAGE:dev}
+          # pull 라벨과 맞춘다 (Prometheus가 stage·service 라벨로 승격한다).
+          stage: ${STAGE:dev}
+          service: ${APP_ROLE:rest}
           service.instance.id: ${ECS_TASK_ID:${HOSTNAME:unknown}}
 
 logging:
