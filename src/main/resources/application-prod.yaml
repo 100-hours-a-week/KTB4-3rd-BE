@@ -41,6 +41,19 @@ management:
         http.server.requests: 5ms
       maximum-expected-value:
         http.server.requests: 10s
+  otlp:
+    metrics:
+      export:
+        # Micrometer OTLP is enabled by default once the registry is on the classpath.
+        # Keep it off unless the deployment sets OTLP_METRICS_ENABLED=true.
+        enabled: ${OTLP_METRICS_ENABLED:false}
+        url: ${OTLP_METRICS_URL:http://localhost:4318/v1/metrics}
+        step: 30s
+        resource-attributes:
+          service.name: ${APP_ROLE:rest}
+          service.namespace: ${OTLP_SERVICE_NAMESPACE:}
+          deployment.environment: ${STAGE:dev}
+          service.instance.id: ${ECS_TASK_ID:${HOSTNAME:unknown}}
 
 logging:
   structured:
