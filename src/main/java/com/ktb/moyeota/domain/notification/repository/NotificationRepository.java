@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.notification.repository;
 
 import com.ktb.moyeota.domain.notification.entity.Notification;
+import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +12,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
+
+    Optional<Notification> findByRecipientIdAndTypeAndEventId(Long recipientId, NotificationType type, Long eventId);
 
     @Query("""
             SELECT n
