@@ -43,12 +43,17 @@ public record TaxiPotMatchingProperties(
         return mode == MatchingMode.BATCH;
     }
 
+    public boolean queuesRequests() {
+        return mode != MatchingMode.INSTANT;
+    }
+
     public RegionGrid regionGrid() {
         return new RegionGrid(cellMeters);
     }
 
     public enum MatchingMode {
         INSTANT,
-        BATCH
+        BATCH,
+        KAFKA
     }
 }
