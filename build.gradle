@@ -23,6 +23,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
     implementation 'io.micrometer:micrometer-registry-otlp'
+    // Spring Boot 4의 OTLP 자동 구성(OtlpMetricsExportAutoConfiguration)은 이 모듈의 클래스가 있어야 켜진다.
+    // starter-opentelemetry 대신 모듈만 넣어 트레이싱 브리지와 OTLP 트레이스 exporter는 붙지 않게 한다 (트레이스는 Sentry).
+    implementation 'org.springframework.boot:spring-boot-opentelemetry'
     implementation 'org.springframework.boot:spring-boot-starter-json'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.springframework.boot:spring-boot-starter-web'
