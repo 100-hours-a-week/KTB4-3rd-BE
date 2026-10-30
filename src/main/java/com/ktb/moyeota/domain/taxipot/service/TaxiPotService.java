@@ -77,7 +77,7 @@ public class TaxiPotService {
 
         for (int attempt = 1; ; attempt++) {
             try {
-                return transactionTemplate.execute(status -> matchingProperties.isBatch()
+                return transactionTemplate.execute(status -> matchingProperties.queuesRequests()
                         ? requestMatching(userId, command, departureAt)
                         : joinOrOpen(userId, command, departureAt));
             } catch (CannotAcquireLockException e) {

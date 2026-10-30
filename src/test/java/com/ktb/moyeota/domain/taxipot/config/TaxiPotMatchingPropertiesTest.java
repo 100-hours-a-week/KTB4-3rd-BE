@@ -28,6 +28,7 @@ class TaxiPotMatchingPropertiesTest {
 
             assertThat(properties.mode()).isEqualTo(MatchingMode.INSTANT);
             assertThat(properties.isBatch()).isFalse();
+            assertThat(properties.queuesRequests()).isFalse();
             assertThat(properties.cellMeters()).isEqualTo(2_000);
             assertThat(properties.radiusMeters()).isEqualTo(100);
             assertThat(properties.neighborLimit()).isEqualTo(8);
@@ -51,6 +52,19 @@ class TaxiPotMatchingPropertiesTest {
                     assertThat(properties.cellMeters()).isEqualTo(1_000);
                     assertThat(properties.radiusMeters()).isEqualTo(50);
                     assertThat(properties.neighborLimit()).isEqualTo(4);
+                });
+    }
+
+    @Test
+    @DisplayName("kafka 방식도 요청을 쌓지만 RDB 묶음 매칭은 아니다")
+    void kafkaQueuesRequests() {
+        runner.withPropertyValues("moyeota.taxi-pot.matching.mode=kafka")
+                .run(context -> {
+                    TaxiPotMatchingProperties properties = context.getBean(TaxiPotMatchingProperties.class);
+
+                    assertThat(properties.mode()).isEqualTo(MatchingMode.KAFKA);
+                    assertThat(properties.queuesRequests()).isTrue();
+                    assertThat(properties.isBatch()).isFalse();
                 });
     }
 
