@@ -49,14 +49,16 @@ management:
         enabled: ${OTLP_METRICS_ENABLED:false}
         url: ${OTLP_METRICS_URL:http://localhost:4318/v1/metrics}
         step: 30s
-        resource-attributes:
-          service.name: ${APP_ROLE:rest}
-          service.namespace: ${OTLP_SERVICE_NAMESPACE:}
-          deployment.environment: ${STAGE:dev}
-          # pull 라벨과 맞춘다 (Prometheus가 stage·service 라벨로 승격한다).
-          stage: ${STAGE:dev}
-          service: ${APP_ROLE:rest}
-          service.instance.id: ${ECS_TASK_ID:${HOSTNAME:unknown}}
+  # OTLP 리소스 속성은 Boot 4의 OpenTelemetry 설정으로 준다 (management.otlp.metrics.export.resource-attributes는 Boot 4.1.1에 없어서 무시된다).
+  # stage·service는 pull 라벨과 맞춘다 (Prometheus가 stage·service 라벨로 승격한다).
+  opentelemetry:
+    resource-attributes:
+      service.name: ${APP_ROLE:rest}
+      service.namespace: ${OTLP_SERVICE_NAMESPACE:}
+      deployment.environment: ${STAGE:dev}
+      stage: ${STAGE:dev}
+      service: ${APP_ROLE:rest}
+      service.instance.id: ${ECS_TASK_ID:${HOSTNAME:unknown}}
 
 logging:
   structured:
