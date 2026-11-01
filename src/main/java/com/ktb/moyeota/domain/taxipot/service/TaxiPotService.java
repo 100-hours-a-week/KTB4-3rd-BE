@@ -13,6 +13,9 @@ import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotLeftEvent;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchCanceledEvent;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchRequestedEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.matching.GeoPoint;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
@@ -93,9 +96,10 @@ public class TaxiPotService {
         RegionCell region = matchingProperties.regionGrid()
                 .cellOf(GeoPoint.of(command.originLat(), command.originLng()));
         try {
-            taxiPotMatchRequestRepository.saveAndFlush(TaxiPotMatchRequest.start(user,
+            TaxiPotMatchRequest request = taxiPotMatchRequestRepository.saveAndFlush(TaxiPotMatchRequest.start(user,
                     command.originName(), command.originLat(), command.originLng(),
                     command.destName(), command.destLat(), command.destLng(), departureAt, region));
+            eventPublisher.publishEvent(new TaxiPotMatchRequestedEvent(request.getId()));
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
@@ -117,7 +121,7 @@ public class TaxiPotService {
         LocalDateTime now = LocalDateTime.now(clock);
         Boolean canceled = transactionTemplate.execute(status -> taxiPotMatchRequestRepository
                 .findMatchingIdByUserId(userId)
-                .map(requestId -> taxiPotMatchRequestRepository.cancel(requestId, now) == 1)
+                .map(requestId -> cancelRequest(requestId, now))
                 .orElse(false));
         if (Boolean.TRUE.equals(canceled)) {
             return;
@@ -142,6 +146,7 @@ public class TaxiPotService {
         if (leaver.isCompleted()) {
             return;
         }
+        eventPublisher.publishEvent(new TaxiPotLeftEvent(taxiPotId, userId));
         ChatRoom chatRoom = findChatRoom(taxiPot);
         chatSystemMessageService.leave(chatRoom, leaver.getUser());
         if (taxiPot.getStatus() == CompanionStatus.CANCELED) {
@@ -210,6 +215,14 @@ public class TaxiPotService {
     @Transactional
     public void estimateArrival(Long taxiPotId, LocalDateTime etaAt) {
         taxiPotRepository.findById(taxiPotId).ifPresent(taxiPot -> taxiPot.estimateArrival(etaAt));
+    }
+
+    private boolean cancelRequest(Long requestId, LocalDateTime now) {
+        if (taxiPotMatchRequestRepository.cancel(requestId, now) != 1) {
+            return false;
+        }
+        eventPublisher.publishEvent(new TaxiPotMatchCanceledEvent(requestId));
+        return true;
     }
 
     private void startRide(Companion taxiPot) {
