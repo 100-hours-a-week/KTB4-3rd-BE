@@ -145,6 +145,21 @@ class RegionMatchingProcessorTest {
     }
 
     @Test
+    @DisplayName("같은 요청이 다시 오거나 취소가 요청보다 먼저 와도 취소한 요청은 묶이지 않는다")
+    void skipsCanceledEvenIfRequestComesAgain() {
+        requested(PANGYO, request(101, 0), request(102, 0), request(104, 0));
+        send(PANGYO, MatchingMessages.CANCELED, new MatchCanceledData(102));
+        requested(PANGYO, request(102, 0));
+        send(PANGYO, MatchingMessages.CANCELED, new MatchCanceledData(105));
+        requested(PANGYO, request(105, 0), request(101, 0));
+
+        sweep();
+
+        assertThat(decisions.readValue().data().resultId()).isEqualTo("101,104");
+        assertThat(decisions.isEmpty()).isTrue();
+    }
+
+    @Test
     @DisplayName("좌표가 같아도 다른 칸의 요청과는 섞이지 않는다")
     void keepsRegionsApart() {
         requested(PANGYO, request(101, 0));
