@@ -16,6 +16,12 @@ public interface TaxiPotMatchRequestRepository extends JpaRepository<TaxiPotMatc
 
     boolean existsByUserIdAndStatus(Long userId, TaxiPotMatchRequestStatus status);
 
+    Optional<TaxiPotMatchRequest> findFirstByCompanionIdAndUserIdAndStatusOrderByIdDesc(
+            Long companionId, Long userId, TaxiPotMatchRequestStatus status);
+
+    List<TaxiPotMatchRequest> findAllByCompanionIdAndStatusOrderById(
+            Long companionId, TaxiPotMatchRequestStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from TaxiPotMatchRequest r where r.id in :ids order by r.id")
     List<TaxiPotMatchRequest> findAllByIdInForUpdate(Collection<Long> ids);
