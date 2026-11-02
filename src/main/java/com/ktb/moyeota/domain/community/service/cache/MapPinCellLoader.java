@@ -41,7 +41,7 @@ public class MapPinCellLoader {
             CellPins pins = cachedOrQueried(cell);
             mine.complete(pins);
             return pins;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | Error e) {
             mine.completeExceptionally(e);
             throw e;
         } finally {
@@ -87,6 +87,9 @@ public class MapPinCellLoader {
             return running.join();
         } catch (CompletionException e) {
             if (e.getCause() instanceof RuntimeException cause) {
+                throw cause;
+            }
+            if (e.getCause() instanceof Error cause) {
                 throw cause;
             }
             throw e;

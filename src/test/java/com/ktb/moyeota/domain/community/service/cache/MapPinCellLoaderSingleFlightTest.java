@@ -153,6 +153,26 @@ class MapPinCellLoaderSingleFlightTest {
     }
 
     @Test
+    @DisplayName("먼저 읽던 요청이 Error 로 죽어도 기다리던 요청은 같은 Error 를 받고 끝난다")
+    void errorIsSharedWithWaitingRequests() throws Exception {
+        given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .willAnswer(invocation -> {
+                    dbQueries.incrementAndGet();
+                    releaseQuery.await(5, TimeUnit.SECONDS);
+                    throw new StackOverflowError("DB 조회 중 Error");
+                });
+
+        List<Future<CellPins>> results = loadConcurrently(GANGNAM, CONCURRENT_REQUESTS);
+        releaseQuery.countDown();
+
+        for (Future<CellPins> result : results) {
+            assertThatThrownBy(() -> result.get(5, TimeUnit.SECONDS))
+                    .hasCauseInstanceOf(StackOverflowError.class);
+        }
+        assertThat(dbQueries).hasValue(1);
+    }
+
+    @Test
     @DisplayName("먼저 읽던 요청이 끝난 뒤 들어온 요청은 Redis에 써진 값을 받아 DB에 가지 않는다")
     void lateRequestReadsWrittenCell() {
         given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
