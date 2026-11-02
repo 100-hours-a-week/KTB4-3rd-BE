@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostCreateRequest;
 import com.ktb.moyeota.domain.community.dto.CommunityPostCreateResponse;
 import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
+import com.ktb.moyeota.domain.community.event.CommunityPostCreatedEvent;
 import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
@@ -37,6 +38,7 @@ public class CommunityPostService {
                 author, request.title(), request.content(), request.lat(), request.lng());
         communityPostRepository.save(post);
         eventPublisher.publishEvent(new MapPinChangedEvent(post.getLat(), post.getLng()));
+        eventPublisher.publishEvent(new CommunityPostCreatedEvent(post.getId()));
 
         return new CommunityPostCreateResponse(post.getId());
     }
