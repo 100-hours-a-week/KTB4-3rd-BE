@@ -15,6 +15,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityCommentItem;
 import com.ktb.moyeota.domain.community.dto.CommunityCommentListResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityComment;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
+import com.ktb.moyeota.domain.community.event.CommunityCommentCreatedEvent;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityCommentRepository;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +61,9 @@ class CommunityCommentServiceTest {
     @Mock
     private NotificationCommandService notificationCommandService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private CommunityCommentService service;
 
     @BeforeEach
@@ -66,7 +71,7 @@ class CommunityCommentServiceTest {
         service = new CommunityCommentService(communityCommentRepository, communityPostRepository, entityManager,
                 new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                notificationCommandService);
+                notificationCommandService, eventPublisher);
     }
 
     private User activeUser() {
@@ -120,6 +125,19 @@ class CommunityCommentServiceTest {
         }
 
         @Test
+        @DisplayName("저장하면 댓글 작성 이벤트를 발행한다")
+        void publishesCommentCreatedEvent() {
+            CommunityPost post = activePost();
+            given(post.getAuthor()).willReturn(userWithId(2L));
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+            given(communityPostRepository.findById(POST_ID)).willReturn(Optional.of(post));
+
+            service.create(USER_ID, POST_ID, request);
+
+            verify(eventPublisher).publishEvent(any(CommunityCommentCreatedEvent.class));
+        }
+
+        @Test
         @DisplayName("다른 사람 게시글에 댓글을 달면 게시글 작성자에게 댓글 알림을 만든다")
         void notifiesPostAuthor() {
             CommunityPost post = activePost();
@@ -158,6 +176,7 @@ class CommunityCommentServiceTest {
                     .isEqualTo(CommonErrorCode.UNAUTHORIZED);
 
             verify(communityCommentRepository, never()).save(any());
+            verify(eventPublisher, never()).publishEvent(any(Object.class));
         }
 
         @Test
