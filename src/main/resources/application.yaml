@@ -8,6 +8,8 @@ spring:
     property-naming-strategy: SNAKE_CASE
   jpa:
     open-in-view: false
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/moyeota}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
