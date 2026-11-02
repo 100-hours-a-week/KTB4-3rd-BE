@@ -16,6 +16,8 @@ import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.community.service.cache.CellPins;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
+import com.ktb.moyeota.domain.community.service.cache.MapPinMetrics;
+import com.ktb.moyeota.domain.community.service.cache.ViewportFallbackReason;
 import com.ktb.moyeota.domain.community.service.grid.GridCell;
 import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection;
@@ -54,6 +56,7 @@ public class HomeService {
     private final MapGrid mapGrid;
     private final MapPinCellCache mapPinCellCache;
     private final MapPinCellLoader mapPinCellLoader;
+    private final MapPinMetrics mapPinMetrics;
 
     public MapPinSearchResponse searchMapPins(MapPinSearchRequest request) {
         validateViewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
@@ -62,6 +65,7 @@ public class HomeService {
 
         Optional<Map<GridCell, CellPins>> cached = mapPinCellCache.readCells(cells);
         if (cached.isEmpty()) {
+            mapPinMetrics.countViewportFallback(ViewportFallbackReason.CACHE_UNAVAILABLE);
             return searchViewport(viewport);
         }
 
@@ -80,10 +84,8 @@ public class HomeService {
             }
             partlyOverflowed |= verdict == CellVerdict.PARTLY_OVERFLOWED;
         }
-        if (partlyOverflowed) {
-            return searchViewport(viewport);
-        }
 
+        missed.sort(Comparator.comparing((GridCell cell) -> !mapGrid.isFullyInside(cell, viewport)));
         for (GridCell cell : missed) {
             CellPins pins = mapPinCellLoader.load(cell);
             mapPinCellCache.writeCell(cell, pins);
@@ -91,11 +93,13 @@ public class HomeService {
             if (verdict == CellVerdict.EXCEEDED) {
                 return exceeded();
             }
-            if (verdict == CellVerdict.PARTLY_OVERFLOWED) {
-                return searchViewport(viewport);
-            }
+            partlyOverflowed |= verdict == CellVerdict.PARTLY_OVERFLOWED;
         }
 
+        if (partlyOverflowed) {
+            mapPinMetrics.countViewportFallback(ViewportFallbackReason.PARTLY_OVERFLOWED);
+            return searchViewport(viewport);
+        }
         items.sort(PIN_ORDER);
         return new MapPinSearchResponse(items, PIN_LIMIT, false);
     }

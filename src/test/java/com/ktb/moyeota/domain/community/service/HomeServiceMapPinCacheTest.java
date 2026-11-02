@@ -17,11 +17,14 @@ import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.community.service.cache.CellPins;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
+import com.ktb.moyeota.domain.community.service.cache.MapPinMetrics;
+import com.ktb.moyeota.domain.community.service.cache.ViewportFallbackReason;
 import com.ktb.moyeota.domain.community.service.grid.GridCell;
 import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import com.ktb.moyeota.global.external.s3.S3Properties;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -55,6 +58,8 @@ class HomeServiceMapPinCacheTest {
     private static final GridCell SOUTH_EAST = new GridCell(0, 3749, 12703);
     private static final GridCell NORTH_WEST = new GridCell(0, 3750, 12702);
     private static final GridCell NORTH_EAST = new GridCell(0, 3750, 12703);
+    private static final MapPinSearchRequest THREE_BY_THREE = request("37.495", "127.025", "37.515", "127.045");
+    private static final GridCell CENTER = new GridCell(0, 3750, 12703);
     private static final BigDecimal SOUTH_WEST_MIN_LAT = new BigDecimal("37.490000");
     private static final BigDecimal SOUTH_WEST_MIN_LNG = new BigDecimal("127.020000");
 
@@ -76,6 +81,7 @@ class HomeServiceMapPinCacheTest {
     private NearbyPostCursorCodec cursorCodec;
 
     private MapPinCellCache cache;
+    private SimpleMeterRegistry meterRegistry;
     private HomeService service;
 
     @BeforeEach
@@ -85,10 +91,12 @@ class HomeServiceMapPinCacheTest {
             redisTemplate.delete(keys);
         }
         cache = new MapPinCellCache(redisTemplate, jsonMapper, new SimpleMeterRegistry());
+        meterRegistry = new SimpleMeterRegistry();
         service = new HomeService(communityPostRepository, companionPostRepository, cursorCodec,
                 new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                mapGrid, cache, new MapPinCellLoader(mapGrid, communityPostRepository, companionPostRepository));
+                mapGrid, cache, new MapPinCellLoader(mapGrid, communityPostRepository, companionPostRepository),
+                new MapPinMetrics(meterRegistry));
     }
 
     @Test
@@ -208,6 +216,72 @@ class HomeServiceMapPinCacheTest {
         assertThat(cache.readCells(List.of(SOUTH_WEST)).orElseThrow().get(SOUTH_WEST).overflow()).isTrue();
     }
 
+    @Test
+    @DisplayName("일부 걸친 넘친 칸이 캐시에 있어도, 비어 있는 가운데 칸을 채워 넘쳤으면 화면 쿼리 없이 limitExceeded=true다")
+    void loadsMissedInsideCellBeforeFallingBack() {
+        cache.writeCell(SOUTH_WEST, CellPins.overflowed());
+        lenient().when(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .thenReturn(crowdedCell());
+        lenient().when(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 전체 조회로 가면 안 된다"));
+
+        MapPinSearchResponse response = service.searchMapPins(THREE_BY_THREE);
+
+        assertThat(response.limitExceeded()).isTrue();
+        assertThat(cache.readCells(List.of(CENTER)).orElseThrow().get(CENTER).overflow()).isTrue();
+    }
+
+    @Test
+    @DisplayName("빈 화면에서 처음 채운 칸이 일부 걸친 넘친 칸이어도, 가운데 칸까지 채워 넘쳤으면 화면 쿼리 없이 limitExceeded=true다")
+    void keepsLoadingAfterFirstPartlyOverflowedCell() {
+        lenient().when(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .thenReturn(crowdedCell());
+        lenient().when(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 전체 조회로 가면 안 된다"));
+
+        MapPinSearchResponse response = service.searchMapPins(THREE_BY_THREE);
+
+        assertThat(response.limitExceeded()).isTrue();
+        assertThat(cache.readCells(List.of(CENTER)).orElseThrow().get(CENTER).overflow()).isTrue();
+    }
+
+    @Test
+    @DisplayName("일부 걸친 넘친 칸 때문에 화면 쿼리로 답하더라도, 비어 있던 칸은 모두 채워 둔다")
+    void fillsEveryMissedCellEvenWhenFallingBack() {
+        BigDecimal southWestMinLat = new BigDecimal("37.490000");
+        BigDecimal southWestMinLng = new BigDecimal("127.020000");
+        given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .willAnswer(invocation -> southWestMinLat.equals(invocation.getArgument(0))
+                        && southWestMinLng.equals(invocation.getArgument(1)) ? crowdedCell() : List.of());
+        given(companionPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+        CommunityPinProjection viewportPin = communityPin(21L, "37.5050", "127.0350");
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .willReturn(List.of(viewportPin));
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+
+        MapPinSearchResponse response = service.searchMapPins(THREE_BY_THREE);
+
+        assertThat(response.items()).extracting(MapPinItem::id).containsExactly(21L);
+        assertThat(cache.readCells(mapGrid.cellsCovering(viewportOf(THREE_BY_THREE))).orElseThrow()).hasSize(9);
+    }
+
+    @Test
+    @DisplayName("일부 걸친 넘친 칸 때문에 화면 쿼리로 넘어가면 그 이유를 센다")
+    void countsPartlyOverflowedFallback() {
+        cache.writeCell(SOUTH_WEST, CellPins.overflowed());
+        cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+
+        service.searchMapPins(GANGNAM);
+
+        assertThat(meterRegistry.get(MapPinMetrics.VIEWPORT_FALLBACK)
+                .tag(MapPinMetrics.REASON_TAG, ViewportFallbackReason.PARTLY_OVERFLOWED.tagValue())
+                .counter().count()).isEqualTo(1.0);
+    }
+
     private static MapPinSearchRequest request(String swLat, String swLng, String neLat, String neLng) {
         return new MapPinSearchRequest(
                 new BigDecimal(swLat), new BigDecimal(swLng), new BigDecimal(neLat), new BigDecimal(neLng));
@@ -223,6 +297,18 @@ class HomeServiceMapPinCacheTest {
             pins.add(pin(MapPinType.COMMUNITY, id, lat, lng));
         }
         return pins;
+    }
+
+    private static Viewport viewportOf(MapPinSearchRequest request) {
+        return new Viewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
+    }
+
+    private static List<CommunityPinProjection> crowdedCell() {
+        List<CommunityPinProjection> crowded = new ArrayList<>(CellPins.MAX_PINS + 1);
+        for (int i = 0; i <= CellPins.MAX_PINS; i++) {
+            crowded.add(mock(CommunityPinProjection.class));
+        }
+        return crowded;
     }
 
     private static CommunityPinProjection communityPin(Long id, String lat, String lng) {
