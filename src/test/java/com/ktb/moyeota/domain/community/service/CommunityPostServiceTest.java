@@ -12,6 +12,7 @@ import com.ktb.moyeota.domain.community.dto.CommunityPostCreateRequest;
 import com.ktb.moyeota.domain.community.dto.CommunityPostCreateResponse;
 import com.ktb.moyeota.domain.community.dto.CommunityPostDetailResponse;
 import com.ktb.moyeota.domain.community.entity.CommunityPost;
+import com.ktb.moyeota.domain.community.event.CommunityPostCreatedEvent;
 import com.ktb.moyeota.domain.community.event.MapPinChangedEvent;
 import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
@@ -103,6 +104,16 @@ class CommunityPostServiceTest {
 
             verify(eventPublisher).publishEvent(
                     new MapPinChangedEvent(BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0)));
+        }
+
+        @Test
+        @DisplayName("저장하면 게시글 작성 이벤트를 발행한다")
+        void publishesPostCreatedEvent() {
+            given(entityManager.getReference(User.class, USER_ID)).willReturn(activeUser());
+
+            service.create(USER_ID, request);
+
+            verify(eventPublisher).publishEvent(any(CommunityPostCreatedEvent.class));
         }
 
         @Test
