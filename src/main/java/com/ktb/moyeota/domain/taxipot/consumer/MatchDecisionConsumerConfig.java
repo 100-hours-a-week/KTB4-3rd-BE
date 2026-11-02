@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.taxipot.consumer;
 import com.ktb.moyeota.global.config.ConditionalOnServerRole;
 import com.ktb.moyeota.global.config.ServerRole;
 import com.ktb.moyeota.global.event.InvalidEventException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.kafka.autoconfigure.ConcurrentKafkaListenerContainerFactoryConfigurer;
@@ -16,6 +17,7 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.retrytopic.RetryTopicConstants;
 import org.springframework.util.backoff.FixedBackOff;
 
+@Slf4j
 @Configuration
 @ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 @ConditionalOnProperty(prefix = "moyeota.taxi-pot.matching", name = "mode", havingValue = "kafka")
@@ -37,10 +39,13 @@ public class MatchDecisionConsumerConfig {
     }
 
     private static DefaultErrorHandler errorHandler(KafkaOperations<?, ?> kafkaOperations) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaOperations,
+        DeadLetterPublishingRecoverer deadLetter = new DeadLetterPublishingRecoverer(kafkaOperations,
                 (record, exception) -> new TopicPartition(record.topic() + RetryTopicConstants.DEFAULT_DLT_SUFFIX, -1));
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer,
-                new FixedBackOff(RETRY_INTERVAL_MILLIS, MAX_RETRIES));
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler((record, exception) -> {
+            log.error("[MATCH_DECISION_DEAD_LETTER] topic={}, partition={}, offset={}, key={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), exception);
+            deadLetter.accept(record, exception);
+        }, new FixedBackOff(RETRY_INTERVAL_MILLIS, MAX_RETRIES));
         errorHandler.addNotRetryableExceptions(InvalidEventException.class);
         return errorHandler;
     }
