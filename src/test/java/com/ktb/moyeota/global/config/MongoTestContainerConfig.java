@@ -12,6 +12,7 @@ public class MongoTestContainerConfig {
     @Bean
     @ServiceConnection
     MongoDBContainer mongoContainer() {
-        return new MongoDBContainer(DockerImageName.parse("mongo:8.0"));
+        return new MongoDBContainer(DockerImageName.parse("mongo:8.0"))
+                .withEnv("GLIBC_TUNABLES", "glibc.pthread.rseq=1");
     }
 }
