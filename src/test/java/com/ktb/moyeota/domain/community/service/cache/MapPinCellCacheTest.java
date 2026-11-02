@@ -134,6 +134,20 @@ class MapPinCellCacheTest {
     }
 
     @Test
+    @DisplayName("빈 칸을 채우기 직전 다시 확인한 읽기는 처음 읽기와 따로 센다")
+    void countsRecheckSeparately() {
+        cache.writeCell(GANGNAM, CellPins.of(List.of()));
+
+        assertThat(cache.recheckCell(GANGNAM)).contains(CellPins.of(List.of()));
+        assertThat(cache.recheckCell(NEXT_TO_GANGNAM)).isEmpty();
+
+        assertThat(count("recheck", "hit")).isEqualTo(1.0);
+        assertThat(count("recheck", "miss")).isEqualTo(1.0);
+        assertThat(count("read", "hit")).isZero();
+        assertThat(count("read", "miss")).isZero();
+    }
+
+    @Test
     @DisplayName("빈 칸 목록은 Redis에 묻지 않고 빈 결과를 돌려준다")
     void emptyRequest() {
         assertThat(cache.readCells(List.of()).orElseThrow()).isEmpty();

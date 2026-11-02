@@ -11,6 +11,7 @@ import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +28,7 @@ public class MapPinCellLoader {
     private final MapGrid mapGrid;
     private final CommunityPostRepository communityPostRepository;
     private final CompanionPostRepository companionPostRepository;
+    private final MapPinCellCache mapPinCellCache;
     private final ConcurrentMap<GridCell, CompletableFuture<CellPins>> inFlight = new ConcurrentHashMap<>();
 
     public CellPins load(GridCell cell) {
@@ -36,7 +38,7 @@ public class MapPinCellLoader {
             return awaitResult(running);
         }
         try {
-            CellPins pins = query(cell);
+            CellPins pins = cachedOrQueried(cell);
             mine.complete(pins);
             return pins;
         } catch (RuntimeException e) {
@@ -45,6 +47,16 @@ public class MapPinCellLoader {
         } finally {
             inFlight.remove(cell, mine);
         }
+    }
+
+    private CellPins cachedOrQueried(GridCell cell) {
+        Optional<CellPins> cached = mapPinCellCache.recheckCell(cell);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+        CellPins pins = query(cell);
+        mapPinCellCache.writeCell(cell, pins);
+        return pins;
     }
 
     private CellPins query(GridCell cell) {
