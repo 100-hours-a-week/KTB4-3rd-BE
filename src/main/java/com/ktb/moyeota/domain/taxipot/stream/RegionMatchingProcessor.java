@@ -43,7 +43,7 @@ public class RegionMatchingProcessor
     public RegionMatchingProcessor(
             MatchingRules rules, int neighborLimit, Duration sweepDelay, ZoneId zone,
             EventEnvelopeFactory envelopeFactory, JsonMapper jsonMapper, MeterRegistry meterRegistry) {
-        this.events = new CellEvents(jsonMapper);
+        this.events = new CellEvents(jsonMapper, zone);
         this.cellSweep = new CellSweep(rules, neighborLimit);
         this.sweepDelay = sweepDelay;
         this.zone = zone;

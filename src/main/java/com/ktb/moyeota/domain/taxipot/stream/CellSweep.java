@@ -43,14 +43,14 @@ public class CellSweep {
             }
         }
         Map<LocalDateTime, List<CellRequest>> waiting = new TreeMap<>();
-        for (CellRequest request : view.requests().stream().filter(request -> !request.inPot()).sorted(ARRIVAL)
-                .toList()) {
-            if (request.request().departureAt().isBefore(cutoff)) {
+        for (CellRequest request : view.requests().stream().filter(request -> !request.inPot()).toList()) {
+            if (request.expired(cutoff)) {
                 entries.removeRequest(request.requestId());
-            } else {
+            } else if (request.matchable()) {
                 waiting.computeIfAbsent(request.request().departureAt(), key -> new ArrayList<>()).add(request);
             }
         }
+        waiting.values().forEach(sameDeparture -> sameDeparture.sort(ARRIVAL));
         List<MatchResult> results = new ArrayList<>();
         waiting.forEach((departureAt, sameDeparture) -> {
             Map<String, CellPot> openPots = pots.stream()
@@ -76,7 +76,7 @@ public class CellSweep {
                 : openPots.get(result.potKey()).with(joined);
         openPots.put(result.potKey(), pot);
         entries.put(pot);
-        joined.forEach(requestId -> entries.put(requests.get(requestId).joining(pot.potId())));
+        joined.forEach(requestId -> entries.put(requests.get(requestId).joining(pot.potId(), result.resultId())));
     }
 
     private static OpenPot toOpenPot(CellPot pot, Map<Long, CellRequest> requests) {

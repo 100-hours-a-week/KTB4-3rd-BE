@@ -8,6 +8,8 @@ import com.ktb.moyeota.domain.taxipot.message.MatchRideStartedData;
 import com.ktb.moyeota.domain.taxipot.message.MatchingMessages;
 import com.ktb.moyeota.domain.taxipot.model.MatchApplyOutcome.RejectReason;
 import com.ktb.moyeota.global.event.EventEnvelope;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -21,15 +23,18 @@ public class CellEvents {
             RejectReason.POT_NOT_RECRUITING, RejectReason.POT_FULL, RejectReason.DEPARTED);
 
     private final JsonMapper jsonMapper;
+    private final ZoneId zone;
 
-    public CellEvents(JsonMapper jsonMapper) {
+    public CellEvents(JsonMapper jsonMapper, ZoneId zone) {
         this.jsonMapper = jsonMapper;
+        this.zone = zone;
     }
 
     public boolean apply(EventEnvelope<JsonNode> envelope, CellEntries entries) {
         switch (envelope.eventType()) {
             case MatchingMessages.REQUESTED -> request(read(envelope, MatchRequestData.class), entries);
-            case MatchingMessages.CANCELED -> cancel(read(envelope, MatchCanceledData.class).requestId(), entries);
+            case MatchingMessages.CANCELED -> cancel(read(envelope, MatchCanceledData.class).requestId(),
+                    envelope.occurredAt().atZoneSameInstant(zone).toLocalDateTime(), entries);
             case MatchingMessages.LEFT -> leave(read(envelope, MatchLeftData.class).requestId(), entries);
             case MatchingMessages.RIDE_STARTED ->
                     startRide(read(envelope, MatchRideStartedData.class).requestIds(), entries);
@@ -42,24 +47,30 @@ public class CellEvents {
     }
 
     private void request(MatchRequestData request, CellEntries entries) {
-        if (entries.request(request.requestId()).isEmpty()) {
-            entries.put(CellRequest.waiting(request));
-        }
+        entries.request(request.requestId()).ifPresentOrElse(
+                known -> {
+                    if (known.request() == null) {
+                        entries.put(known.arrived(request));
+                    }
+                },
+                () -> entries.put(CellRequest.waiting(request)));
     }
 
-    private void cancel(long requestId, CellEntries entries) {
-        entries.request(requestId).ifPresent(request -> {
-            entries.removeRequest(requestId);
-            if (request.inPot()) {
-                removeMember(request.potId(), requestId, entries);
-            }
-        });
+    private void cancel(long requestId, LocalDateTime canceledAt, CellEntries entries) {
+        entries.request(requestId).ifPresentOrElse(
+                request -> {
+                    if (request.inPot()) {
+                        removeMember(request.potId(), requestId, entries);
+                    }
+                    entries.put(request.finish());
+                },
+                () -> entries.put(CellRequest.canceledBeforeArrival(requestId, canceledAt)));
     }
 
     private void leave(long requestId, CellEntries entries) {
         entries.request(requestId).filter(CellRequest::inPot).ifPresent(request -> {
-            entries.removeRequest(requestId);
             removeMember(request.potId(), requestId, entries);
+            entries.put(request.finish());
         });
     }
 
@@ -68,7 +79,9 @@ public class CellEvents {
     }
 
     private void reject(MatchRejectedData rejected, CellEntries entries) {
-        List<CellRequest> returned = members(rejected.requestIds(), entries);
+        List<CellRequest> returned = members(rejected.requestIds(), entries).stream()
+                .filter(request -> request.joinedBy(rejected.resultId()))
+                .toList();
         if (UNJOINABLE_POT.contains(rejected.reason())) {
             dropPotsOf(returned, entries);
         } else {
@@ -104,7 +117,8 @@ public class CellEvents {
 
     private void dropPot(String potId, CellEntries entries) {
         entries.pot(potId).ifPresent(pot -> {
-            pot.memberIds().forEach(entries::removeRequest);
+            pot.memberIds().forEach(memberId -> entries.request(memberId)
+                    .ifPresent(member -> entries.put(member.finish())));
             entries.removePot(potId);
         });
     }
