@@ -21,6 +21,8 @@ import com.ktb.moyeota.domain.community.repository.CommunityPinProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
+import com.ktb.moyeota.domain.community.service.cache.MapPinMetrics;
+import com.ktb.moyeota.domain.community.service.cache.ViewportFallbackReason;
 import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
@@ -28,6 +30,7 @@ import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.external.s3.S3Properties;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -65,6 +68,8 @@ class HomeServiceTest {
     @Mock
     private MapPinCellLoader mapPinCellLoader;
 
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private HomeService service;
 
     @BeforeEach
@@ -72,7 +77,8 @@ class HomeServiceTest {
         service = new HomeService(communityPostRepository, companionPostRepository, cursorCodec,
                 new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                new MapGrid(10_000, 6, 4), mapPinCellCache, mapPinCellLoader);
+                new MapGrid(10_000, 6, 4), mapPinCellCache, mapPinCellLoader,
+                new MapPinMetrics(meterRegistry));
     }
 
     private CommunityPinProjection communityPin(Long id) {
@@ -112,6 +118,20 @@ class HomeServiceTest {
         MapPinItem companionItem = response.items().get(1);
         assertThat(companionItem.type()).isEqualTo(MapPinType.COMPANION);
         assertThat(companionItem.id()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("Redis를 읽지 못해 화면 쿼리로 넘어가면 그 이유를 센다")
+    void countsCacheUnavailableFallback() {
+        given(mapPinCellCache.readCells(any())).willReturn(Optional.empty());
+        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+
+        service.searchMapPins(request);
+
+        assertThat(meterRegistry.get(MapPinMetrics.VIEWPORT_FALLBACK)
+                .tag(MapPinMetrics.REASON_TAG, ViewportFallbackReason.CACHE_UNAVAILABLE.tagValue())
+                .counter().count()).isEqualTo(1.0);
     }
 
     @Test
