@@ -56,6 +56,32 @@ class CellSweepTest {
     }
 
     @Test
+    @DisplayName("끝난 요청은 묶지 않고, 출발 시각이 지나면 지운다")
+    void finishedRequestsAreNotMatchedAndExpire() {
+        waiting(101, 102);
+        entries.put(entries.requests.get(102L).finish());
+        entries.put(CellRequest.canceledBeforeArrival(103, DEPARTURE_AT));
+
+        List<MatchResult> results = sweep.sweep(entries.view(), DEPARTURE_AT, entries);
+        sweep.sweep(entries.view(), DEPARTURE_AT.plusMinutes(1), entries);
+
+        assertThat(results).isEmpty();
+        assertThat(entries.requests).containsOnlyKeys(103L);
+    }
+
+    @Test
+    @DisplayName("요청 없이 남은 취소는 취소 시각에서 한 시간이 지나면 지운다")
+    void canceledBeforeArrivalExpiresAfterAnHour() {
+        entries.put(CellRequest.canceledBeforeArrival(103, DEPARTURE_AT));
+
+        sweep.sweep(entries.view(), DEPARTURE_AT.plusHours(1), entries);
+        assertThat(entries.requests).containsOnlyKeys(103L);
+
+        sweep.sweep(entries.view(), DEPARTURE_AT.plusHours(1).plusMinutes(1), entries);
+        assertThat(entries.requests).isEmpty();
+    }
+
+    @Test
     @DisplayName("바뀐 것이 없으면 아무것도 쓰지 않는다")
     void writesNothingWhenNothingChanges() {
         waiting(101);
