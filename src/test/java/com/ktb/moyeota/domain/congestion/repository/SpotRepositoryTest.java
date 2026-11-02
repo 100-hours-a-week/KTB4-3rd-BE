@@ -6,6 +6,8 @@ import com.ktb.moyeota.domain.congestion.document.Spot;
 import com.ktb.moyeota.domain.congestion.document.SpotType;
 import com.ktb.moyeota.domain.congestion.support.CongestionMongoScripts;
 import com.ktb.moyeota.global.config.MongoTestContainerConfig;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.bson.Document;
@@ -72,6 +74,21 @@ class SpotRepositoryTest {
     @DisplayName("스팟이 하나도 없으면 찾지 않는다")
     void returnsEmptyWhenNoSpot() {
         assertThat(spotRepository.findNearest(LAT, LNG, RADIUS_METERS)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("마지막 글 시각이 기준 시각 이후인 스팟 번호만 고른다")
+    void findsIdsSignaledSince() {
+        Instant since = Instant.parse("2026-11-01T22:00:00Z");
+        insertSpots(List.of(
+                spot(101L, "판교역", LAT, LNG).append("last_signal_at", Date.from(since)),
+                spot(102L, "정자역", LAT, LNG).append("last_signal_at", Date.from(since.plusSeconds(610))),
+                spot(103L, "미금역", LAT, LNG).append("last_signal_at", Date.from(since.minusSeconds(1))),
+                spot(104L, "서현역", LAT, LNG)));
+
+        List<Long> ids = spotRepository.findIdsSignaledSince(since);
+
+        assertThat(ids).containsExactly(101L, 102L);
     }
 
     private void insertSpots(List<Document> spots) {
