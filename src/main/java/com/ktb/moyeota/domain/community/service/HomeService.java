@@ -80,10 +80,8 @@ public class HomeService {
             }
             partlyOverflowed |= verdict == CellVerdict.PARTLY_OVERFLOWED;
         }
-        if (partlyOverflowed) {
-            return searchViewport(viewport);
-        }
 
+        missed.sort(Comparator.comparing((GridCell cell) -> !mapGrid.isFullyInside(cell, viewport)));
         for (GridCell cell : missed) {
             CellPins pins = mapPinCellLoader.load(cell);
             mapPinCellCache.writeCell(cell, pins);
@@ -91,11 +89,12 @@ public class HomeService {
             if (verdict == CellVerdict.EXCEEDED) {
                 return exceeded();
             }
-            if (verdict == CellVerdict.PARTLY_OVERFLOWED) {
-                return searchViewport(viewport);
-            }
+            partlyOverflowed |= verdict == CellVerdict.PARTLY_OVERFLOWED;
         }
 
+        if (partlyOverflowed) {
+            return searchViewport(viewport);
+        }
         items.sort(PIN_ORDER);
         return new MapPinSearchResponse(items, PIN_LIMIT, false);
     }
