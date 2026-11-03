@@ -1,7 +1,13 @@
 package com.ktb.moyeota.domain.congestion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
 import com.ktb.moyeota.domain.congestion.config.CongestionStatusProperties;
 import com.ktb.moyeota.domain.congestion.config.CongestionWindowProperties;
 import com.ktb.moyeota.domain.congestion.document.CauseReport;
@@ -33,6 +39,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
@@ -51,6 +58,9 @@ class CongestionResultServiceTest {
 
     @Autowired
     private MongoDBContainer mongoContainer;
+
+    @MockitoBean
+    private CongestionLatestCache latestCache;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -154,6 +164,27 @@ class CongestionResultServiceTest {
         assertThat(outcome).isEqualTo(ResultApplyOutcome.UNKNOWN_SPOT);
         assertThat(histories()).isEmpty();
         assertThat(mongoTemplate.findById(999L, Spot.class)).isNull();
+    }
+
+    @Test
+    @DisplayName("최신값을 바꾸면 바뀐 스팟을 Redis 캐시에도 넣는다")
+    void refreshesCacheWhenApplied() {
+        resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+
+        verify(latestCache).put(argThat(cached -> cached.id().equals(PANGYO)
+                && cached.status() == CongestionStatus.CONGESTED
+                && cached.validUntil().equals(at("07:20"))));
+    }
+
+    @Test
+    @DisplayName("버린 결과는 Redis 캐시를 건드리지 않는다")
+    void skipsCacheWhenStale() {
+        resultService.apply(success("07:20", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+        clearInvocations(latestCache);
+
+        resultService.apply(success("07:10", CongestionLevel.HIGH, "늦게 온 결과"));
+
+        verify(latestCache, never()).put(any());
     }
 
     private static CongestionAnalysisResultData success(String windowEnd, CongestionLevel level, String summary) {

@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.congestion.consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
 import com.ktb.moyeota.domain.congestion.config.CongestionStatusProperties;
 import com.ktb.moyeota.domain.congestion.config.CongestionWindowProperties;
 import com.ktb.moyeota.domain.congestion.document.Spot;
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(
         classes = {KafkaConfig.class, CongestionResultConsumer.class, CongestionResultService.class,
@@ -59,6 +61,9 @@ class CongestionResultConsumerTest {
     private static final Long PANGYO = 101L;
     private static final Long JEONGJA = 102L;
     private static final Long SEOHYEON = 103L;
+
+    @MockitoBean
+    private CongestionLatestCache latestCache;
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
