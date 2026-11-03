@@ -16,12 +16,12 @@ class CongestionAnalysisTest {
     @DisplayName("원인 목록을 원인별 제보자 수로 바꾼다")
     void toReport() {
         CongestionAnalysis analysis = new CongestionAnalysis(CongestionLevel.MEDIUM, 4,
-                List.of(new CongestionCause(CauseCode.ACCIDENT, 3), new CongestionCause(CauseCode.DELAY, 1)), "요약");
+                List.of(new CongestionCause(CauseCode.ACCIDENT, 3), new CongestionCause(CauseCode.DELAY_ISSUE, 1)), "요약");
 
         CongestionReport report = analysis.toReport();
 
         assertThat(report).isEqualTo(new CongestionReport(CongestionLevel.MEDIUM,
-                Map.of(CauseCode.ACCIDENT, 3, CauseCode.DELAY, 1)));
+                Map.of(CauseCode.ACCIDENT, 3, CauseCode.DELAY_ISSUE, 1)));
     }
 
     @Test

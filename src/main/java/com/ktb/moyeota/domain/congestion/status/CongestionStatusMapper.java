@@ -33,7 +33,7 @@ public class CongestionStatusMapper {
 
     private boolean isDelayed(CongestionReport report) {
         int threshold = properties.delayReporterThreshold();
-        return report.reportersOf(CauseCode.DELAY) >= threshold
-                || report.reportersOf(CauseCode.SERVICE_DISRUPTION) >= threshold;
+        return report.reportersOf(CauseCode.DELAY_ISSUE) >= threshold
+                || report.reportersOf(CauseCode.SERVICE_ISSUE) >= threshold;
     }
 }
