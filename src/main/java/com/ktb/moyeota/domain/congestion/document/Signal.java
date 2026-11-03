@@ -13,6 +13,9 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Signal {
 
+    public static final int TITLE_MAX_LENGTH = 30;
+    public static final int CONTENT_MAX_LENGTH = 280;
+
     @Id
     private String id;
 
@@ -42,8 +45,8 @@ public class Signal {
         this.spotId = spotId;
         this.authorKey = authorKey;
         this.createdAt = createdAt;
-        this.title = title;
-        this.content = content;
+        this.title = truncate(title, TITLE_MAX_LENGTH);
+        this.content = truncate(content, CONTENT_MAX_LENGTH);
     }
 
     public static Signal ofPost(Long postId, Long spotId, String authorKey, Instant createdAt,
@@ -58,5 +61,12 @@ public class Signal {
 
     public boolean isComment() {
         return commentId != null;
+    }
+
+    private static String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }
