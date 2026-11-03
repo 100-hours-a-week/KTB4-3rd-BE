@@ -1,6 +1,9 @@
 package com.ktb.moyeota.domain.congestion.document;
 
+import com.ktb.moyeota.domain.congestion.model.CongestionLevel;
+import com.ktb.moyeota.domain.congestion.status.CongestionStatus;
 import java.time.Instant;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,4 +28,22 @@ public class Spot {
 
     @Field("last_signal_at")
     private Instant lastSignalAt;
+
+    private CongestionStatus status;
+
+    @Field("congestion_level")
+    private CongestionLevel congestionLevel;
+
+    private List<CauseReport> causes;
+
+    private String summary;
+
+    @Field("report_count")
+    private Integer reportCount;
+
+    @Field("calculated_at")
+    private Instant calculatedAt;
+
+    @Field("valid_until")
+    private Instant validUntil;
 }
