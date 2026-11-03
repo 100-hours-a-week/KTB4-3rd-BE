@@ -54,6 +54,8 @@ class KafkaCongestionAnalysisRequesterTest {
 
     private static final Long PANGYO = 101L;
     private static final Long JEONGJA = 102L;
+    private static final Long SEOHYEON = 103L;
+    private static final Long IMAE = 104L;
     private static final CongestionWindow WINDOW = new CongestionWindow(
             OffsetDateTime.parse("2026-11-02T07:00:00+09:00"), OffsetDateTime.parse("2026-11-02T07:10:00+09:00"));
 
@@ -79,7 +81,9 @@ class KafkaCongestionAnalysisRequesterTest {
         requests.clear();
         mongoTemplate.getCollection("spots").insertMany(List.of(
                 new Document("_id", PANGYO).append("type", "STATION").append("name", "판교역"),
-                new Document("_id", JEONGJA).append("type", "STATION").append("name", "정자역")));
+                new Document("_id", JEONGJA).append("type", "STATION").append("name", "정자역"),
+                new Document("_id", SEOHYEON).append("type", "STATION").append("name", "서현역"),
+                new Document("_id", IMAE).append("type", "STATION").append("name", "이매역")));
     }
 
     @Test
@@ -90,9 +94,7 @@ class KafkaCongestionAnalysisRequesterTest {
 
         requester.request(WINDOW, List.of(PANGYO, JEONGJA));
 
-        ConsumerRecord<String, String> record = requests.poll(30, TimeUnit.SECONDS);
-        assertThat(record).isNotNull();
-        assertThat(record.key()).isEqualTo("101");
+        ConsumerRecord<String, String> record = nextRecordOf(PANGYO);
         JsonNode envelope = jsonMapper.readTree(record.value());
         assertThat(envelope.get("event_type").asString()).isEqualTo(CongestionMessages.ANALYSIS_REQUESTED);
         assertThat(envelope.get("schema_version").asInt()).isEqualTo(1);
@@ -103,22 +105,40 @@ class KafkaCongestionAnalysisRequesterTest {
         assertThat(bundle.get("post_id").asLong()).isEqualTo(1L);
         assertThat(bundle.get("context_only").asBoolean()).isFalse();
         assertThat(bundle.get("author_key").asString()).hasSize(64);
-        assertThat(requests.poll(3, TimeUnit.SECONDS)).isNull();
+        assertThat(nextRecordOf(JEONGJA, 3)).isNull();
     }
 
     @Test
     @DisplayName("보낸 스팟만 보낸 구간 끝을 분석 중으로 적는다")
     void marksOnlySentSpotsAnalyzing() throws Exception {
-        signalRepository.insertIfAbsent(Signal.ofPost(2L, PANGYO, "10",
-                OffsetDateTime.parse("2026-11-02T07:05:00+09:00").toInstant(), "판교역 혼잡", "사람 많아요"));
+        signalRepository.insertIfAbsent(Signal.ofPost(2L, SEOHYEON, "10",
+                OffsetDateTime.parse("2026-11-02T07:05:00+09:00").toInstant(), "서현역 혼잡", "사람 많아요"));
 
-        requester.request(WINDOW, List.of(PANGYO, JEONGJA));
+        requester.request(WINDOW, List.of(SEOHYEON, IMAE));
 
-        Document pangyo = spot(PANGYO);
-        assertThat(pangyo.getDate("pending_window_end"))
+        Document seohyeon = spot(SEOHYEON);
+        assertThat(seohyeon.getDate("pending_window_end"))
                 .isEqualTo(Date.from(WINDOW.end().toInstant()));
-        assertThat(pangyo.containsKey("pending_until")).isFalse();
-        assertThat(spot(JEONGJA).containsKey("pending_window_end")).isFalse();
+        assertThat(seohyeon.containsKey("pending_until")).isFalse();
+        assertThat(spot(IMAE).containsKey("pending_window_end")).isFalse();
+    }
+
+    private ConsumerRecord<String, String> nextRecordOf(Long spotId) throws InterruptedException {
+        ConsumerRecord<String, String> record = nextRecordOf(spotId, 30);
+        assertThat(record).isNotNull();
+        return record;
+    }
+
+    private ConsumerRecord<String, String> nextRecordOf(Long spotId, long timeoutSeconds)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        while (true) {
+            ConsumerRecord<String, String> record =
+                    requests.poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);
+            if (record == null || record.key().equals(String.valueOf(spotId))) {
+                return record;
+            }
+        }
     }
 
     private Document spot(Long id) {
