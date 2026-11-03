@@ -39,4 +39,9 @@ public class SpotRepository {
         mongoTemplate.updateFirst(new Query(Criteria.where("_id").is(spotId)),
                 new Update().max("last_signal_at", Date.from(signaledAt)), Spot.class);
     }
+
+    public void markAnalyzing(Long spotId, Instant windowEnd) {
+        mongoTemplate.updateFirst(new Query(Criteria.where("_id").is(spotId)),
+                new Update().set("pending_window_end", Date.from(windowEnd)), Spot.class);
+    }
 }

@@ -5,6 +5,8 @@ import com.ktb.moyeota.domain.congestion.repository.CongestionJobRepository;
 import com.ktb.moyeota.domain.congestion.repository.SpotRepository;
 import com.ktb.moyeota.domain.congestion.window.CongestionWindow;
 import com.ktb.moyeota.domain.congestion.window.CongestionWindowCalculator;
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.ServerRole;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class CongestionWindowCloser {
 
     private final CongestionWindowCalculator calculator;
