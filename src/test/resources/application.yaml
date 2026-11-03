@@ -36,6 +36,8 @@ moyeota:
     cookie:
       secure: false
       same-site: lax
+  congestion:
+    author-key-secret: dGVzdC1vbmx5LWNvbmdlc3Rpb24tYXV0aG9yLWtleSE=
   crypto:
     account-key: bG9jYWwtb25seS1tb3llb3RhLWFjY291bnQta2V5ISE=
   oauth:

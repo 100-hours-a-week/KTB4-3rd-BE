@@ -72,6 +72,8 @@ moyeota:
   auth:
     jwt:
       secret: ${JWT_SECRET}
+  congestion:
+    author-key-secret: ${CONGESTION_AUTHOR_KEY_SECRET}
   crypto:
     account-key: ${ACCOUNT_ENC_KEY}
   oauth:
