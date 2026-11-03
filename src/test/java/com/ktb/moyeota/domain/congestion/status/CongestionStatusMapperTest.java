@@ -51,13 +51,13 @@ class CongestionStatusMapperTest {
     @Test
     @DisplayName("붐빔이면 지연 제보가 기준을 넘어도 붐빔이다")
     void crowdedBeatsDelayed() {
-        CongestionReport report = report(CongestionLevel.HIGH, Map.of(CauseCode.DELAY, 3));
+        CongestionReport report = report(CongestionLevel.HIGH, Map.of(CauseCode.DELAY_ISSUE, 3));
 
         assertThat(mapper.statusOf(report)).contains(CongestionStatus.CROWDED);
     }
 
     @ParameterizedTest(name = "{0} 제보자가 3명이면 혼잡보다 지연이 먼저다")
-    @CsvSource({"DELAY", "SERVICE_DISRUPTION"})
+    @CsvSource({"DELAY_ISSUE", "SERVICE_ISSUE"})
     void delayBeatsCongested(CauseCode cause) {
         CongestionReport report = report(CongestionLevel.MEDIUM, Map.of(cause, 3));
 
@@ -65,10 +65,10 @@ class CongestionStatusMapperTest {
     }
 
     @Test
-    @DisplayName("지연과 운행 중단은 더하지 않고 하나씩 기준과 비교한다")
+    @DisplayName("지연과 고장·운행 중단은 더하지 않고 하나씩 기준과 비교한다")
     void delayCausesAreNotSummed() {
         CongestionReport report = report(CongestionLevel.LOW,
-                Map.of(CauseCode.DELAY, 2, CauseCode.SERVICE_DISRUPTION, 2));
+                Map.of(CauseCode.DELAY_ISSUE, 2, CauseCode.SERVICE_ISSUE, 2));
 
         assertThat(mapper.statusOf(report)).contains(CongestionStatus.SMOOTH);
     }
@@ -76,7 +76,7 @@ class CongestionStatusMapperTest {
     @Test
     @DisplayName("단계를 몰라도 지연 제보가 기준을 넘으면 지연이다")
     void delayWithoutLevel() {
-        CongestionReport report = report(CongestionLevel.UNKNOWN, Map.of(CauseCode.DELAY, 3));
+        CongestionReport report = report(CongestionLevel.UNKNOWN, Map.of(CauseCode.DELAY_ISSUE, 3));
 
         assertThat(mapper.statusOf(report)).contains(CongestionStatus.DELAYED);
     }
@@ -85,7 +85,7 @@ class CongestionStatusMapperTest {
     @DisplayName("지연 기준 수를 설정으로 바꿀 수 있다")
     void delayThresholdFromProperties() {
         CongestionStatusMapper lowThreshold = new CongestionStatusMapper(new CongestionStatusProperties(3, 2));
-        CongestionReport report = report(CongestionLevel.LOW, Map.of(CauseCode.DELAY, 2));
+        CongestionReport report = report(CongestionLevel.LOW, Map.of(CauseCode.DELAY_ISSUE, 2));
 
         assertThat(lowThreshold.statusOf(report)).contains(CongestionStatus.DELAYED);
     }

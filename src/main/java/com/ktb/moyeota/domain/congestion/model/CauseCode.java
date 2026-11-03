@@ -7,13 +7,8 @@ public enum CauseCode {
     RUSH_HOUR,
     EVENT,
     ACCIDENT,
-    BREAKDOWN,
-    DELAY,
-    SERVICE_DISRUPTION,
-    WEATHER,
-    ROAD_TRAFFIC,
-    CONSTRUCTION,
-    DEMONSTRATION,
+    SERVICE_ISSUE,
+    DELAY_ISSUE,
     UNKNOWN;
 
     @JsonCreator
