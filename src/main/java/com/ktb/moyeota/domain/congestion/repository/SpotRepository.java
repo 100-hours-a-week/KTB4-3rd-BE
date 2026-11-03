@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.congestion.repository;
 
 import com.ktb.moyeota.domain.congestion.document.Spot;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -31,5 +33,10 @@ public class SpotRepository {
         return mongoTemplate.find(query, Spot.class).stream()
                 .map(Spot::getId)
                 .toList();
+    }
+
+    public void raiseLastSignalAt(Long spotId, Instant signaledAt) {
+        mongoTemplate.updateFirst(new Query(Criteria.where("_id").is(spotId)),
+                new Update().max("last_signal_at", Date.from(signaledAt)), Spot.class);
     }
 }

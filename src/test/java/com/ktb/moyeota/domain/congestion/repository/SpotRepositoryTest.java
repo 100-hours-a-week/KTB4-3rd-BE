@@ -91,6 +91,26 @@ class SpotRepositoryTest {
         assertThat(ids).containsExactly(101L, 102L);
     }
 
+    @Test
+    @DisplayName("마지막 글 시각은 더 늦은 시각일 때만 올린다")
+    void raisesLastSignalAtOnlyForward() {
+        Instant first = Instant.parse("2026-11-02T01:07:00Z");
+        insertSpots(List.of(spot(101L, "판교역", LAT, LNG)));
+
+        spotRepository.raiseLastSignalAt(101L, first);
+        spotRepository.raiseLastSignalAt(101L, first.minusSeconds(60));
+
+        assertThat(lastSignalAt(101L)).isEqualTo(first);
+
+        spotRepository.raiseLastSignalAt(101L, first.plusSeconds(60));
+
+        assertThat(lastSignalAt(101L)).isEqualTo(first.plusSeconds(60));
+    }
+
+    private Instant lastSignalAt(Long spotId) {
+        return mongoTemplate.findById(spotId, Spot.class).getLastSignalAt();
+    }
+
     private void insertSpots(List<Document> spots) {
         mongoTemplate.getCollection("spots").insertMany(spots);
     }

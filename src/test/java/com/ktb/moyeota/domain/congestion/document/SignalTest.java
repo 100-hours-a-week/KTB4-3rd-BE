@@ -49,6 +49,15 @@ class SignalTest {
     }
 
     @Test
+    @DisplayName("제목은 30자, 본문은 280자까지만 남긴다")
+    void truncatesTitleAndContent() {
+        Signal signal = Signal.ofPost(1L, 101L, "author-a", WRITTEN_AT, "가".repeat(40), "나".repeat(500));
+
+        assertThat(signal.getTitle()).hasSize(Signal.TITLE_MAX_LENGTH);
+        assertThat(signal.getContent()).hasSize(Signal.CONTENT_MAX_LENGTH);
+    }
+
+    @Test
     @DisplayName("같은 원글 사본은 두 번 들어가지 않는다")
     void rejectsDuplicatePost() {
         mongoTemplate.insert(Signal.ofPost(1L, 101L, "author-a", WRITTEN_AT, "판교역 혼잡", "출구 사람 많아요"));
