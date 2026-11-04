@@ -3,10 +3,12 @@ package com.ktb.moyeota.domain.chat.repository;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,6 +25,10 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             WHERE cr.id = :roomId
             """)
     Optional<ChatRoom> findByIdWithCompanion(@Param("roomId") Long roomId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cr FROM ChatRoom cr WHERE cr.id = :roomId")
+    Optional<ChatRoom> findByIdForUpdate(@Param("roomId") Long roomId);
 
 
     @Query(nativeQuery = true, value = """

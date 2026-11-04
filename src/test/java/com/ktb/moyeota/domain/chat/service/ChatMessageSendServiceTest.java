@@ -89,7 +89,7 @@ class ChatMessageSendServiceTest {
         void savesAndUpdatesLastMessageId() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
 
             Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
@@ -109,7 +109,7 @@ class ChatMessageSendServiceTest {
         void updatesSenderLastRead() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
 
             Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
@@ -132,7 +132,7 @@ class ChatMessageSendServiceTest {
             sender.changeProfileImage("profile/a.png");
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
             given(messageRepository.save(any(Message.class)))
                     .willReturn(Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요"));
@@ -171,7 +171,7 @@ class ChatMessageSendServiceTest {
         void reusesExistingMessageOnDuplicateClientMessageId() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
             given(messageRepository.save(any(Message.class)))
                     .willThrow(new DataIntegrityViolationException("uk_messages_room_client"));
