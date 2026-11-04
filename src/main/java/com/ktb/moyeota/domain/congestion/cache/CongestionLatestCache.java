@@ -70,4 +70,23 @@ public class CongestionLatestCache {
         }
         return Optional.of(spots);
     }
+
+    public Optional<CachedSpot> get(Long spotId) {
+        String value;
+        try {
+            value = redisTemplate.<String, String>opsForHash().get(KEY, String.valueOf(spotId));
+        } catch (DataAccessException e) {
+            log.warn("[CONGESTION_CACHE_READ_FAILED] Redis 에서 스팟 최신값을 읽지 못했습니다. spot_id={}", spotId, e);
+            return Optional.empty();
+        }
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(jsonMapper.readValue(value, CachedSpot.class));
+        } catch (JacksonException e) {
+            log.warn("[CONGESTION_CACHE_READ_FAILED] 캐시 값을 읽지 못했습니다. spot_id={}", spotId, e);
+            return Optional.empty();
+        }
+    }
 }

@@ -71,6 +71,16 @@ class CongestionLatestCacheTest {
                 .extracting(CachedSpot::id).containsExactlyInAnyOrder(101L, 201L));
     }
 
+    @Test
+    @DisplayName("스팟 하나를 읽고, 없으면 비어 있다")
+    void getsOneSpot() {
+        CachedSpot pangyo = spot(101L, "판교역", CongestionStatus.CROWDED);
+        latestCache.putAll(List.of(pangyo, spot(201L, "강남역", CongestionStatus.SMOOTH)));
+
+        assertThat(latestCache.get(101L)).contains(pangyo);
+        assertThat(latestCache.get(999L)).isEmpty();
+    }
+
     private static CachedSpot spot(Long id, String name, CongestionStatus status) {
         return new CachedSpot(id, SpotType.STATION, name, 37.3948, 127.1112, status, CongestionLevel.HIGH,
                 List.of(new CauseReport(CauseCode.RUSH_HOUR, 3)), "출근 인파로 붐빔", 3, WINDOW_END,
