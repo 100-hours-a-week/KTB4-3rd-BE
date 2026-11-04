@@ -1,12 +1,8 @@
 package com.ktb.moyeota.domain.congestion.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
 import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
 import com.ktb.moyeota.domain.congestion.config.CongestionStatusProperties;
 import com.ktb.moyeota.domain.congestion.config.CongestionWindowProperties;
@@ -26,6 +22,7 @@ import com.ktb.moyeota.domain.congestion.status.CongestionStatusMapper;
 import com.ktb.moyeota.domain.congestion.support.CongestionMongoScripts;
 import com.ktb.moyeota.domain.congestion.window.CongestionWindowCalculator;
 import com.ktb.moyeota.global.config.MongoTestContainerConfig;
+import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -34,16 +31,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
-@Import({MongoTestContainerConfig.class, CongestionResultService.class, SpotRepository.class,
+@ImportAutoConfiguration({DataRedisAutoConfiguration.class, JacksonAutoConfiguration.class})
+@Import({MongoTestContainerConfig.class, RedisTestContainerConfig.class, CongestionLatestCache.class,
+        CongestionResultService.class, SpotRepository.class,
         CongestionHistoryRepository.class, CongestionStatusMapper.class, CongestionWindowCalculator.class,
         CongestionResultServiceTest.PropertiesConfig.class})
 class CongestionResultServiceTest {
@@ -59,14 +61,18 @@ class CongestionResultServiceTest {
     @Autowired
     private MongoDBContainer mongoContainer;
 
-    @MockitoBean
+    @Autowired
     private CongestionLatestCache latestCache;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("spots");
         mongoTemplate.dropCollection("congestion_history");
         CongestionMongoScripts.applyIndexes(mongoContainer);
+        clearCache();
         mongoTemplate.getCollection("spots").insertOne(new Document("_id", PANGYO)
                 .append("type", "STATION")
                 .append("name", "판교역"));
@@ -171,20 +177,38 @@ class CongestionResultServiceTest {
     void refreshesCacheWhenApplied() {
         resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
 
-        verify(latestCache).put(argThat(cached -> cached.id().equals(PANGYO)
-                && cached.status() == CongestionStatus.CONGESTED
-                && cached.validUntil().equals(at("07:20"))));
+        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+            assertThat(cached.id()).isEqualTo(PANGYO);
+            assertThat(cached.status()).isEqualTo(CongestionStatus.CONGESTED);
+            assertThat(cached.validUntil()).isEqualTo(at("07:20"));
+        });
     }
 
     @Test
     @DisplayName("버린 결과는 Redis 캐시를 건드리지 않는다")
     void skipsCacheWhenStale() {
         resultService.apply(success("07:20", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
-        clearInvocations(latestCache);
+        clearCache();
 
         resultService.apply(success("07:10", CongestionLevel.HIGH, "늦게 온 결과"));
 
-        verify(latestCache, never()).put(any());
+        assertThat(cachedSpots()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("이미 처리한 구간의 결과가 다시 오면 캐시만 다시 쓴다")
+    void rewritesCacheWhenAlreadyApplied() {
+        resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+        clearCache();
+
+        ResultApplyOutcome outcome = resultService.apply(success("07:10", CongestionLevel.HIGH, "다시 온 결과"));
+
+        assertThat(outcome).isEqualTo(ResultApplyOutcome.ALREADY_APPLIED);
+        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+            assertThat(cached.status()).isEqualTo(CongestionStatus.CONGESTED);
+            assertThat(cached.calculatedAt()).isEqualTo(at("07:10"));
+        });
+        assertThat(histories()).hasSize(1);
     }
 
     private static CongestionAnalysisResultData success(String windowEnd, CongestionLevel level, String summary) {
@@ -194,6 +218,14 @@ class CongestionResultServiceTest {
 
     private static CongestionAnalysis analysis(CongestionLevel level, String summary) {
         return new CongestionAnalysis(level, 3, List.of(new CongestionCause(CauseCode.RUSH_HOUR, 3)), summary);
+    }
+
+    private List<CachedSpot> cachedSpots() {
+        return latestCache.findAll().orElseThrow();
+    }
+
+    private void clearCache() {
+        redisTemplate.delete("congestion:spots:latest");
     }
 
     private Spot spot() {
