@@ -41,6 +41,7 @@ public class CongestionResultService {
         Instant windowEnd = data.windowEnd().toInstant();
         Instant calculatedAt = spot.get().getCalculatedAt();
         if (windowEnd.equals(calculatedAt)) {
+            refreshCache(data.spotId());
             return ResultApplyOutcome.ALREADY_APPLIED;
         }
         if (calculatedAt != null && windowEnd.isBefore(calculatedAt)) {
