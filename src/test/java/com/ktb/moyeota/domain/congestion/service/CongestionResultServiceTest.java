@@ -156,6 +156,20 @@ class CongestionResultServiceTest {
     }
 
     @Test
+    @DisplayName("결과 구간 끝은 결과를 반영할 때만 바뀌고 분석이 실패해도 마지막 결과의 구간 끝으로 남는다")
+    void keepsResultWindowEndWhenAnalysisFailed() {
+        resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+        assertThat(spot().getResultWindowEnd()).isEqualTo(at("07:10"));
+
+        resultService.apply(new CongestionAnalysisResultData(
+                PANGYO, time("07:20"), AnalysisStatus.FAILED, null, time("07:21")));
+
+        assertThat(spot().getResultWindowEnd()).isEqualTo(at("07:10"));
+        assertThat(cachedSpots()).singleElement()
+                .satisfies(cached -> assertThat(cached.resultWindowEnd()).isEqualTo(at("07:10")));
+    }
+
+    @Test
     @DisplayName("혼잡 단계를 알 수 없으면 화면 상태를 비우고 바뀐 이력으로 남긴다")
     void clearsStatusWhenLevelUnknown() {
         resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));

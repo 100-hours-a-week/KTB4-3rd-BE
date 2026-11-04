@@ -49,4 +49,7 @@ public class Spot {
 
     @Field("pending_window_end")
     private Instant pendingWindowEnd;
+
+    @Field("result_window_end")
+    private Instant resultWindowEnd;
 }
