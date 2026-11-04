@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record NotificationPushProperties(
         @DefaultValue("false") boolean enabled,
         @DefaultValue("10s") Duration sweepDelay,
-        @DefaultValue("50") int batchSize,
+        @DefaultValue("100") int batchSize,
         @DefaultValue("60s") Duration lease,
         @DefaultValue("30s") Duration retryDelay,
         @DefaultValue("3") int maxAttempts,
