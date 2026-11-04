@@ -64,7 +64,8 @@ public class CongestionResultService {
             historyRepository.append(CongestionHistory.of(data.spotId(), windowEnd, windowMinutes, status,
                     analysis.congestionLevel(), causes, analysis.summary(), analysis.reportCount()));
         }
-        Instant validUntil = calculator.windowContaining(windowEnd).end().toInstant();
+        Instant nextWindowEnd = calculator.windowContaining(windowEnd).end().toInstant();
+        Instant validUntil = calculator.windowContaining(nextWindowEnd).end().toInstant();
         boolean applied = spotRepository.applyLatest(data.spotId(), new CongestionLatest(status,
                 analysis.congestionLevel(), causes, analysis.summary(), analysis.reportCount(), windowEnd, validUntil));
         if (!applied) {
