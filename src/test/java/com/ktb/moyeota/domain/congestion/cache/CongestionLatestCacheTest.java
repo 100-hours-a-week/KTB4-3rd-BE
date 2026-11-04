@@ -74,6 +74,6 @@ class CongestionLatestCacheTest {
     private static CachedSpot spot(Long id, String name, CongestionStatus status) {
         return new CachedSpot(id, SpotType.STATION, name, 37.3948, 127.1112, status, CongestionLevel.HIGH,
                 List.of(new CauseReport(CauseCode.RUSH_HOUR, 3)), "출근 인파로 붐빔", 3, WINDOW_END,
-                WINDOW_END.plusSeconds(600), WINDOW_END);
+                WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END);
     }
 }

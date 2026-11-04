@@ -63,6 +63,7 @@ public class SpotRepository {
                 .set("summary", latest.summary())
                 .set("report_count", latest.reportCount())
                 .set("calculated_at", Date.from(latest.calculatedAt()))
+                .set("result_window_end", Date.from(latest.calculatedAt()))
                 .set("valid_until", Date.from(latest.validUntil()));
         return updateIfNewer(spotId, latest.calculatedAt(), update);
     }
