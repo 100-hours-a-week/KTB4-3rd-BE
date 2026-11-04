@@ -1,5 +1,7 @@
 package com.ktb.moyeota.domain.congestion.service;
 
+import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
+import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
 import com.ktb.moyeota.domain.congestion.document.CauseReport;
 import com.ktb.moyeota.domain.congestion.document.CongestionHistory;
 import com.ktb.moyeota.domain.congestion.document.CongestionLatest;
@@ -29,6 +31,7 @@ public class CongestionResultService {
     private final CongestionHistoryRepository historyRepository;
     private final CongestionStatusMapper statusMapper;
     private final CongestionWindowCalculator calculator;
+    private final CongestionLatestCache latestCache;
 
     public ResultApplyOutcome apply(CongestionAnalysisResultData data) {
         Optional<Spot> spot = spotRepository.findById(data.spotId());
@@ -45,6 +48,7 @@ public class CongestionResultService {
         }
         if (data.analysisStatus() == AnalysisStatus.FAILED) {
             spotRepository.advanceCalculatedAt(data.spotId(), windowEnd);
+            refreshCache(data.spotId());
             return ResultApplyOutcome.ANALYSIS_FAILED;
         }
 
@@ -62,6 +66,14 @@ public class CongestionResultService {
         Instant validUntil = calculator.windowContaining(windowEnd).end().toInstant();
         boolean applied = spotRepository.applyLatest(data.spotId(), new CongestionLatest(status,
                 analysis.congestionLevel(), causes, analysis.summary(), analysis.reportCount(), windowEnd, validUntil));
-        return applied ? ResultApplyOutcome.APPLIED : ResultApplyOutcome.STALE;
+        if (!applied) {
+            return ResultApplyOutcome.STALE;
+        }
+        refreshCache(data.spotId());
+        return ResultApplyOutcome.APPLIED;
+    }
+
+    private void refreshCache(Long spotId) {
+        spotRepository.findById(spotId).map(CachedSpot::from).ifPresent(latestCache::put);
     }
 }
