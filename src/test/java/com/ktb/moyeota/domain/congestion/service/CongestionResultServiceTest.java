@@ -91,7 +91,7 @@ class CongestionResultServiceTest {
             assertThat(spot.getSummary()).isEqualTo("출근 인파로 혼잡");
             assertThat(spot.getReportCount()).isEqualTo(3);
             assertThat(spot.getCalculatedAt()).isEqualTo(at("07:10"));
-            assertThat(spot.getValidUntil()).isEqualTo(at("07:20"));
+            assertThat(spot.getValidUntil()).isEqualTo(at("07:30"));
         });
         assertThat(histories()).singleElement().satisfies(history -> {
             assertThat(history.getCalculatedAt()).isEqualTo(at("07:10"));
@@ -110,7 +110,7 @@ class CongestionResultServiceTest {
         assertThat(outcome).isEqualTo(ResultApplyOutcome.APPLIED);
         assertThat(spot().getSummary()).isEqualTo("여전히 혼잡");
         assertThat(spot().getCalculatedAt()).isEqualTo(at("07:20"));
-        assertThat(spot().getValidUntil()).isEqualTo(at("07:30"));
+        assertThat(spot().getValidUntil()).isEqualTo(at("07:40"));
         assertThat(histories()).hasSize(1);
     }
 
@@ -130,6 +130,14 @@ class CongestionResultServiceTest {
     }
 
     @Test
+    @DisplayName("다음 구간을 분석하는 동안에도 직전 결과가 보이도록 표시 기한을 결과 구간 끝에서 두 구간 뒤로 잡는다")
+    void keepsLatestVisibleWhileNextWindowIsAnalyzed() {
+        resultService.apply(success("09:50", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+
+        assertThat(spot().getValidUntil()).isEqualTo(at("11:00"));
+    }
+
+    @Test
     @DisplayName("분석이 실패하면 직전 값은 두고 처리한 구간 끝만 올린다")
     void keepsLatestWhenAnalysisFailed() {
         resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
@@ -141,7 +149,7 @@ class CongestionResultServiceTest {
         assertThat(spot()).satisfies(spot -> {
             assertThat(spot.getStatus()).isEqualTo(CongestionStatus.CONGESTED);
             assertThat(spot.getSummary()).isEqualTo("출근 인파로 혼잡");
-            assertThat(spot.getValidUntil()).isEqualTo(at("07:20"));
+            assertThat(spot.getValidUntil()).isEqualTo(at("07:30"));
             assertThat(spot.getCalculatedAt()).isEqualTo(at("07:20"));
         });
         assertThat(histories()).hasSize(1);
@@ -180,7 +188,7 @@ class CongestionResultServiceTest {
         assertThat(cachedSpots()).singleElement().satisfies(cached -> {
             assertThat(cached.id()).isEqualTo(PANGYO);
             assertThat(cached.status()).isEqualTo(CongestionStatus.CONGESTED);
-            assertThat(cached.validUntil()).isEqualTo(at("07:20"));
+            assertThat(cached.validUntil()).isEqualTo(at("07:30"));
         });
     }
 
