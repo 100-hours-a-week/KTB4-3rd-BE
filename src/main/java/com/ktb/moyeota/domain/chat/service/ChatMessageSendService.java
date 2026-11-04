@@ -48,7 +48,7 @@ public class ChatMessageSendService {
             return Optional.empty();
         }
 
-        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+        ChatRoom chatRoom = chatRoomRepository.findByIdForUpdate(roomId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
         User sender = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
