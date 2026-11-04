@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import static com.ktb.moyeota.domain.chat.entity.Message.rideStartRequestedSyste
 @RequiredArgsConstructor
 public class ChatSystemMessageService {
 
+    private final ChatRoomRepository chatRoomRepository;
     private final MessageRepository messageRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -80,6 +82,7 @@ public class ChatSystemMessageService {
     }
 
     private void publish(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
+        chatRoomRepository.findByIdForUpdate(chatRoom.getId());
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
         eventPublisher.publishEvent(
