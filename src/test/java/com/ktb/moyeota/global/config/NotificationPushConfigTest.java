@@ -32,7 +32,7 @@ class NotificationPushConfigTest {
 
             assertThat(properties.enabled()).isFalse();
             assertThat(properties.sweepDelay()).isEqualTo(Duration.ofSeconds(10));
-            assertThat(properties.batchSize()).isEqualTo(50);
+            assertThat(properties.batchSize()).isEqualTo(100);
             assertThat(properties.lease()).isEqualTo(Duration.ofSeconds(60));
             assertThat(properties.retryDelay()).isEqualTo(Duration.ofSeconds(30));
             assertThat(properties.maxAttempts()).isEqualTo(3);
