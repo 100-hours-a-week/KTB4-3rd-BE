@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.congestion.repository;
 import com.ktb.moyeota.domain.congestion.document.CongestionLatest;
 import com.ktb.moyeota.domain.congestion.document.Spot;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,10 @@ public class SpotRepository {
 
     public Optional<Spot> findById(Long spotId) {
         return Optional.ofNullable(mongoTemplate.findById(spotId, Spot.class));
+    }
+
+    public List<Spot> findAllById(Collection<Long> spotIds) {
+        return mongoTemplate.find(new Query(Criteria.where("_id").in(spotIds)), Spot.class);
     }
 
     public boolean applyLatest(Long spotId, CongestionLatest latest) {
