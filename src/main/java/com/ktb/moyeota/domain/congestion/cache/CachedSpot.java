@@ -21,7 +21,8 @@ public record CachedSpot(
         String summary,
         Integer reportCount,
         Instant calculatedAt,
-        Instant validUntil) {
+        Instant validUntil,
+        Instant pendingWindowEnd) {
 
     public CachedSpot {
         causes = causes == null ? List.of() : List.copyOf(causes);
@@ -41,6 +42,7 @@ public record CachedSpot(
                 spot.getSummary(),
                 spot.getReportCount(),
                 spot.getCalculatedAt(),
-                spot.getValidUntil());
+                spot.getValidUntil(),
+                spot.getPendingWindowEnd());
     }
 }

@@ -46,4 +46,7 @@ public class Spot {
 
     @Field("valid_until")
     private Instant validUntil;
+
+    @Field("pending_window_end")
+    private Instant pendingWindowEnd;
 }

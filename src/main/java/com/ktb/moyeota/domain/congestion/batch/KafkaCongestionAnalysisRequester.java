@@ -1,5 +1,7 @@
 package com.ktb.moyeota.domain.congestion.batch;
 
+import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
+import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
 import com.ktb.moyeota.domain.congestion.message.CongestionAnalysisRequestData;
 import com.ktb.moyeota.domain.congestion.message.CongestionMessages;
 import com.ktb.moyeota.domain.congestion.message.PostBundle;
@@ -9,6 +11,7 @@ import com.ktb.moyeota.global.config.ConditionalOnServerRole;
 import com.ktb.moyeota.global.config.ServerRole;
 import com.ktb.moyeota.global.event.EventEnvelopeFactory;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ public class KafkaCongestionAnalysisRequester implements CongestionAnalysisReque
 
     private final PostBundleReader bundleReader;
     private final SpotRepository spotRepository;
+    private final CongestionLatestCache latestCache;
     private final EventEnvelopeFactory envelopeFactory;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final JsonMapper jsonMapper;
@@ -44,15 +48,20 @@ public class KafkaCongestionAnalysisRequester implements CongestionAnalysisReque
         }
 
         Instant windowEnd = window.end().toInstant();
+        List<Long> analyzingSpotIds = new ArrayList<>();
         sends.forEach((spotId, send) -> {
             try {
                 send.join();
                 spotRepository.markAnalyzing(spotId, windowEnd);
+                analyzingSpotIds.add(spotId);
             } catch (CompletionException e) {
                 log.error("[CONGESTION_ANALYSIS_REQUEST_FAILED] spot_id={} window_end={}",
                         spotId, window.end(), e.getCause());
             }
         });
+        if (!analyzingSpotIds.isEmpty()) {
+            latestCache.putAll(spotRepository.findAllById(analyzingSpotIds).stream().map(CachedSpot::from).toList());
+        }
     }
 
     private CompletableFuture<SendResult<String, String>> send(CongestionAnalysisRequestData data) {
