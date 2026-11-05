@@ -100,14 +100,14 @@ class CongestionControllerTest {
     }
 
     @Test
-    @DisplayName("없는 스팟이면 404 NOT_FOUND")
+    @DisplayName("없는 스팟이면 404 SPOT_NOT_FOUND")
     void returnsNotFound() throws Exception {
         given(queryService.findSpot(999L)).willThrow(new BusinessException(CongestionErrorCode.SPOT_NOT_FOUND));
 
         mockMvc.perform(get("/api/congestion/spots/999").with(member()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("정보를 불러오지 못했어요"))
-                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+                .andExpect(jsonPath("$.error.code").value("SPOT_NOT_FOUND"));
     }
 
     @Test
