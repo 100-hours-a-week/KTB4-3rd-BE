@@ -24,15 +24,19 @@ class MapPinCacheEvictorTest {
 
     @BeforeEach
     void setUp() {
-        evictor = new MapPinCacheEvictor(new MapGrid(10_000, 6, 4), mapPinCellCache);
+        evictor = new MapPinCacheEvictor(new MapGrid(10_000, 6, 4, 4), mapPinCellCache);
     }
 
     @Test
-    @DisplayName("핀 좌표가 속한 칸을 단계마다 하나씩, 6칸 지운다")
+    @DisplayName("핀 좌표가 속한 칸을 넘친 칸을 나눈 하위 단계까지 단계마다 하나씩, 10칸 지운다")
     void evictsCellOfEveryLevel() {
         evictor.evict(new MapPinChangedEvent(new BigDecimal("37.497942"), new BigDecimal("127.027621")));
 
         verify(mapPinCellCache).evictCells(List.of(
+                new GridCell(-4, 59996, 203244),
+                new GridCell(-3, 29998, 101622),
+                new GridCell(-2, 14999, 50811),
+                new GridCell(-1, 7499, 25405),
                 new GridCell(0, 3749, 12702),
                 new GridCell(1, 1874, 6351),
                 new GridCell(2, 937, 3175),

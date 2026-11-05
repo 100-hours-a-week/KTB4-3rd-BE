@@ -13,7 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class MapGridTest {
 
-    private final MapGrid grid = new MapGrid(10_000, 6, 4);
+    private final MapGrid grid = new MapGrid(10_000, 6, 4, 4);
 
     @ParameterizedTest(name = "카카오 레벨 {0} 화면은 격자 단계 {5}", quoteTextArguments = false)
     @CsvSource({
@@ -63,7 +63,7 @@ class MapGridTest {
     void longDecimals() {
         List<GridCell> cells = grid.cellsContaining(new BigDecimal("37.5421416243628"), new BigDecimal("126.96179946576201"));
 
-        assertThat(cells.get(0)).isEqualTo(new GridCell(0, 3754, 12696));
+        assertThat(levelZero(cells)).isEqualTo(new GridCell(0, 3754, 12696));
     }
 
     @Test
@@ -71,8 +71,8 @@ class MapGridTest {
     void negativeCoordinates() {
         List<GridCell> cells = grid.cellsContaining(new BigDecimal("-33.868800"), new BigDecimal("-0.000001"));
 
-        assertThat(cells.get(0)).isEqualTo(new GridCell(0, -3387, -1));
-        assertThat(grid.boundsOf(cells.get(0)).contains(new BigDecimal("-33.868800"), new BigDecimal("-0.000001")))
+        assertThat(levelZero(cells)).isEqualTo(new GridCell(0, -3387, -1));
+        assertThat(grid.boundsOf(levelZero(cells)).contains(new BigDecimal("-33.868800"), new BigDecimal("-0.000001")))
                 .isTrue();
     }
 
@@ -84,7 +84,7 @@ class MapGridTest {
 
         List<GridCell> cells = grid.cellsContaining(lat, lng);
 
-        assertThat(cells).extracting(GridCell::level).containsExactly(0, 1, 2, 3, 4, 5);
+        assertThat(cells).extracting(GridCell::level).containsExactly(-4, -3, -2, -1, 0, 1, 2, 3, 4, 5);
         assertThat(cells).allSatisfy(cell -> assertThat(grid.boundsOf(cell).contains(lat, lng)).isTrue());
     }
 
@@ -94,7 +94,7 @@ class MapGridTest {
         BigDecimal lat = new BigDecimal("37.50");
         BigDecimal lng = new BigDecimal("127.03");
 
-        GridCell cell = grid.cellsContaining(lat, lng).get(0);
+        GridCell cell = levelZero(grid.cellsContaining(lat, lng));
 
         assertThat(cell).isEqualTo(new GridCell(0, 3750, 12703));
         assertThat(grid.boundsOf(new GridCell(0, 3749, 12703)).contains(lat, lng)).isFalse();
@@ -142,8 +142,94 @@ class MapGridTest {
     @CsvSource({"0, 6, 4", "10000, 0, 4", "10000, 6, 0"})
     @DisplayName("설정값이 0 이하이면 만들 수 없다")
     void rejectsNonPositiveSettings(long baseCellMicros, int levelCount, int maxCellsPerAxis) {
-        assertThatThrownBy(() -> new MapGrid(baseCellMicros, levelCount, maxCellsPerAxis))
+        assertThatThrownBy(() -> new MapGrid(baseCellMicros, levelCount, maxCellsPerAxis, 4))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest(quoteTextArguments = false)
+    @CsvSource({"-1", "5"})
+    @DisplayName("하위 단계 수가 음수이거나 가장 작은 칸이 백만분의 1도 단위로 나눠떨어지지 않으면 만들 수 없다")
+    void rejectsInvalidSplitLevelCount(int splitLevelCount) {
+        assertThatThrownBy(() -> new MapGrid(10_000, 6, 4, splitLevelCount))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("하위 단계 칸은 0.01°를 단계마다 반씩 나눈 크기다")
+    void boundsOfSplitLevel() {
+        CellBounds bounds = grid.boundsOf(new GridCell(-4, 59996, 203244));
+
+        assertThat(bounds.minLat()).isEqualByComparingTo("37.497500");
+        assertThat(bounds.maxLat()).isEqualByComparingTo("37.498125");
+        assertThat(bounds.minLng()).isEqualByComparingTo("127.027500");
+        assertThat(bounds.maxLng()).isEqualByComparingTo("127.028125");
+    }
+
+    @ParameterizedTest(name = "요청 단계 {0} → 가장 낮은 단계 {1}", quoteTextArguments = false)
+    @CsvSource({"0, -4", "1, -3", "3, -1", "5, 1"})
+    @DisplayName("한 요청은 요청 단계에서 4단계 아래까지 나눠 내려간다")
+    void lowestSplitLevel(int level, int expected) {
+        assertThat(grid.lowestSplitLevel(level)).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("화면이 칸을 덮으면 하위 칸 4개를 모두 돌려준다")
+    void childrenWhenViewportCoversCell() {
+        Viewport viewport = viewport("37.49", "127.02", "37.51", "127.04");
+
+        assertThat(grid.childrenOverlapping(new GridCell(0, 3750, 12703), viewport)).containsExactly(
+                new GridCell(-1, 7500, 25406), new GridCell(-1, 7500, 25407),
+                new GridCell(-1, 7501, 25406), new GridCell(-1, 7501, 25407));
+    }
+
+    @Test
+    @DisplayName("화면과 겹치는 하위 칸만 돌려준다")
+    void childrenOverlappingViewportOnly() {
+        Viewport viewport = viewport("37.49", "127.02", "37.503", "127.033");
+
+        assertThat(grid.childrenOverlapping(new GridCell(0, 3750, 12703), viewport))
+                .containsExactly(new GridCell(-1, 7500, 25406));
+    }
+
+    @Test
+    @DisplayName("화면의 북쪽·동쪽 경계선이 하위 칸의 남쪽·서쪽 변과 겹치면, 그 선 위 핀이 화면 안이라 겹친다")
+    void childOnViewportUpperEdgeOverlaps() {
+        Viewport viewport = viewport("37.49", "127.02", "37.505", "127.035");
+
+        assertThat(grid.childrenOverlapping(new GridCell(0, 3750, 12703), viewport)).containsExactly(
+                new GridCell(-1, 7500, 25406), new GridCell(-1, 7500, 25407),
+                new GridCell(-1, 7501, 25406), new GridCell(-1, 7501, 25407));
+    }
+
+    @Test
+    @DisplayName("화면의 남쪽·서쪽 경계선이 하위 칸의 북쪽·동쪽 변과 겹치면, 그 선 위 핀은 이웃 칸 몫이라 겹치지 않는다")
+    void childBelowViewportLowerEdgeDoesNotOverlap() {
+        Viewport viewport = viewport("37.505", "127.035", "37.52", "127.05");
+
+        assertThat(grid.childrenOverlapping(new GridCell(0, 3750, 12703), viewport))
+                .containsExactly(new GridCell(-1, 7501, 25407));
+    }
+
+    @Test
+    @DisplayName("화면 경계가 하위 칸 안쪽으로 백만분의 1도만 들어와도 겹친다")
+    void childOverlappingByOneMicroDegree() {
+        Viewport viewport = viewport("37.504999", "127.035", "37.52", "127.05");
+
+        assertThat(grid.childrenOverlapping(new GridCell(0, 3750, 12703), viewport))
+                .containsExactly(new GridCell(-1, 7500, 25407), new GridCell(-1, 7501, 25407));
+    }
+
+    @Test
+    @DisplayName("가장 작은 칸은 더 나눌 수 없다")
+    void lowestCellCannotSplit() {
+        Viewport viewport = viewport("37.49", "127.02", "37.51", "127.04");
+
+        assertThatThrownBy(() -> grid.childrenOverlapping(new GridCell(-4, 60000, 203248), viewport))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static GridCell levelZero(List<GridCell> cells) {
+        return cells.stream().filter(cell -> cell.level() == 0).findFirst().orElseThrow();
     }
 
     private static Viewport viewport(String swLat, String swLng, String neLat, String neLng) {

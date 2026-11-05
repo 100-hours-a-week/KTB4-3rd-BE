@@ -63,7 +63,7 @@ class HomeServiceMapPinCacheTest {
     private static final BigDecimal SOUTH_WEST_MIN_LAT = new BigDecimal("37.490000");
     private static final BigDecimal SOUTH_WEST_MIN_LNG = new BigDecimal("127.020000");
 
-    private final MapGrid mapGrid = new MapGrid(10_000, 6, 4);
+    private final MapGrid mapGrid = new MapGrid(10_000, 6, 4, 4);
     private final JsonMapper jsonMapper = JsonMapper.builder()
             .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
             .build();

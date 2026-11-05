@@ -77,7 +77,7 @@ class HomeServiceTest {
         service = new HomeService(communityPostRepository, companionPostRepository, cursorCodec,
                 new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                new MapGrid(10_000, 6, 4), mapPinCellCache, mapPinCellLoader,
+                new MapGrid(10_000, 6, 4, 4), mapPinCellCache, mapPinCellLoader,
                 new MapPinMetrics(meterRegistry));
     }
 

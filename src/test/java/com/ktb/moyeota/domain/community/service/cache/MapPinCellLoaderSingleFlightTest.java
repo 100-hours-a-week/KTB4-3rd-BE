@@ -75,7 +75,7 @@ class MapPinCellLoaderSingleFlightTest {
         meterRegistry = new SimpleMeterRegistry();
         cache = new MapPinCellCache(redisTemplate, jsonMapper, meterRegistry);
         loader = new MapPinCellLoader(
-                new MapGrid(10_000, 6, 4), communityPostRepository, companionPostRepository, cache);
+                new MapGrid(10_000, 6, 4, 4), communityPostRepository, companionPostRepository, cache);
     }
 
     @AfterEach

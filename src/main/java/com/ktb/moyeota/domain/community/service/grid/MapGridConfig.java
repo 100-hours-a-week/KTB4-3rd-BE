@@ -9,9 +9,10 @@ public class MapGridConfig {
     private static final long BASE_CELL_MICROS = 10_000;
     private static final int LEVEL_COUNT = 6;
     private static final int MAX_CELLS_PER_AXIS = 4;
+    private static final int SPLIT_LEVEL_COUNT = 4;
 
     @Bean
     public MapGrid mapGrid() {
-        return new MapGrid(BASE_CELL_MICROS, LEVEL_COUNT, MAX_CELLS_PER_AXIS);
+        return new MapGrid(BASE_CELL_MICROS, LEVEL_COUNT, MAX_CELLS_PER_AXIS, SPLIT_LEVEL_COUNT);
     }
 }
