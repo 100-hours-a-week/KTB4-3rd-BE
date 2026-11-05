@@ -47,6 +47,10 @@ public class SpotRepository {
                 new Update().set("pending_window_end", Date.from(windowEnd)), Spot.class);
     }
 
+    public List<Spot> findAllLatest() {
+        return mongoTemplate.find(new Query(Criteria.where("calculated_at").exists(true)), Spot.class);
+    }
+
     public Optional<Spot> findById(Long spotId) {
         return Optional.ofNullable(mongoTemplate.findById(spotId, Spot.class));
     }

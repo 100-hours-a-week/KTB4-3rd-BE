@@ -111,6 +111,17 @@ class SpotRepositoryTest {
         return mongoTemplate.findById(spotId, Spot.class).getLastSignalAt();
     }
 
+    @Test
+    @DisplayName("결과가 한 번이라도 반영된 스팟만 최신값 목록으로 읽는다")
+    void findsSpotsWithLatest() {
+        insertSpots(List.of(
+                spot(101L, "판교역", LAT, LNG)
+                        .append("calculated_at", Date.from(Instant.parse("2026-11-03T22:10:00Z"))),
+                spot(102L, "정자역", LAT, LNG)));
+
+        assertThat(spotRepository.findAllLatest()).extracting(Spot::getId).containsExactly(101L);
+    }
+
     private void insertSpots(List<Document> spots) {
         mongoTemplate.getCollection("spots").insertMany(spots);
     }
