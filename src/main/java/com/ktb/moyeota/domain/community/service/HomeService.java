@@ -88,7 +88,6 @@ public class HomeService {
         missed.sort(Comparator.comparing((GridCell cell) -> !mapGrid.isFullyInside(cell, viewport)));
         for (GridCell cell : missed) {
             CellPins pins = mapPinCellLoader.load(cell);
-            mapPinCellCache.writeCell(cell, pins);
             CellVerdict verdict = collect(cell, pins, viewport, items);
             if (verdict == CellVerdict.EXCEEDED) {
                 return exceeded();

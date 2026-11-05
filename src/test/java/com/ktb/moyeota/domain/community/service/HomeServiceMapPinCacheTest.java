@@ -95,7 +95,7 @@ class HomeServiceMapPinCacheTest {
         service = new HomeService(communityPostRepository, companionPostRepository, cursorCodec,
                 new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
-                mapGrid, cache, new MapPinCellLoader(mapGrid, communityPostRepository, companionPostRepository),
+                mapGrid, cache, new MapPinCellLoader(mapGrid, communityPostRepository, companionPostRepository, cache),
                 new MapPinMetrics(meterRegistry));
     }
 

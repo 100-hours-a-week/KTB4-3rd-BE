@@ -26,6 +26,7 @@ public class MapPinCellCache {
     static final String METRIC = "map_pins.cell_cache";
 
     private static final String READ = "read";
+    private static final String RECHECK = "recheck";
     private static final String WRITE = "write";
     private static final String EVICT = "evict";
     private static final String HIT = "hit";
@@ -37,6 +38,14 @@ public class MapPinCellCache {
     private final MeterRegistry meterRegistry;
 
     public Optional<Map<GridCell, CellPins>> readCells(List<GridCell> cells) {
+        return read(cells, READ);
+    }
+
+    public Optional<CellPins> recheckCell(GridCell cell) {
+        return read(List.of(cell), RECHECK).map(found -> found.get(cell));
+    }
+
+    private Optional<Map<GridCell, CellPins>> read(List<GridCell> cells, String operation) {
         if (cells.isEmpty()) {
             return Optional.of(Map.of());
         }
@@ -45,11 +54,11 @@ public class MapPinCellCache {
             values = redisTemplate.opsForValue().multiGet(keysOf(cells));
         } catch (DataAccessException e) {
             log.warn("[MAP_PIN_CACHE_READ_FAILED] Redis에서 칸을 읽지 못해 캐시 없이 조회합니다. cells={}", cells.size(), e);
-            count(READ, ERROR, cells.size());
+            count(operation, ERROR, cells.size());
             return Optional.empty();
         }
         if (values == null) {
-            count(READ, ERROR, cells.size());
+            count(operation, ERROR, cells.size());
             return Optional.empty();
         }
 
@@ -57,15 +66,15 @@ public class MapPinCellCache {
         for (int i = 0; i < cells.size(); i++) {
             String value = values.get(i);
             if (value == null) {
-                count(READ, MISS, 1);
+                count(operation, MISS, 1);
                 continue;
             }
             try {
                 found.put(cells.get(i), jsonMapper.readValue(value, CellPins.class));
-                count(READ, HIT, 1);
+                count(operation, HIT, 1);
             } catch (JacksonException | IllegalArgumentException e) {
                 log.warn("[MAP_PIN_CACHE_READ_FAILED] 캐시 값을 읽지 못해 캐시 미스로 처리합니다. key={}", keyOf(cells.get(i)), e);
-                count(READ, ERROR, 1);
+                count(operation, ERROR, 1);
             }
         }
         return Optional.of(found);
