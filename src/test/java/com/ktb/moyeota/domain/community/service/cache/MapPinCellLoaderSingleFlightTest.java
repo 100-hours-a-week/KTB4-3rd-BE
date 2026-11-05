@@ -75,7 +75,7 @@ class MapPinCellLoaderSingleFlightTest {
         meterRegistry = new SimpleMeterRegistry();
         cache = new MapPinCellCache(redisTemplate, jsonMapper, meterRegistry);
         loader = new MapPinCellLoader(
-                new MapGrid(10_000, 6, 4), communityPostRepository, companionPostRepository, cache);
+                new MapGrid(10_000, 6, 4, 4), communityPostRepository, companionPostRepository, cache);
     }
 
     @AfterEach
@@ -202,7 +202,7 @@ class MapPinCellLoaderSingleFlightTest {
         given(companionPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt())).willReturn(List.of());
 
         loader.load(GANGNAM);
-        cache.evictCells(List.of(GANGNAM));
+        cache.evictCellsKeepingOverflow(List.of(GANGNAM));
         loader.load(GANGNAM);
 
         assertThat(dbQueries).hasValue(2);

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +33,15 @@ public class MapPinCellCache {
     private static final String HIT = "hit";
     private static final String MISS = "miss";
     private static final String ERROR = "error";
+    private static final RedisScript<Long> EVICT_KEEPING_OVERFLOW = RedisScript.of("""
+            local deleted = 0
+            for _, key in ipairs(KEYS) do
+                if redis.call('GET', key) ~= ARGV[1] then
+                    deleted = deleted + redis.call('DEL', key)
+                end
+            end
+            return deleted
+            """, Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final JsonMapper jsonMapper;
@@ -93,12 +103,13 @@ public class MapPinCellCache {
         }
     }
 
-    public void evictCells(Collection<GridCell> cells) {
+    public void evictCellsKeepingOverflow(Collection<GridCell> cells) {
         if (cells.isEmpty()) {
             return;
         }
         try {
-            redisTemplate.delete(keysOf(cells));
+            redisTemplate.execute(EVICT_KEEPING_OVERFLOW, keysOf(cells),
+                    jsonMapper.writeValueAsString(CellPins.overflowed()));
         } catch (DataAccessException e) {
             log.warn("[MAP_PIN_CACHE_EVICT_FAILED] Redis에서 칸을 지우지 못했습니다. 최대 {} 뒤 만료됩니다. cells={}",
                     TTL, cells.size(), e);

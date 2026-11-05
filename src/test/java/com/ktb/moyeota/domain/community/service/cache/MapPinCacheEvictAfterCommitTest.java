@@ -51,10 +51,10 @@ class MapPinCacheEvictAfterCommitTest {
     void evictsAfterCommit() {
         transactionTemplate.executeWithoutResult(status -> {
             eventPublisher.publishEvent(GANGNAM_PIN);
-            verify(mapPinCellCache, never()).evictCells(anyCollection());
+            verify(mapPinCellCache, never()).evictCellsKeepingOverflow(anyCollection());
         });
 
-        verify(mapPinCellCache).evictCells(anyCollection());
+        verify(mapPinCellCache).evictCellsKeepingOverflow(anyCollection());
     }
 
     @Test
@@ -65,7 +65,7 @@ class MapPinCacheEvictAfterCommitTest {
             status.setRollbackOnly();
         });
 
-        verify(mapPinCellCache, never()).evictCells(anyCollection());
+        verify(mapPinCellCache, never()).evictCellsKeepingOverflow(anyCollection());
     }
 
     @Configuration

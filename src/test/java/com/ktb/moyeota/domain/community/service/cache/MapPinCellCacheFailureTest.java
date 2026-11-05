@@ -3,7 +3,6 @@ package com.ktb.moyeota.domain.community.service.cache;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -23,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.data.redis.core.ValueOperations;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
@@ -95,9 +95,10 @@ class MapPinCellCacheFailureTest {
     @Test
     @DisplayName("Redis에서 지우지 못해도 예외를 던지지 않는다")
     void evictFailureIsIgnored() {
-        given(redisTemplate.delete(anyCollection())).willThrow(new RedisConnectionFailureException("Redis down"));
+        given(redisTemplate.execute(any(RedisScript.class), anyList(), anyString()))
+                .willThrow(new RedisConnectionFailureException("Redis down"));
 
-        assertThatCode(() -> cache.evictCells(CELLS)).doesNotThrowAnyException();
+        assertThatCode(() -> cache.evictCellsKeepingOverflow(CELLS)).doesNotThrowAnyException();
         assertThat(count("evict", "error")).isEqualTo(2.0);
     }
 

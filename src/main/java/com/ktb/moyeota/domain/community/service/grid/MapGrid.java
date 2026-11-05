@@ -13,14 +13,20 @@ public class MapGrid {
     private final long baseCellMicros;
     private final int levelCount;
     private final int maxCellsPerAxis;
+    private final int splitLevelCount;
 
-    public MapGrid(long baseCellMicros, int levelCount, int maxCellsPerAxis) {
+    public MapGrid(long baseCellMicros, int levelCount, int maxCellsPerAxis, int splitLevelCount) {
         if (baseCellMicros <= 0 || levelCount <= 0 || maxCellsPerAxis <= 0) {
             throw new IllegalArgumentException("격자 설정값은 0보다 커야 합니다");
+        }
+        if (splitLevelCount < 0 || splitLevelCount >= Long.SIZE
+                || baseCellMicros % (1L << splitLevelCount) != 0) {
+            throw new IllegalArgumentException("가장 작은 칸도 백만분의 1도 단위로 나눠떨어져야 합니다");
         }
         this.baseCellMicros = baseCellMicros;
         this.levelCount = levelCount;
         this.maxCellsPerAxis = maxCellsPerAxis;
+        this.splitLevelCount = splitLevelCount;
     }
 
     public int levelFor(Viewport viewport) {
@@ -55,12 +61,32 @@ public class MapGrid {
     public List<GridCell> cellsContaining(BigDecimal lat, BigDecimal lng) {
         long latMicros = floorMicros(lat);
         long lngMicros = floorMicros(lng);
-        List<GridCell> cells = new ArrayList<>(levelCount);
-        for (int level = 0; level < levelCount; level++) {
+        List<GridCell> cells = new ArrayList<>(splitLevelCount + levelCount);
+        for (int level = -splitLevelCount; level < levelCount; level++) {
             long size = cellMicros(level);
             cells.add(new GridCell(level, Math.floorDiv(latMicros, size), Math.floorDiv(lngMicros, size)));
         }
         return cells;
+    }
+
+    public int lowestSplitLevel(int level) {
+        return Math.max(-splitLevelCount, level - splitLevelCount);
+    }
+
+    public List<GridCell> childrenOverlapping(GridCell cell, Viewport viewport) {
+        if (cell.level() <= -splitLevelCount) {
+            throw new IllegalArgumentException("가장 작은 칸은 더 나눌 수 없습니다: " + cell);
+        }
+        List<GridCell> children = new ArrayList<>(4);
+        for (long row = cell.row() * 2; row <= cell.row() * 2 + 1; row++) {
+            for (long col = cell.col() * 2; col <= cell.col() * 2 + 1; col++) {
+                GridCell child = new GridCell(cell.level() - 1, row, col);
+                if (overlaps(child, viewport)) {
+                    children.add(child);
+                }
+            }
+        }
+        return children;
     }
 
     public CellBounds boundsOf(GridCell cell) {
@@ -80,8 +106,16 @@ public class MapGrid {
                 && (cell.col() + 1) * size <= floorMicros(viewport.neLng());
     }
 
+    private boolean overlaps(GridCell cell, Viewport viewport) {
+        long size = cellMicros(cell.level());
+        return cell.row() * size <= floorMicros(viewport.neLat())
+                && ceilMicros(viewport.swLat()) < (cell.row() + 1) * size
+                && cell.col() * size <= floorMicros(viewport.neLng())
+                && ceilMicros(viewport.swLng()) < (cell.col() + 1) * size;
+    }
+
     private long cellMicros(int level) {
-        return baseCellMicros << level;
+        return level >= 0 ? baseCellMicros << level : baseCellMicros >> -level;
     }
 
     private static long floorMicros(BigDecimal degrees) {

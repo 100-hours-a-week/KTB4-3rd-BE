@@ -117,9 +117,22 @@ class MapPinCellCacheTest {
         cache.writeCell(GANGNAM, CellPins.of(List.of()));
         cache.writeCell(NEXT_TO_GANGNAM, CellPins.of(List.of()));
 
-        cache.evictCells(List.of(GANGNAM, NEXT_TO_GANGNAM));
+        cache.evictCellsKeepingOverflow(List.of(GANGNAM, NEXT_TO_GANGNAM));
 
         assertThat(cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM)).orElseThrow()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("핀이 늘어날 때 지우는 칸 중 넘친 칸은 만료 시각까지 그대로 남긴다")
+    void keepsOverflowedCellWhenEvictingForAddedPin() {
+        cache.writeCell(GANGNAM, CellPins.overflowed());
+        cache.writeCell(NEXT_TO_GANGNAM, CellPins.of(List.of()));
+
+        cache.evictCellsKeepingOverflow(List.of(GANGNAM, NEXT_TO_GANGNAM, EMPTY_AREA));
+
+        assertThat(cache.readCells(List.of(GANGNAM, NEXT_TO_GANGNAM, EMPTY_AREA)).orElseThrow())
+                .containsExactly(Map.entry(GANGNAM, CellPins.overflowed()));
+        assertThat(redisTemplate.getExpire(MapPinCellCache.keyOf(GANGNAM))).isBetween(1L, 60L);
     }
 
     @Test
@@ -151,7 +164,7 @@ class MapPinCellCacheTest {
     @DisplayName("빈 칸 목록은 Redis에 묻지 않고 빈 결과를 돌려준다")
     void emptyRequest() {
         assertThat(cache.readCells(List.of()).orElseThrow()).isEmpty();
-        cache.evictCells(List.of());
+        cache.evictCellsKeepingOverflow(List.of());
 
         assertThat(meterRegistry.find(MapPinCellCache.METRIC).counters()).isEmpty();
     }

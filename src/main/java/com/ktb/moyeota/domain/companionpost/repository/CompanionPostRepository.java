@@ -57,6 +57,33 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
             @Param("maxLng") BigDecimal maxLng,
             @Param("limit") int limit);
 
+    @Query(nativeQuery = true, value = """
+            SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
+                   c.origin_lat AS originLat, c.origin_lng AS originLng
+            FROM companions c
+            WHERE c.kind = 'COMPANION'
+              AND c.status = 'RECRUITING'
+              AND MBRIntersects(
+                    ST_GeomFromText(CONCAT('POLYGON((', :minLat, ' ', :minLng, ',', :maxLat, ' ', :minLng, ',', :maxLat, ' ', :maxLng, ',', :minLat, ' ', :maxLng, ',', :minLat, ' ', :minLng, '))'), 4326),
+                    c.origin_location
+                  )
+              AND c.origin_lat >= :minLat AND c.origin_lat < :maxLat
+              AND c.origin_lng >= :minLng AND c.origin_lng < :maxLng
+              AND c.origin_lat >= :swLat AND c.origin_lat <= :neLat
+              AND c.origin_lng >= :swLng AND c.origin_lng <= :neLng
+            LIMIT :limit
+            """)
+    List<CompanionPinProjection> findPinsInCellWithinViewport(
+            @Param("minLat") BigDecimal minLat,
+            @Param("minLng") BigDecimal minLng,
+            @Param("maxLat") BigDecimal maxLat,
+            @Param("maxLng") BigDecimal maxLng,
+            @Param("swLat") BigDecimal swLat,
+            @Param("swLng") BigDecimal swLng,
+            @Param("neLat") BigDecimal neLat,
+            @Param("neLng") BigDecimal neLng,
+            @Param("limit") int limit);
+
 
     @Query(nativeQuery = true, value = """
             SELECT cp.user_id

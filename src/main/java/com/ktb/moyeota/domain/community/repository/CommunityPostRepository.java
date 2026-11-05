@@ -46,6 +46,31 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             @Param("maxLng") BigDecimal maxLng,
             @Param("limit") int limit);
 
+    @Query(nativeQuery = true, value = """
+            SELECT cp.id AS id, cp.title AS title, cp.lat AS lat, cp.lng AS lng
+            FROM community_posts cp
+            WHERE cp.deleted_at IS NULL
+              AND MBRIntersects(
+                    ST_GeomFromText(CONCAT('POLYGON((', :minLat, ' ', :minLng, ',', :maxLat, ' ', :minLng, ',', :maxLat, ' ', :maxLng, ',', :minLat, ' ', :maxLng, ',', :minLat, ' ', :minLng, '))'), 4326),
+                    cp.location
+                  )
+              AND cp.lat >= :minLat AND cp.lat < :maxLat
+              AND cp.lng >= :minLng AND cp.lng < :maxLng
+              AND cp.lat >= :swLat AND cp.lat <= :neLat
+              AND cp.lng >= :swLng AND cp.lng <= :neLng
+            LIMIT :limit
+            """)
+    List<CommunityPinProjection> findPinsInCellWithinViewport(
+            @Param("minLat") BigDecimal minLat,
+            @Param("minLng") BigDecimal minLng,
+            @Param("maxLat") BigDecimal maxLat,
+            @Param("maxLng") BigDecimal maxLng,
+            @Param("swLat") BigDecimal swLat,
+            @Param("swLng") BigDecimal swLng,
+            @Param("neLat") BigDecimal neLat,
+            @Param("neLng") BigDecimal neLng,
+            @Param("limit") int limit);
+
 
     @Modifying
     @Query("UPDATE CommunityPost p SET p.commentCount = p.commentCount + 1 WHERE p.id = :postId")
