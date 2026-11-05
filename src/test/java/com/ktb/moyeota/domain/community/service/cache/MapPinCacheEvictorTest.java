@@ -28,11 +28,11 @@ class MapPinCacheEvictorTest {
     }
 
     @Test
-    @DisplayName("핀 좌표가 속한 칸을 넘친 칸을 나눈 하위 단계까지 단계마다 하나씩, 10칸 지운다")
+    @DisplayName("핀 좌표가 속한 칸을 넘친 칸을 나눈 하위 단계까지 단계마다 하나씩, 10칸 지운다. 넘친 칸은 남긴다")
     void evictsCellOfEveryLevel() {
         evictor.evict(new MapPinChangedEvent(new BigDecimal("37.497942"), new BigDecimal("127.027621")));
 
-        verify(mapPinCellCache).evictCells(List.of(
+        verify(mapPinCellCache).evictCellsKeepingOverflow(List.of(
                 new GridCell(-4, 59996, 203244),
                 new GridCell(-3, 29998, 101622),
                 new GridCell(-2, 14999, 50811),

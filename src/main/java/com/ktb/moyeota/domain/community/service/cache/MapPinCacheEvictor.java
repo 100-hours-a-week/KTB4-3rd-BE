@@ -15,6 +15,6 @@ public class MapPinCacheEvictor {
 
     @TransactionalEventListener
     public void evict(MapPinChangedEvent event) {
-        mapPinCellCache.evictCells(mapGrid.cellsContaining(event.lat(), event.lng()));
+        mapPinCellCache.evictCellsKeepingOverflow(mapGrid.cellsContaining(event.lat(), event.lng()));
     }
 }
