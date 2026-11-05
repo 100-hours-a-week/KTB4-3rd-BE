@@ -18,7 +18,6 @@ import com.ktb.moyeota.domain.community.service.cache.CellPins;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
 import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
 import com.ktb.moyeota.domain.community.service.cache.MapPinMetrics;
-import com.ktb.moyeota.domain.community.service.cache.ViewportFallbackReason;
 import com.ktb.moyeota.domain.community.service.grid.GridCell;
 import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
@@ -62,6 +61,12 @@ class HomeServiceMapPinCacheTest {
     private static final GridCell CENTER = new GridCell(0, 3750, 12703);
     private static final BigDecimal SOUTH_WEST_MIN_LAT = new BigDecimal("37.490000");
     private static final BigDecimal SOUTH_WEST_MIN_LNG = new BigDecimal("127.020000");
+    private static final GridCell SOUTH_WEST_CHILD_INSIDE_VIEWPORT = new GridCell(-1, 7499, 25405);
+    private static final BigDecimal VIEWPORT_SW_LAT = new BigDecimal("37.495000");
+    private static final BigDecimal VIEWPORT_SW_LNG = new BigDecimal("127.025000");
+    private static final MapPinSearchRequest GANGNAM_OFF_GRID = request("37.495100", "127.025100", "37.505", "127.035");
+    private static final BigDecimal OFF_GRID_SW_LAT = new BigDecimal("37.495100");
+    private static final BigDecimal OFF_GRID_SW_LNG = new BigDecimal("127.025100");
 
     private final MapGrid mapGrid = new MapGrid(10_000, 6, 4, 4);
     private final JsonMapper jsonMapper = JsonMapper.builder()
@@ -160,22 +165,88 @@ class HomeServiceMapPinCacheTest {
     }
 
     @Test
-    @DisplayName("넘친 칸이 화면에 일부만 걸쳤으면 화면 쿼리 결과로 답한다")
-    void partlyOverflowFallsBackToViewportQuery() {
+    @DisplayName("넘친 칸이 화면에 일부만 걸쳤으면 화면과 겹친 하위 칸만 읽어 DB 없이 답한다")
+    void partlyOverflowReadsOverlappingChildren() {
         cache.writeCell(SOUTH_WEST, CellPins.overflowed());
         cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
         cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
         cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
-        CommunityPinProjection viewportPin = communityPin(11L, "37.4970", "127.0270");
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
-                .willReturn(List.of(viewportPin));
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
-                .willReturn(List.of());
+        cache.writeCell(SOUTH_WEST_CHILD_INSIDE_VIEWPORT, CellPins.of(List.of(
+                pin(MapPinType.COMMUNITY, 11L, "37.497000", "127.027000"))));
+        lenient().when(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 밖 하위 칸을 읽으면 안 된다"));
+        lenient().when(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 전체 조회로 가면 안 된다"));
 
         MapPinSearchResponse response = service.searchMapPins(GANGNAM);
 
         assertThat(response.limitExceeded()).isFalse();
         assertThat(response.items()).extracting(MapPinItem::id).containsExactly(11L);
+    }
+
+    @Test
+    @DisplayName("하위 칸 중 화면 안에 통째로 든 칸이 넘쳤으면 초과로 답한다")
+    void fullyInsideOverflowedChildIsExceeded() {
+        cache.writeCell(SOUTH_WEST, CellPins.overflowed());
+        cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
+        cache.writeCell(SOUTH_WEST_CHILD_INSIDE_VIEWPORT, CellPins.overflowed());
+        lenient().when(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 전체 조회로 가면 안 된다"));
+
+        MapPinSearchResponse response = service.searchMapPins(GANGNAM);
+
+        assertThat(response.limitExceeded()).isTrue();
+        assertThat(response.items()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("가장 작은 칸까지 나눠도 넘치면 그 칸과 화면이 겹친 조각만 DB로 조회한다")
+    void floorOverflowQueriesOnlyOverlappingPieces() {
+        cache.writeCell(SOUTH_WEST, CellPins.overflowed());
+        cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
+        given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .willAnswer(invocation -> crossesOffGridViewportEdges(invocation.getArgument(0),
+                        invocation.getArgument(1), invocation.getArgument(2), invocation.getArgument(3))
+                        ? crowdedCell() : List.of());
+        CommunityPinProjection piecePin = communityPin(31L, "37.495200", "127.025200");
+        given(communityPostRepository.findPinsInCellWithinViewport(
+                any(), any(), any(), any(), any(), any(), any(), any(), anyInt()))
+                .willAnswer(invocation -> VIEWPORT_SW_LAT.equals(invocation.getArgument(0))
+                        && VIEWPORT_SW_LNG.equals(invocation.getArgument(1)) ? List.of(piecePin) : List.of());
+        lenient().when(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
+                .thenThrow(new QueryTimeoutException("화면 전체 조회로 가면 안 된다"));
+
+        MapPinSearchResponse response = service.searchMapPins(GANGNAM_OFF_GRID);
+
+        assertThat(response.limitExceeded()).isFalse();
+        assertThat(response.items()).extracting(MapPinItem::id).containsExactly(31L);
+        assertThat(meterRegistry.get(MapPinMetrics.FLOOR_OVERFLOWED).counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get(MapPinMetrics.SPLIT_DEPTH).summary().max()).isEqualTo(4.0);
+    }
+
+    @Test
+    @DisplayName("가장 작은 칸 조각에서 모은 핀이 500개를 넘으면 초과로 답한다")
+    void floorPiecesOverLimitAreExceeded() {
+        cache.writeCell(SOUTH_WEST, CellPins.overflowed());
+        cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
+        cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
+        given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
+                .willAnswer(invocation -> crossesOffGridViewportEdges(invocation.getArgument(0),
+                        invocation.getArgument(1), invocation.getArgument(2), invocation.getArgument(3))
+                        ? crowdedCell() : List.of());
+        given(communityPostRepository.findPinsInCellWithinViewport(
+                any(), any(), any(), any(), any(), any(), any(), any(), anyInt()))
+                .willReturn(crowdedCell());
+
+        MapPinSearchResponse response = service.searchMapPins(GANGNAM_OFF_GRID);
+
+        assertThat(response.limitExceeded()).isTrue();
+        assertThat(response.items()).isEmpty();
     }
 
     @Test
@@ -208,8 +279,6 @@ class HomeServiceMapPinCacheTest {
         cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
         cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
         cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
 
         service.searchMapPins(GANGNAM);
 
@@ -246,40 +315,45 @@ class HomeServiceMapPinCacheTest {
     }
 
     @Test
-    @DisplayName("일부 걸친 넘친 칸 때문에 화면 쿼리로 답하더라도, 비어 있던 칸은 모두 채워 둔다")
-    void fillsEveryMissedCellEvenWhenFallingBack() {
-        BigDecimal southWestMinLat = new BigDecimal("37.490000");
-        BigDecimal southWestMinLng = new BigDecimal("127.020000");
+    @DisplayName("일부 걸친 넘친 칸의 하위 칸으로 내려가더라도, 비어 있던 칸은 모두 채워 둔다")
+    void fillsEveryMissedCellBeforeSplitting() {
+        CommunityPinProjection childPin = communityPin(21L, "37.499000", "127.029000");
         given(communityPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt()))
-                .willAnswer(invocation -> southWestMinLat.equals(invocation.getArgument(0))
-                        && southWestMinLng.equals(invocation.getArgument(1)) ? crowdedCell() : List.of());
+                .willAnswer(invocation -> {
+                    BigDecimal minLat = invocation.getArgument(0);
+                    BigDecimal minLng = invocation.getArgument(1);
+                    if (SOUTH_WEST_MIN_LAT.equals(minLat) && SOUTH_WEST_MIN_LNG.equals(minLng)) {
+                        return crowdedCell();
+                    }
+                    if (VIEWPORT_SW_LAT.equals(minLat) && VIEWPORT_SW_LNG.equals(minLng)) {
+                        return List.of(childPin);
+                    }
+                    return List.of();
+                });
         given(companionPostRepository.findPinsInCell(any(), any(), any(), any(), anyInt())).willReturn(List.of());
-        CommunityPinProjection viewportPin = communityPin(21L, "37.5050", "127.0350");
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt()))
-                .willReturn(List.of(viewportPin));
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
 
         MapPinSearchResponse response = service.searchMapPins(THREE_BY_THREE);
 
         assertThat(response.items()).extracting(MapPinItem::id).containsExactly(21L);
         assertThat(cache.readCells(mapGrid.cellsCovering(viewportOf(THREE_BY_THREE))).orElseThrow()).hasSize(9);
+        assertThat(cache.readCells(List.of(SOUTH_WEST_CHILD_INSIDE_VIEWPORT)).orElseThrow()).hasSize(1);
     }
 
     @Test
-    @DisplayName("일부 걸친 넘친 칸 때문에 화면 쿼리로 넘어가면 그 이유를 센다")
-    void countsPartlyOverflowedFallback() {
+    @DisplayName("요청마다 넘친 칸을 몇 단계 나눠 내려갔는지 남긴다")
+    void recordsSplitDepth() {
         cache.writeCell(SOUTH_WEST, CellPins.overflowed());
         cache.writeCell(SOUTH_EAST, CellPins.of(List.of()));
         cache.writeCell(NORTH_WEST, CellPins.of(List.of()));
         cache.writeCell(NORTH_EAST, CellPins.of(List.of()));
-        given(communityPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
-        given(companionPostRepository.findPinsInViewport(any(), any(), any(), any(), anyInt())).willReturn(List.of());
+        cache.writeCell(SOUTH_WEST_CHILD_INSIDE_VIEWPORT, CellPins.of(List.of()));
 
         service.searchMapPins(GANGNAM);
+        service.searchMapPins(request("37.5001", "127.0301", "37.5049", "127.0349"));
 
-        assertThat(meterRegistry.get(MapPinMetrics.VIEWPORT_FALLBACK)
-                .tag(MapPinMetrics.REASON_TAG, ViewportFallbackReason.PARTLY_OVERFLOWED.tagValue())
-                .counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get(MapPinMetrics.SPLIT_DEPTH).summary().count()).isEqualTo(2);
+        assertThat(meterRegistry.get(MapPinMetrics.SPLIT_DEPTH).summary().totalAmount()).isEqualTo(1.0);
+        assertThat(meterRegistry.get(MapPinMetrics.FLOOR_OVERFLOWED).counter().count()).isZero();
     }
 
     private static MapPinSearchRequest request(String swLat, String swLng, String neLat, String neLng) {
@@ -301,6 +375,12 @@ class HomeServiceMapPinCacheTest {
 
     private static Viewport viewportOf(MapPinSearchRequest request) {
         return new Viewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
+    }
+
+    private static boolean crossesOffGridViewportEdges(
+            BigDecimal minLat, BigDecimal minLng, BigDecimal maxLat, BigDecimal maxLng) {
+        return minLat.compareTo(OFF_GRID_SW_LAT) < 0 && OFF_GRID_SW_LAT.compareTo(maxLat) < 0
+                || minLng.compareTo(OFF_GRID_SW_LNG) < 0 && OFF_GRID_SW_LNG.compareTo(maxLng) < 0;
     }
 
     private static List<CommunityPinProjection> crowdedCell() {
