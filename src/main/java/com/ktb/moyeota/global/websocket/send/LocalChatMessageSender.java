@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnServerRole({ServerRole.REST, ServerRole.WORKER, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.REST, ServerRole.MATCHING, ServerRole.WORKER, ServerRole.ALL})
 @RequiredArgsConstructor
 public class LocalChatMessageSender implements ChatMessageSender {
 
