@@ -33,7 +33,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         StompWebSocketEndpointRegistration endpoint = registry.addEndpoint(ENDPOINT)
                 .addInterceptors(traceIdHandshakeInterceptor)
                 .setAllowedOrigins(corsProperties.allowedOrigins().toArray(String[]::new));
-        if (!ServerRole.from(environment.getProperty(ServerRole.ENV_NAME)).acceptsWebSocket()) {
+        if (ServerRole.from(environment.getProperty(ServerRole.ENV_NAME)).stream()
+                .noneMatch(ServerRole::acceptsWebSocket)) {
             endpoint.addInterceptors(new RejectHandshakeInterceptor());
         }
     }
