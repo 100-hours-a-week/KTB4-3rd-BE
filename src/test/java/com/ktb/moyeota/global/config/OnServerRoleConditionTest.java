@@ -32,6 +32,22 @@ class OnServerRoleConditionTest {
     }
 
     @Test
+    @DisplayName("여러 역할을 켜면 그중 하나라도 맞는 빈을 만든다")
+    void severalRoles() {
+        runner.withPropertyValues("APP_ROLE=rest,worker").run(context -> {
+            assertThat(context).hasBean("restBean");
+            assertThat(context).doesNotHaveBean("webSocketBean");
+        });
+    }
+
+    @Test
+    @DisplayName("websocket을 다른 역할과 함께 켜면 기동에 실패한다")
+    void failsOnWebSocketWithOthers() {
+        runner.withPropertyValues("APP_ROLE=rest,websocket")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     @DisplayName("APP_ROLE이 없으면 모든 빈을 만든다")
     void allRoleByDefault() {
         runner.run(context -> {
