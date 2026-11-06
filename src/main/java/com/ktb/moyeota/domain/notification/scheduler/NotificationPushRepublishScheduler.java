@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.notification.scheduler;
 
 import com.ktb.moyeota.domain.notification.service.NotificationPushRepublisher;
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.ServerRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 @ConditionalOnProperty(prefix = "moyeota.notification.push", name = "mode", havingValue = "kafka")
 public class NotificationPushRepublishScheduler {
 

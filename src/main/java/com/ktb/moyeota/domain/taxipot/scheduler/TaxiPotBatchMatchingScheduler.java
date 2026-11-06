@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.taxipot.scheduler;
 
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotBatchMatchingService;
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.ServerRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "moyeota.taxi-pot.matching", name = "mode", havingValue = "batch")
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class TaxiPotBatchMatchingScheduler {
 
     private final TaxiPotBatchMatchingService taxiPotBatchMatchingService;
