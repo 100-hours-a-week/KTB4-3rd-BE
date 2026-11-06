@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 @EnableSchedulerLock(defaultLockAtMostFor = "2m")
-@ConditionalOnServerRole({ServerRole.REST, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class ShedLockConfig {
 
     @Bean
