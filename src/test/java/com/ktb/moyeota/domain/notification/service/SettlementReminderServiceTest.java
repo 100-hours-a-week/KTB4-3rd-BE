@@ -18,9 +18,9 @@ import com.ktb.moyeota.domain.notification.repository.NotificationPushJobReposit
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,28 +29,19 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({SettlementReminderService.class, SettlementReminderServiceTest.FixedClockConfig.class})
+@Import({SettlementReminderService.class, TestClockConfig.class})
 class SettlementReminderServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
     private static final LocalDateTime ROUND = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
     private static final LocalDateTime PREVIOUS_ROUND = LocalDateTime.of(2026, 10, 28, 9, 0, 0);
 
-    @TestConfiguration
-    static class FixedClockConfig {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
-    }
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private SettlementReminderService reminderService;
@@ -71,6 +62,7 @@ class SettlementReminderServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         host = entityManager.persist(bankAccountHolder("방장"));
         rider = entityManager.persist(bankAccountHolder("동승자"));
         User leaver = entityManager.persist(bankAccountHolder("나간사람"));

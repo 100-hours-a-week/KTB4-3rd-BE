@@ -22,6 +22,8 @@ import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.event.MeterAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.ai.AiAnalysisClient;
 import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
 import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
@@ -29,9 +31,7 @@ import com.ktb.moyeota.global.websocket.RecordingUserEventSender;
 import com.ktb.moyeota.global.websocket.UserChannel;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,17 +48,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({MeterAnalysisService.class, MeterAnalysisResultWriter.class, SettlementService.class, ImageReadUrlIssuer.class, S3PresignerTestSupport.class,
-        MeterAnalysisServiceTest.Config.class})
+        TestClockConfig.class, MeterAnalysisServiceTest.Config.class})
 @EnableConfigurationProperties(MeterAnalysisProperties.class)
 class MeterAnalysisServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime STARTED_AT = LocalDateTime.of(2026, 9, 7, 9, 0, 3);
     private static final LocalDateTime NOW = STARTED_AT.plusSeconds(5);
     private static final String METER_KEY = "meter/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
 
     @MockitoBean
     private AiAnalysisClient aiAnalysisClient;
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private RecordingUserEventSender userEventSender;
@@ -78,6 +80,7 @@ class MeterAnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         userEventSender.clear();
         host = entityManager.persist(bankAccountHolder("방장"));
         rider = entityManager.persist(bankAccountHolder("동승자"));
@@ -229,11 +232,6 @@ class MeterAnalysisServiceTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         MeterRegistry meterRegistry() {
