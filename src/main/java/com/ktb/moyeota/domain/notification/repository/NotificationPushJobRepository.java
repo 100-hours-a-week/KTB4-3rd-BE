@@ -73,4 +73,37 @@ public interface NotificationPushJobRepository extends JpaRepository<Notificatio
             @Param("ids") Collection<Long> ids,
             @Param("now") LocalDateTime now,
             @Param("leaseUntil") LocalDateTime leaseUntil);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE NotificationPushJob j
+            SET j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.PUBLISHED,
+                j.updatedAt = :now
+            WHERE j.id IN :ids
+              AND j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.PENDING
+            """)
+    int markPublished(
+            @Param("ids") Collection<Long> ids,
+            @Param("now") LocalDateTime now);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE NotificationPushJob j
+            SET j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.PENDING,
+                j.nextAttemptAt = :now,
+                j.updatedAt = :now
+            WHERE j.id IN :ids
+            """)
+    int requeueAll(
+            @Param("ids") Collection<Long> ids,
+            @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT j.id AS id, n.type AS type
+            FROM NotificationPushJob j
+            JOIN j.notification n
+            WHERE j.id IN :ids
+            ORDER BY j.id
+            """)
+    List<PushJobTypeProjection> findTypesByIdIn(@Param("ids") Collection<Long> ids);
 }

@@ -181,6 +181,72 @@ class NotificationPushJobRepositoryTest {
     }
 
     @Nested
+    @DisplayName("markPublished (발행 ack 기록)")
+    class MarkPublished {
+
+        @Test
+        @DisplayName("PENDING 작업만 PUBLISHED 로 바꾼다")
+        void pendingOnly() {
+            NotificationPushJob pending = persistJob(PushJobStatus.PENDING, NOW);
+            NotificationPushJob sent = persistJob(PushJobStatus.SENT, NOW);
+
+            int marked = jobRepository.markPublished(List.of(pending.getId(), sent.getId()), LEASE_UNTIL);
+
+            assertThat(marked).isEqualTo(1);
+            assertThat(reload(pending).getStatus()).isEqualTo(PushJobStatus.PUBLISHED);
+            assertThat(reload(pending).getUpdatedAt()).isEqualTo(LEASE_UNTIL);
+            assertThat(reload(sent).getStatus()).isEqualTo(PushJobStatus.SENT);
+        }
+
+        @Test
+        @DisplayName("ack 가 늦게 와도 컨슈머가 먼저 바꾼 SENDING 을 되돌리지 않는다")
+        void lateAck() {
+            NotificationPushJob sending = persistJob(PushJobStatus.SENDING, LEASE_UNTIL);
+
+            int marked = jobRepository.markPublished(List.of(sending.getId()), NOW);
+
+            assertThat(marked).isZero();
+            assertThat(reload(sending).getStatus()).isEqualTo(PushJobStatus.SENDING);
+        }
+    }
+
+    @Nested
+    @DisplayName("requeueAll (다시 발행할 작업 되돌리기)")
+    class RequeueAll {
+
+        @Test
+        @DisplayName("PENDING 으로 두고 다음 시도 시각을 지금으로 미룬다")
+        void requeue() {
+            NotificationPushJob sending = persistJob(PushJobStatus.SENDING, NOW.minusMinutes(5));
+
+            jobRepository.requeueAll(List.of(sending.getId()), NOW);
+            NotificationPushJob found = reload(sending);
+
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.PENDING);
+            assertThat(found.getNextAttemptAt()).isEqualTo(NOW);
+            assertThat(found.getUpdatedAt()).isEqualTo(NOW);
+        }
+    }
+
+    @Nested
+    @DisplayName("findTypesByIdIn (다시 발행할 토픽 고르기)")
+    class FindTypes {
+
+        @Test
+        @DisplayName("작업 id 와 알림 타입을 함께 읽는다")
+        void readsTypes() {
+            NotificationPushJob job = persistJob(PushJobStatus.PENDING, NOW);
+
+            List<PushJobTypeProjection> rows = jobRepository.findTypesByIdIn(List.of(job.getId()));
+
+            assertThat(rows).singleElement().satisfies(row -> {
+                assertThat(row.getId()).isEqualTo(job.getId());
+                assertThat(row.getType()).isEqualTo(NotificationType.MATCHING_COMPLETED);
+            });
+        }
+    }
+
+    @Nested
     @DisplayName("제약 조건")
     class Constraints {
 
