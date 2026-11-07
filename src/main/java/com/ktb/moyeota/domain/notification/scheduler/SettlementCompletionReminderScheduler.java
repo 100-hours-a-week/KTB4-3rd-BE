@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.notification.scheduler;
 
 import com.ktb.moyeota.domain.notification.service.SettlementReminderService;
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.ServerRole;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class SettlementCompletionReminderScheduler {
 
     private final SettlementReminderService reminderService;

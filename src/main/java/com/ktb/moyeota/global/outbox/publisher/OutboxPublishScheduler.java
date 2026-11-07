@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnServerRole({ServerRole.REST, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class OutboxPublishScheduler {
 
     private final OutboxPublisher outboxPublisher;

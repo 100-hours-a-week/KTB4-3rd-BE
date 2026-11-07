@@ -8,7 +8,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Configuration
 @EnableScheduling
-@ConditionalOnServerRole({ServerRole.REST, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class SchedulingConfig {
 
     @Bean

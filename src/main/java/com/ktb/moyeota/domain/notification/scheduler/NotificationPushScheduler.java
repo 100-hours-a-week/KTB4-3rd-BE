@@ -1,7 +1,9 @@
 package com.ktb.moyeota.domain.notification.scheduler;
 
 import com.ktb.moyeota.domain.notification.service.NotificationPushService;
+import com.ktb.moyeota.global.config.ConditionalOnServerRole;
 import com.ktb.moyeota.global.config.NotificationPushConfig;
+import com.ktb.moyeota.global.config.ServerRole;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class NotificationPushScheduler {
 
     private final NotificationPushService pushService;

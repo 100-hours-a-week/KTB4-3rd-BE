@@ -25,22 +25,26 @@ class MatchingStreamsConfigTest {
                     "spring.kafka.streams.application-id=moyeota-matching", "spring.kafka.streams.auto-startup=false");
 
     @Test
-    @DisplayName("worker 와 all 역할에서 kafka 매칭 방식일 때 Streams 를 켠다")
-    void enabledOnWorkerWithKafkaMode() {
-        runner.withPropertyValues("APP_ROLE=worker", "moyeota.taxi-pot.matching.mode=kafka")
+    @DisplayName("matching 과 all 역할에서 kafka 매칭 방식일 때 Streams 를 켠다")
+    void enabledOnMatchingWithKafkaMode() {
+        runner.withPropertyValues("APP_ROLE=matching", "moyeota.taxi-pot.matching.mode=kafka")
+                .run(context -> assertThat(context).hasSingleBean(StreamsBuilderFactoryBean.class));
+        runner.withPropertyValues("APP_ROLE=matching,worker", "moyeota.taxi-pot.matching.mode=kafka")
                 .run(context -> assertThat(context).hasSingleBean(StreamsBuilderFactoryBean.class));
         runner.withPropertyValues("APP_ROLE=all", "moyeota.taxi-pot.matching.mode=kafka")
                 .run(context -> assertThat(context).hasSingleBean(StreamsBuilderFactoryBean.class));
     }
 
     @Test
-    @DisplayName("rest 역할이거나 매칭 방식이 kafka 가 아니면 Streams 를 켜지 않는다")
+    @DisplayName("rest · worker 역할이거나 매칭 방식이 kafka 가 아니면 Streams 를 켜지 않는다")
     void disabledOtherwise() {
         runner.withPropertyValues("APP_ROLE=rest", "moyeota.taxi-pot.matching.mode=kafka")
                 .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
-        runner.withPropertyValues("APP_ROLE=worker", "moyeota.taxi-pot.matching.mode=batch")
+        runner.withPropertyValues("APP_ROLE=worker", "moyeota.taxi-pot.matching.mode=kafka")
                 .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
-        runner.withPropertyValues("APP_ROLE=worker")
+        runner.withPropertyValues("APP_ROLE=matching", "moyeota.taxi-pot.matching.mode=batch")
+                .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
+        runner.withPropertyValues("APP_ROLE=matching")
                 .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
     }
 }
