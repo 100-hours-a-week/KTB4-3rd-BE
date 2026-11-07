@@ -76,6 +76,7 @@ sentry {
 tasks.named('test') {
     useJUnitPlatform()
     maxHeapSize = '1g'
+    maxParallelForks = Math.max(1, Math.min(3, Runtime.runtime.availableProcessors().intdiv(2)))
 }
 
 jar {
