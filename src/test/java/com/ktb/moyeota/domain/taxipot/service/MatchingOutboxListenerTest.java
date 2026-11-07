@@ -22,14 +22,15 @@ import com.ktb.moyeota.domain.taxipot.matching.RegionGrid;
 import com.ktb.moyeota.domain.taxipot.message.MatchingMessages;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotMatchRequestRepository;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.event.EventEnvelopeFactory;
 import com.ktb.moyeota.global.outbox.entity.OutboxEvent;
 import com.ktb.moyeota.global.outbox.repository.OutboxEventRepository;
 import com.ktb.moyeota.global.outbox.service.OutboxRecorder;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,9 +38,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
@@ -48,12 +47,15 @@ import tools.jackson.databind.json.JsonMapper;
 @DataJpaTest
 @ImportAutoConfiguration(JacksonAutoConfiguration.class)
 @Import({TaxiPotService.class, ChatSystemMessageService.class, MatchingOutboxListener.class,
-        OutboxRecorder.class, EventEnvelopeFactory.class, MatchingOutboxListenerTest.FixedClock.class})
+        OutboxRecorder.class, EventEnvelopeFactory.class, TestClockConfig.class})
 @TestPropertySource(properties = "moyeota.taxi-pot.matching.mode=kafka")
 class MatchingOutboxListenerTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
     private static final String FIXTURE_CELL_KEY = "16871:63599";
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
@@ -72,6 +74,11 @@ class MatchingOutboxListenerTest {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("매칭을 요청하면 같은 트랜잭션에서 출발지 칸 키로 matching.requested 를 아웃박스에 기록한다")
@@ -175,15 +182,5 @@ class MatchingOutboxListenerTest {
 
     private JsonNode payload(OutboxEvent event) {
         return jsonMapper.readTree(event.getPayload());
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
-        }
     }
 }

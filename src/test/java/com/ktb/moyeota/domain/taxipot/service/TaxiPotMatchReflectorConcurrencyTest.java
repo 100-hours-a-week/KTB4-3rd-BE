@@ -23,16 +23,17 @@ import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.websocket.UserEventSender;
 import com.ktb.moyeota.global.websocket.relay.WsRelayPublisher;
-import java.time.Clock;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,9 +47,12 @@ import org.springframework.transaction.annotation.Transactional;
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, NotificationCommandService.class,
-        TaxiPotMatchedEventListener.class, UserEventSender.class, TaxiPotMatchReflectorConcurrencyTest.FixedClock.class,
+        TaxiPotMatchedEventListener.class, UserEventSender.class, TestClockConfig.class,
         TaxiPotMatchReflectorConcurrencyTest.RecordingRelay.class})
 class TaxiPotMatchReflectorConcurrencyTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotMatchReflector reflector;
@@ -91,6 +95,11 @@ class TaxiPotMatchReflectorConcurrencyTest {
         taxiPotMatchRequestRepository.deleteAll();
         taxiPotRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT.minusHours(1));
     }
 
     @Test
@@ -176,16 +185,6 @@ class TaxiPotMatchReflectorConcurrencyTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
-        }
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.minusHours(1).atZone(kst).toInstant(), kst);
         }
     }
 

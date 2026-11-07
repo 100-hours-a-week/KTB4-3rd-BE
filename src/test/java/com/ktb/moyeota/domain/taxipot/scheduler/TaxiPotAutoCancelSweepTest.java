@@ -20,16 +20,15 @@ import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotService;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
-import java.time.Clock;
-import java.time.ZoneId;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -39,8 +38,11 @@ import org.springframework.transaction.annotation.Transactional;
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({TaxiPotAutoCancelScheduler.class, TaxiPotService.class, ChatSystemMessageService.class,
-        TaxiPotAutoCancelSweepTest.FixedClock.class})
+        TestClockConfig.class})
 class TaxiPotAutoCancelSweepTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotAutoCancelScheduler scheduler;
@@ -66,6 +68,11 @@ class TaxiPotAutoCancelSweepTest {
         taxiPotParticipantRepository.deleteAll();
         taxiPotRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT.plusHours(12).plusMinutes(1));
     }
 
     @Test
@@ -105,15 +112,5 @@ class TaxiPotAutoCancelSweepTest {
 
     private CompanionStatus statusOf(Companion pot) {
         return taxiPotRepository.findById(pot.getId()).orElseThrow().getStatus();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.plusHours(12).plusMinutes(1).atZone(kst).toInstant(), kst);
-        }
     }
 }

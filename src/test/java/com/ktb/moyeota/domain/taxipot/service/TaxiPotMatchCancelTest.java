@@ -17,28 +17,30 @@ import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotMatchRequestRepository;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotMatchCancelTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 @TestPropertySource(properties = "moyeota.taxi-pot.matching.mode=batch")
 class TaxiPotMatchCancelTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
@@ -48,6 +50,11 @@ class TaxiPotMatchCancelTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("찾는 중 요청을 취소하면 취소됨이 되고 바로 새 매칭을 요청할 수 있다")
@@ -142,15 +149,5 @@ class TaxiPotMatchCancelTest {
         ReflectionTestUtils.setField(request, "status", status);
         entityManager.merge(request);
         entityManager.flush();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
-        }
     }
 }
