@@ -16,10 +16,10 @@ import com.ktb.moyeota.domain.notification.event.NotificationPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,8 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -36,20 +34,13 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 
 @DataJpaTest
 @RecordApplicationEvents
-@Import({NotificationCommandService.class, NotificationCommandServiceTest.FixedClockConfig.class})
+@Import({NotificationCommandService.class, TestClockConfig.class})
 class NotificationCommandServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 12, 9, 0, 0);
 
-    @TestConfiguration
-    static class FixedClockConfig {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
-    }
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private NotificationCommandService commandService;
@@ -72,6 +63,7 @@ class NotificationCommandServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         recipient = entityManager.persist(user("수신자"));
         Companion companion = entityManager.persist(companionPost(recipient));
         chatRoom = entityManager.persist(ChatRoom.create(companion));

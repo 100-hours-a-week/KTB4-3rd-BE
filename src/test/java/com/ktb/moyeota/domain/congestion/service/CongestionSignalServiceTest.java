@@ -27,7 +27,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @Import({MongoTestContainerConfig.class, CongestionSignalService.class, SpotRepository.class,
@@ -48,14 +47,11 @@ class CongestionSignalServiceTest {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    @Autowired
-    private MongoDBContainer mongoContainer;
-
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("spots");
         mongoTemplate.dropCollection("signals");
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
         mongoTemplate.getCollection("spots").insertOne(new Document("_id", 101L)
                 .append("type", "STATION")
                 .append("name", "판교역")

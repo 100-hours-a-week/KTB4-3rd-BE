@@ -14,27 +14,34 @@ import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
-import java.time.ZoneId;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotRideStartTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class TaxiPotRideStartTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT.plusMinutes(1));
+    }
 
     @Test
     @DisplayName("운행 시작 확인을 요청하면 채팅방에 카드가 남는다")
@@ -74,15 +81,5 @@ class TaxiPotRideStartTest {
                 .getResultList().stream()
                 .map(Message::getMessageType)
                 .toList();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.plusMinutes(1).atZone(kst).toInstant(), kst);
-        }
     }
 }

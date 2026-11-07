@@ -21,10 +21,10 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.kakao.KakaoNaviClient;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,15 +32,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, EtaRefresherTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class EtaRefresherTest {
 
     private final KakaoNaviClient kakaoNaviClient = mock(KakaoNaviClient.class);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
@@ -52,6 +53,7 @@ class EtaRefresherTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(DEPARTURE_AT);
         etaRefresher = new EtaRefresher(kakaoNaviClient, taxiPotService);
     }
 
@@ -109,15 +111,5 @@ class EtaRefresherTest {
         entityManager.flush();
         entityManager.clear();
         return entityManager.find(Companion.class, pot.getId());
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
     }
 }

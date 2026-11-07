@@ -21,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @Import({MongoTestContainerConfig.class, SignalRepository.class})
@@ -38,9 +37,6 @@ class PostBundleReaderTest {
     private MongoTemplate mongoTemplate;
 
     @Autowired
-    private MongoDBContainer mongoContainer;
-
-    @Autowired
     private SignalRepository signalRepository;
 
     private PostBundleReader reader;
@@ -48,7 +44,7 @@ class PostBundleReaderTest {
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("signals");
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
         reader = new PostBundleReader(signalRepository, hasher);
     }
 

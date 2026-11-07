@@ -19,27 +19,34 @@ import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
-import java.time.ZoneId;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotRideEndSettlementTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class TaxiPotRideEndSettlementTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT);
+    }
 
     @Test
     @DisplayName("운행을 종료하면 방장 계좌와 탑승 인원을 담은 대기 상태의 정산이 생긴다")
@@ -105,15 +112,5 @@ class TaxiPotRideEndSettlementTest {
                         Settlement.class)
                 .setParameter("potId", pot.getId())
                 .getResultList();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
     }
 }

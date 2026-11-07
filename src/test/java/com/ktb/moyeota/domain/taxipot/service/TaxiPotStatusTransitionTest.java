@@ -13,27 +13,34 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
-import java.time.Clock;
-import java.time.ZoneId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotStatusTransitionTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class TaxiPotStatusTransitionTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT);
+    }
 
     @ParameterizedTest(name = "{0} → {1}", quoteTextArguments = false)
     @CsvSource({
@@ -82,15 +89,5 @@ class TaxiPotStatusTransitionTest {
         entityManager.flush();
         entityManager.clear();
         return entityManager.find(Companion.class, pot.getId());
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
     }
 }

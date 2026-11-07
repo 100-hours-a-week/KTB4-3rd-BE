@@ -21,10 +21,10 @@ import com.ktb.moyeota.domain.notification.push.TokenSendOutcome;
 import com.ktb.moyeota.domain.notification.push.TokenSendResult;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
+import com.ktb.moyeota.global.config.MutableClock;
 import com.ktb.moyeota.global.config.NotificationPushProperties;
-import java.time.Clock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,10 +42,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({NotificationPushService.class, NotificationPushServiceTest.TestConfig.class})
+@Import({NotificationPushService.class, TestClockConfig.class, NotificationPushServiceTest.TestConfig.class})
 class NotificationPushServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 12, 9, 0, 0);
     private static final LocalDateTime LEASE_UNTIL = NOW.plusSeconds(60);
     private static final LocalDateTime RETRY_AT = NOW.plusSeconds(30);
@@ -53,11 +52,6 @@ class NotificationPushServiceTest {
     @TestConfiguration
     @EnableConfigurationProperties(NotificationPushProperties.class)
     static class TestConfig {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         StubPushSender pushSender() {
@@ -90,6 +84,9 @@ class NotificationPushServiceTest {
     }
 
     @Autowired
+    private MutableClock clock;
+
+    @Autowired
     private NotificationPushService pushService;
 
     @Autowired
@@ -106,6 +103,7 @@ class NotificationPushServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         pushSender.reset();
         recipient = entityManager.persist(user("수신자"));
         Companion companion = entityManager.persist(companionPost(recipient));

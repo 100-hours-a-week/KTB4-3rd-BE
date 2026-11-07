@@ -23,13 +23,13 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.external.s3.S3Properties;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,11 +44,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({MyCarpoolRequestService.class, CarpoolRequestCursorCodec.class, MyCarpoolRequestServiceTest.Config.class})
+@Import({MyCarpoolRequestService.class, CarpoolRequestCursorCodec.class, TestClockConfig.class,
+        MyCarpoolRequestServiceTest.Config.class})
 class MyCarpoolRequestServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private MyCarpoolRequestService myCarpoolRequestService;
@@ -61,6 +64,7 @@ class MyCarpoolRequestServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         host = entityManager.persist(user("방장"));
         me = entityManager.persist(user("나"));
     }
@@ -221,11 +225,6 @@ class MyCarpoolRequestServiceTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         ImageUrlResolver imageUrlResolver() {

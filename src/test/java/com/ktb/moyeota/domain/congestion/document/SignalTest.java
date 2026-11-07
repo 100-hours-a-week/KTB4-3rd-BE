@@ -15,7 +15,6 @@ import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @Import(MongoTestContainerConfig.class)
@@ -26,13 +25,10 @@ class SignalTest {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    @Autowired
-    private MongoDBContainer mongoContainer;
-
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("signals");
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
     }
 
     @Test

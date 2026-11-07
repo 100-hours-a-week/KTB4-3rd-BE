@@ -34,15 +34,15 @@ import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.error.UserErrorCode;
 import com.ktb.moyeota.domain.user.repository.PushTokenRepository;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.external.kakao.KakaoUnlinkClient;
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.jwt.AccessTokenProvider;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,20 +52,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({UserService.class, AuthSessionService.class, JpaSessionStore.class, OpaqueTokenFactory.class,
-        ChatParticipationService.class, ChatSystemMessageService.class, UserWithdrawalTest.FixedClock.class})
+        ChatParticipationService.class, ChatSystemMessageService.class, TestClockConfig.class})
 @EnableConfigurationProperties(AuthProperties.class)
 class UserWithdrawalTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 5, 12, 0);
     private static final String KAKAO_USER_ID = "1234567890";
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private UserService userService;
@@ -104,6 +105,7 @@ class UserWithdrawalTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         me = entityManager.persist(bankAccountHolder("탈퇴자"));
         entityManager.persist(OAuthAccount.link(me, OAuthProvider.KAKAO, KAKAO_USER_ID));
         sessionStore.create(me.getId(), "hash-device-a", NOW.plusDays(7));
@@ -266,15 +268,5 @@ class UserWithdrawalTest {
         assertThat(sessionStore.findToken("hash-device-a")).isPresent();
         verifyNoInteractions(kakaoUnlinkClient);
         verifyNoInteractions(pushTokenRepository);
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
-        }
     }
 }

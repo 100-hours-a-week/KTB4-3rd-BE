@@ -21,17 +21,16 @@ import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.config.AsyncConfig;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.kakao.KakaoNaviClient;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
@@ -40,8 +39,11 @@ import org.springframework.transaction.annotation.Transactional;
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Import({TaxiPotService.class, ChatSystemMessageService.class, EtaRefresher.class, AsyncConfig.class,
-        TaxiPotEtaRefreshTest.FixedClock.class})
+        TestClockConfig.class})
 class TaxiPotEtaRefreshTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
@@ -61,6 +63,11 @@ class TaxiPotEtaRefreshTest {
     @MockitoBean
     private KakaoNaviClient kakaoNaviClient;
 
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT);
+    }
+
     @Test
     @DisplayName("운행 시작이 커밋되면 길찾기 소요 시간으로 도착 예정 시각을 다시 잡는다")
     void refreshesEtaAfterCommit() {
@@ -76,15 +83,5 @@ class TaxiPotEtaRefreshTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
                 assertThat(taxiPotRepository.findById(pot.getId()).orElseThrow().getEtaAt())
                         .isEqualTo(DEPARTURE_AT.plusMinutes(20)));
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
     }
 }

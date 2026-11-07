@@ -24,6 +24,8 @@ import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.ai.AiAnalysisClient;
 import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
 import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
@@ -31,9 +33,7 @@ import com.ktb.moyeota.global.websocket.RecordingUserEventSender;
 import com.ktb.moyeota.global.websocket.UserChannel;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,17 +52,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 @DataJpaTest
 @RecordApplicationEvents
 @Import({TransferAnalysisService.class, TransferAnalysisResultWriter.class, ImageReadUrlIssuer.class,
-        S3PresignerTestSupport.class, TransferAnalysisServiceTest.Config.class})
+        S3PresignerTestSupport.class, TestClockConfig.class, TransferAnalysisServiceTest.Config.class})
 @EnableConfigurationProperties(TransferAnalysisProperties.class)
 class TransferAnalysisServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime REQUESTED_AT = LocalDateTime.of(2026, 9, 7, 9, 10, 3);
     private static final LocalDateTime NOW = REQUESTED_AT.plusSeconds(5);
     private static final String TRANSFER_KEY = "transfer/2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
 
     @MockitoBean
     private AiAnalysisClient aiAnalysisClient;
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private RecordingUserEventSender userEventSender;
@@ -83,6 +85,7 @@ class TransferAnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         userEventSender.clear();
         host = entityManager.persist(bankAccountHolder("방장"));
         rider = entityManager.persist(bankAccountHolder("동승자"));
@@ -264,11 +267,6 @@ class TransferAnalysisServiceTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         MeterRegistry meterRegistry() {

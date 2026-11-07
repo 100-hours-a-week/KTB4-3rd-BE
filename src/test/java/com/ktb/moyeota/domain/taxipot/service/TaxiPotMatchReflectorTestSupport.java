@@ -22,16 +22,15 @@ import com.ktb.moyeota.domain.taxipot.matching.OpenPot;
 import com.ktb.moyeota.domain.taxipot.model.MatchApplyOutcome;
 import com.ktb.moyeota.domain.taxipot.model.MatchApplyOutcome.Applied;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
@@ -40,10 +39,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 @DataJpaTest
 @RecordApplicationEvents
 @Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, NotificationCommandService.class,
-        TaxiPotMatchReflectorTestSupport.FixedClock.class})
+        TestClockConfig.class})
 abstract class TaxiPotMatchReflectorTestSupport {
 
     protected static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
+
+    @Autowired
+    private MutableClock clock;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Autowired
     protected TaxiPotMatchReflector reflector;
@@ -155,15 +162,5 @@ abstract class TaxiPotMatchReflectorTestSupport {
                 .createQuery("SELECT n FROM Notification n WHERE n.type = :type ORDER BY n.id", Notification.class)
                 .setParameter("type", NotificationType.MATCHING_COMPLETED)
                 .getResultList();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
-        }
     }
 }

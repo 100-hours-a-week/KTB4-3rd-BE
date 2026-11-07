@@ -18,11 +18,11 @@ import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.exception.NotificationErrorCode;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,29 +34,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({NotificationService.class, NotificationServiceTest.FixedClockConfig.class})
+@Import({NotificationService.class, TestClockConfig.class})
 class NotificationServiceTest {
-
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 9, 6, 9, 10, 0, 123_456_789);
     private static final LocalDateTime TRUNCATED_NOW = LocalDateTime.of(2026, 9, 6, 9, 10, 0, 123_456_000);
     private static final LocalDateTime EARLIER_READ_AT = LocalDateTime.of(2026, 9, 6, 8, 0, 0, 500_000_000);
 
-    @TestConfiguration
-    static class FixedClockConfig {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(FIXED_NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
-    }
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private NotificationService notificationService;
@@ -71,6 +61,7 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(FIXED_NOW);
         recipient = persist(user("수신자"));
         other = persist(user("다른사람"));
         Companion companion = persist(companionPost(recipient));

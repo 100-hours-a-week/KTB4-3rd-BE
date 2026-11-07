@@ -1,5 +1,6 @@
 package com.ktb.moyeota.domain.congestion.support;
 
+import com.ktb.moyeota.global.config.MongoTestContainerConfig;
 import java.nio.file.Path;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.mongodb.MongoDBContainer;
@@ -13,7 +14,8 @@ public final class CongestionMongoScripts {
     private CongestionMongoScripts() {
     }
 
-    public static void applyIndexes(MongoDBContainer container) throws Exception {
+    public static void applyIndexes() throws Exception {
+        MongoDBContainer container = MongoTestContainerConfig.MONGO;
         container.copyFileToContainer(MountableFile.forHostPath(Path.of(INDEX_SCRIPT)), CONTAINER_PATH);
         ExecResult result = container.execInContainer("mongosh", "--quiet", "mongodb://localhost:27017/test",
                 CONTAINER_PATH);

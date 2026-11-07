@@ -17,20 +17,22 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
-import java.time.ZoneId;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotAutoCancelTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class TaxiPotAutoCancelTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
@@ -40,6 +42,11 @@ class TaxiPotAutoCancelTest {
 
     private final User host = user("방장");
     private final User member = user("동승자");
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT.plusHours(12).plusMinutes(1));
+    }
 
     @Test
     @DisplayName("출발 12시간이 지난 모집 중 팟을 찾는다")
@@ -104,15 +111,5 @@ class TaxiPotAutoCancelTest {
         entityManager.persist(participant(pot, host, PENDING));
         entityManager.persist(participant(pot, member, PENDING));
         return entityManager.persistAndFlush(ChatRoom.create(pot));
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.plusHours(12).plusMinutes(1).atZone(kst).toInstant(), kst);
-        }
     }
 }

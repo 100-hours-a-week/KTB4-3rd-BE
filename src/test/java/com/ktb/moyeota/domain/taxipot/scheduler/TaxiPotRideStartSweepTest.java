@@ -15,22 +15,24 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotService;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
-import java.time.ZoneId;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
 @Import({TaxiPotRideStartScheduler.class, TaxiPotService.class, ChatSystemMessageService.class,
-        TaxiPotRideStartSweepTest.FixedClock.class})
+        TestClockConfig.class})
 class TaxiPotRideStartSweepTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotRideStartScheduler scheduler;
@@ -40,6 +42,11 @@ class TaxiPotRideStartSweepTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT.plusMinutes(1));
+    }
 
     @Test
     @DisplayName("운행 시작 확인 메시지를 못 만든 팟은 다음 주기에 다시 시도한다")
@@ -73,15 +80,5 @@ class TaxiPotRideStartSweepTest {
                 .getResultList().stream()
                 .map(Message::getMessageType)
                 .toList();
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.plusMinutes(1).atZone(kst).toInstant(), kst);
-        }
     }
 }

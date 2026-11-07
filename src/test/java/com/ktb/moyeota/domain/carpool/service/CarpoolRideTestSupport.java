@@ -15,14 +15,15 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
 import com.ktb.moyeota.global.external.s3.S3Properties;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.util.List;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
@@ -35,8 +36,16 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 @DataJpaTest
 @RecordApplicationEvents
 @Import({CarpoolRideService.class, CarpoolDetailReader.class, ChatSystemMessageService.class,
-        CarpoolRideTestSupport.Config.class})
+        TestClockConfig.class, CarpoolRideTestSupport.Config.class})
 abstract class CarpoolRideTestSupport {
+
+    @Autowired
+    private MutableClock clock;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT);
+    }
 
     @Autowired
     protected CarpoolRideService carpoolRideService;
@@ -102,12 +111,6 @@ abstract class CarpoolRideTestSupport {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
 
         @Bean
         ImageUrlResolver imageUrlResolver() {

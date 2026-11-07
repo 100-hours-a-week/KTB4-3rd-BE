@@ -12,25 +12,26 @@ import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
-import java.time.Clock;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({ChatRoomCloseService.class, ChatRoomCloseServiceTest.FixedClock.class})
+@Import({ChatRoomCloseService.class, TestClockConfig.class})
 class ChatRoomCloseServiceTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 14, 12, 0);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private ChatRoomCloseService chatRoomCloseService;
@@ -42,6 +43,7 @@ class ChatRoomCloseServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         host = entityManager.persist(user("방장"));
     }
 
@@ -97,15 +99,5 @@ class ChatRoomCloseServiceTest {
     private ChatRoom reload(ChatRoom chatRoom) {
         entityManager.clear();
         return entityManager.find(ChatRoom.class, chatRoom.getId());
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
-        }
     }
 }

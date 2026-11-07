@@ -15,25 +15,24 @@ import com.ktb.moyeota.domain.taxipot.entity.TaxiPotRegionLease;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
 import com.ktb.moyeota.domain.taxipot.service.TaxiPotBatchMatchingService.BatchMatchingSummary;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
 @Import({TaxiPotBatchMatchingService.class, TaxiPotMatchReflector.class, ChatSystemMessageService.class,
         RegionLeaseService.class, MatchingServerId.class, NotificationCommandService.class,
-        TaxiPotBatchMatchingServiceTest.FixedClock.class})
+        TestClockConfig.class})
 class TaxiPotBatchMatchingServiceTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
@@ -45,12 +44,20 @@ class TaxiPotBatchMatchingServiceTest {
     private static final Spot GANGNAM_STATION = new Spot("강남역", "37.498086", "127.028001");
 
     @Autowired
+    private MutableClock clock;
+
+    @Autowired
     private TaxiPotBatchMatchingService service;
 
     @Autowired
     private TestEntityManager entityManager;
 
     private int sequence;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("같은 칸, 같은 출발 시각의 가까운 찾는 중 요청들을 한 팟으로 묶어 반영한다")
@@ -220,16 +227,6 @@ class TaxiPotBatchMatchingServiceTest {
 
         Spot(String name, String lat, String lng) {
             this(name, new BigDecimal(lat), new BigDecimal(lng));
-        }
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(NOW.atZone(kst).toInstant(), kst);
         }
     }
 }

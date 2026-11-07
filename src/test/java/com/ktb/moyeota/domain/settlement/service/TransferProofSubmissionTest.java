@@ -27,11 +27,11 @@ import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.settlement.model.TransferSubmission;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,8 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
@@ -49,16 +47,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @RecordApplicationEvents
-@Import({TransferProofSubmissionService.class, TransferProofSubmissionTest.Config.class})
+@Import({TransferProofSubmissionService.class, TestClockConfig.class})
 class TransferProofSubmissionTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 7, 9, 10, 3);
     private static final String FILE_NAME = "2aac932d-f68b-4491-9891-fd47671fcf02.jpg";
     private static final String TRANSFER_KEY = "transfer/" + FILE_NAME;
 
     @MockitoBean
     private ImagePromotionService imagePromotionService;
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TransferProofSubmissionService transferProofSubmissionService;
@@ -77,6 +77,7 @@ class TransferProofSubmissionTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         host = entityManager.persist(bankAccountHolder("방장"));
         rider = entityManager.persist(bankAccountHolder("동승자"));
         User otherRider = entityManager.persist(bankAccountHolder("동승자2"));
@@ -278,14 +279,5 @@ class TransferProofSubmissionTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(expected);
-    }
-
-    @TestConfiguration
-    static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
     }
 }

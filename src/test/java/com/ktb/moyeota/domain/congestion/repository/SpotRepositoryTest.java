@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @Import({MongoTestContainerConfig.class, SpotRepository.class})
@@ -33,15 +32,12 @@ class SpotRepositoryTest {
     private MongoTemplate mongoTemplate;
 
     @Autowired
-    private MongoDBContainer mongoContainer;
-
-    @Autowired
     private SpotRepository spotRepository;
 
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("spots");
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
     }
 
     @Test
