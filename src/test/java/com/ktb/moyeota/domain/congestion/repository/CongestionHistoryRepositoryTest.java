@@ -20,7 +20,6 @@ import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @Import({MongoTestContainerConfig.class, CongestionHistoryRepository.class})
@@ -36,13 +35,10 @@ class CongestionHistoryRepositoryTest {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    @Autowired
-    private MongoDBContainer mongoContainer;
-
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection(COLLECTION);
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
     }
 
     @Test

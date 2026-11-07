@@ -40,7 +40,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.testcontainers.mongodb.MongoDBContainer;
 
 @DataMongoTest
 @ImportAutoConfiguration({DataRedisAutoConfiguration.class, JacksonAutoConfiguration.class})
@@ -59,9 +58,6 @@ class CongestionResultServiceTest {
     private MongoTemplate mongoTemplate;
 
     @Autowired
-    private MongoDBContainer mongoContainer;
-
-    @Autowired
     private CongestionLatestCache latestCache;
 
     @Autowired
@@ -71,7 +67,7 @@ class CongestionResultServiceTest {
     void setUp() throws Exception {
         mongoTemplate.dropCollection("spots");
         mongoTemplate.dropCollection("congestion_history");
-        CongestionMongoScripts.applyIndexes(mongoContainer);
+        CongestionMongoScripts.applyIndexes();
         clearCache();
         mongoTemplate.getCollection("spots").insertOne(new Document("_id", PANGYO)
                 .append("type", "STATION")
