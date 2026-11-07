@@ -24,12 +24,13 @@ import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.Gender;
 import com.ktb.moyeota.domain.user.entity.OwnedCar;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.external.s3.S3Properties;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,17 +41,25 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({CarpoolService.class, CarpoolDetailReader.class, NearbyCarpoolCursorCodec.class, CarpoolDetailTest.Config.class})
+@Import({CarpoolService.class, CarpoolDetailReader.class, NearbyCarpoolCursorCodec.class, TestClockConfig.class,
+        CarpoolDetailTest.Config.class})
 class CarpoolDetailTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private CarpoolService carpoolService;
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("로그인하지 않아도 방장 실명 · 차종 · 참여자(참여 순) · 인원을 보여 주고 내 요청은 없다")
@@ -180,11 +189,6 @@ class CarpoolDetailTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         ImageUrlResolver imageUrlResolver() {

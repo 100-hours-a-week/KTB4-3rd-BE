@@ -22,12 +22,12 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.entity.TransportType;
 import com.ktb.moyeota.domain.user.entity.OwnedCar;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.ErrorCode;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,16 +36,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({CarpoolRegistrationService.class, CarpoolRegistrationServiceTest.Config.class})
+@Import({CarpoolRegistrationService.class, TestClockConfig.class})
 class CarpoolRegistrationServiceTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 8, 9, 0);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private CarpoolRegistrationService carpoolRegistrationService;
@@ -57,6 +57,7 @@ class CarpoolRegistrationServiceTest {
 
     @BeforeEach
     void setUp() {
+        clock.set(NOW);
         host = entityManager.persist(user("방장"));
         entityManager.persistAndFlush(OwnedCar.register(host, "아반떼", "12가3456"));
     }
@@ -171,14 +172,5 @@ class CarpoolRegistrationServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(expected);
-    }
-
-    @TestConfiguration
-    static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
     }
 }

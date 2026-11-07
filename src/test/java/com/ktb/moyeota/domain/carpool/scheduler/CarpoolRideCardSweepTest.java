@@ -20,12 +20,13 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.s3.S3Properties;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,11 +39,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({CarpoolRideStartScheduler.class, CarpoolRideEndScheduler.class, CarpoolRideService.class,
-        CarpoolDetailReader.class, ChatSystemMessageService.class, CarpoolRideCardSweepTest.Config.class})
+        CarpoolDetailReader.class, ChatSystemMessageService.class, TestClockConfig.class,
+        CarpoolRideCardSweepTest.Config.class})
 class CarpoolRideCardSweepTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = DEPARTURE_AT.plusMinutes(1);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private CarpoolRideStartScheduler startScheduler;
@@ -54,6 +58,11 @@ class CarpoolRideCardSweepTest {
     private TestEntityManager entityManager;
 
     private int hosts;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("출발 시각이 지난 2명 이상 모집 중 카풀에 운행 시작 카드를 한 번만 만든다")
@@ -154,11 +163,6 @@ class CarpoolRideCardSweepTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         ImageUrlResolver imageUrlResolver() {

@@ -21,12 +21,13 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.external.s3.S3Properties;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,11 +40,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({CarpoolAutoCancelScheduler.class, CarpoolRideService.class, CarpoolDetailReader.class,
-        ChatSystemMessageService.class, CarpoolAutoCancelSweepTest.Config.class})
+        ChatSystemMessageService.class, TestClockConfig.class, CarpoolAutoCancelSweepTest.Config.class})
 class CarpoolAutoCancelSweepTest {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = DEPARTURE_AT.plusHours(12).plusMinutes(1);
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private CarpoolAutoCancelScheduler scheduler;
@@ -55,6 +58,11 @@ class CarpoolAutoCancelSweepTest {
     private TestEntityManager entityManager;
 
     private int users;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(NOW);
+    }
 
     @Test
     @DisplayName("출발 12시간이 지난 모집 중 카풀을 취소하고, 남은 참여자를 모두 내보내고 채팅방을 닫는다")
@@ -149,11 +157,6 @@ class CarpoolAutoCancelSweepTest {
 
     @TestConfiguration
     static class Config {
-
-        @Bean
-        Clock clock() {
-            return Clock.fixed(NOW.atZone(SEOUL).toInstant(), SEOUL);
-        }
 
         @Bean
         ImageUrlResolver imageUrlResolver() {
