@@ -4,6 +4,8 @@ public enum PushJobStatus {
 
     PENDING,
 
+    PUBLISHED,
+
     SENDING,
 
     SENT,
