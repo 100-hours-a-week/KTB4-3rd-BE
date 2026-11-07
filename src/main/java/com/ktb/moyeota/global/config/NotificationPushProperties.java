@@ -14,7 +14,8 @@ public record NotificationPushProperties(
         @DefaultValue("30s") Duration retryDelay,
         @DefaultValue("3") int maxAttempts,
         @DefaultValue Fcm fcm,
-        @DefaultValue Executor executor
+        @DefaultValue Executor executor,
+        @DefaultValue("rdb") Mode mode
 ) {
 
     public NotificationPushProperties {
@@ -27,6 +28,11 @@ public record NotificationPushProperties(
             @DefaultValue("10s") Duration connectTimeout,
             @DefaultValue("10s") Duration readTimeout
     ) {
+    }
+
+    public enum Mode {
+        RDB,
+        KAFKA
     }
 
     public record Executor(
