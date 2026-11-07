@@ -5,6 +5,7 @@ import com.ktb.moyeota.global.config.NotificationPushConfig;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "moyeota.notification.push", name = "mode", havingValue = "rdb", matchIfMissing = true)
 public class NotificationPushScheduler {
 
     private final NotificationPushService pushService;

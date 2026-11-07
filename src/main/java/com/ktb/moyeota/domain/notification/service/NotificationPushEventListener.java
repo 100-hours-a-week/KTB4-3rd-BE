@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.notification.event.NotificationPushRequestedEvent;
 import com.ktb.moyeota.global.config.NotificationPushConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -13,6 +14,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "moyeota.notification.push", name = "mode", havingValue = "rdb", matchIfMissing = true)
 public class NotificationPushEventListener {
 
     private final NotificationPushService pushService;
