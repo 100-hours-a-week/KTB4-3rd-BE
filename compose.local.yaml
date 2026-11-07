@@ -11,3 +11,15 @@ services:
     container_name: moyeota-kafka
     ports:
       - "9092:9092"
+    post_start:
+      - command:
+          - /bin/sh
+          - -c
+          - |
+            until /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1; do sleep 1; done
+            for topic in notification.push.request notification.bulk-push.request; do
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
+                --topic "$$topic" --partitions 6 --config retention.ms=86400000
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
+                --topic "$$topic-dlt" --partitions 1
+            done
