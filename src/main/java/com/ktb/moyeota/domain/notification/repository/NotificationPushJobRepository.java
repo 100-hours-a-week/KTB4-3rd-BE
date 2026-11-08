@@ -46,6 +46,23 @@ public interface NotificationPushJobRepository extends JpaRepository<Notificatio
             @Param("leaseUntil") LocalDateTime leaseUntil);
 
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE NotificationPushJob j
+            SET j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.SENDING,
+                j.attempts = j.attempts + 1,
+                j.nextAttemptAt = :leaseUntil,
+                j.updatedAt = :now
+            WHERE j.id = :id
+              AND j.status IN (
+                  com.ktb.moyeota.domain.notification.entity.PushJobStatus.PENDING,
+                  com.ktb.moyeota.domain.notification.entity.PushJobStatus.PUBLISHED)
+            """)
+    int claimRequested(
+            @Param("id") Long id,
+            @Param("now") LocalDateTime now,
+            @Param("leaseUntil") LocalDateTime leaseUntil);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = SKIP_LOCKED))
     @Query("""
