@@ -287,6 +287,132 @@ class NotificationPushServiceTest {
     }
 
     @Nested
+    @DisplayName("deliver (컨슈머 멱등 발송)")
+    class Deliver {
+
+        private static final int MAX_ATTEMPTS = 2;
+
+        @Test
+        @DisplayName("발행된 작업을 선점해서 보내고 SENT 를 돌려준다")
+        void sent() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens("phone");
+            pushSender.willReturn(TokenSendResult.success("phone"));
+
+            PushDeliveryOutcome outcome = pushService.deliver(job.getId(), MAX_ATTEMPTS);
+
+            NotificationPushJob found = reload(job);
+            assertThat(outcome).isEqualTo(PushDeliveryOutcome.SENT);
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.SENT);
+            assertThat(found.getAttempts()).isEqualTo(1);
+            assertThat(found.getSentAt()).isEqualTo(NOW);
+        }
+
+        @Test
+        @DisplayName("발행 ack 기록 전이라 아직 PENDING 이어도 보낸다")
+        void sentBeforePublishedAck() {
+            NotificationPushJob job = jobWith(PushJobStatus.PENDING, 0, NOW);
+            tokens("phone");
+            pushSender.willReturn(TokenSendResult.success("phone"));
+
+            assertThat(pushService.deliver(job.getId(), MAX_ATTEMPTS)).isEqualTo(PushDeliveryOutcome.SENT);
+            assertThat(reload(job).getStatus()).isEqualTo(PushJobStatus.SENT);
+        }
+
+        @Test
+        @DisplayName("같은 메시지를 다시 받으면 보내지 않고 NOT_CLAIMED 를 돌려준다")
+        void duplicate() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens("phone");
+            pushSender.willReturn(TokenSendResult.success("phone"));
+
+            pushService.deliver(job.getId(), MAX_ATTEMPTS);
+            PushDeliveryOutcome second = pushService.deliver(job.getId(), MAX_ATTEMPTS);
+
+            assertThat(second).isEqualTo(PushDeliveryOutcome.NOT_CLAIMED);
+            assertThat(pushSender.sentTokens).hasSize(1);
+            assertThat(reload(job).getAttempts()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("다른 쪽이 보내는 중인 작업은 보내지 않는다")
+        void alreadySending() {
+            NotificationPushJob job = jobWith(PushJobStatus.SENDING, 1, LEASE_UNTIL);
+            tokens("phone");
+
+            assertThat(pushService.deliver(job.getId(), MAX_ATTEMPTS)).isEqualTo(PushDeliveryOutcome.NOT_CLAIMED);
+            assertThat(pushSender.sentTokens).isEmpty();
+        }
+
+        @Test
+        @DisplayName("일시 오류이고 시도가 남았으면 PENDING 으로 되돌리고 RETRY_SCHEDULED 를 돌려준다")
+        void retryScheduled() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens("phone");
+            pushSender.willReturn(TokenSendResult.failure("phone", TokenSendOutcome.TRANSIENT_FAILURE, "UNAVAILABLE"));
+
+            PushDeliveryOutcome outcome = pushService.deliver(job.getId(), MAX_ATTEMPTS);
+
+            NotificationPushJob found = reload(job);
+            assertThat(outcome).isEqualTo(PushDeliveryOutcome.RETRY_SCHEDULED);
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.PENDING);
+            assertThat(found.getAttempts()).isEqualTo(1);
+            assertThat(found.getLastError()).isEqualTo("UNAVAILABLE");
+        }
+
+        @Test
+        @DisplayName("재시도로 다시 받은 메시지도 일시 오류면 FAILED 로 바꾸고 RETRIES_EXHAUSTED 를 돌려준다")
+        void retriesExhausted() {
+            NotificationPushJob job = jobWith(PushJobStatus.PENDING, 1, RETRY_AT);
+            tokens("phone");
+            pushSender.willReturn(TokenSendResult.failure("phone", TokenSendOutcome.TRANSIENT_FAILURE, "UNAVAILABLE"));
+
+            PushDeliveryOutcome outcome = pushService.deliver(job.getId(), MAX_ATTEMPTS);
+
+            NotificationPushJob found = reload(job);
+            assertThat(outcome).isEqualTo(PushDeliveryOutcome.RETRIES_EXHAUSTED);
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.FAILED);
+            assertThat(found.getAttempts()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("재시도해도 실패하는 오류만 있으면 FAILED 를 돌려준다")
+        void failedPermanently() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens("phone");
+            pushSender.willReturn(
+                    TokenSendResult.failure("phone", TokenSendOutcome.PERMANENT_FAILURE, "INVALID_ARGUMENT"));
+
+            assertThat(pushService.deliver(job.getId(), MAX_ATTEMPTS)).isEqualTo(PushDeliveryOutcome.FAILED);
+            assertThat(reload(job).getStatus()).isEqualTo(PushJobStatus.FAILED);
+        }
+
+        @Test
+        @DisplayName("수신자 토큰이 없으면 SKIPPED 를 돌려준다")
+        void skipped() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens();
+
+            assertThat(pushService.deliver(job.getId(), MAX_ATTEMPTS)).isEqualTo(PushDeliveryOutcome.SKIPPED);
+            assertThat(reload(job).getStatus()).isEqualTo(PushJobStatus.SKIPPED);
+        }
+
+        @Test
+        @DisplayName("UNREGISTERED 토큰은 삭제를 요청한다")
+        void deletesUnregisteredTokens() {
+            NotificationPushJob job = jobWith(PushJobStatus.PUBLISHED, 0, NOW);
+            tokens("phone", "old");
+            pushSender.willReturn(
+                    TokenSendResult.success("phone"),
+                    TokenSendResult.failure("old", TokenSendOutcome.UNREGISTERED, "UNREGISTERED"));
+
+            pushService.deliver(job.getId(), MAX_ATTEMPTS);
+
+            verify(pushTokenRepository).deleteAllByTokenIn(List.of("old"));
+        }
+    }
+
+    @Nested
     @DisplayName("claimDueJobs (스윕 배치 선점)")
     class ClaimDueJobs {
 
