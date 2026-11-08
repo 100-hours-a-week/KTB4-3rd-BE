@@ -130,8 +130,9 @@ class NotificationPushJobTest {
             ReflectionTestUtils.setField(job, "lastError", "UNAVAILABLE");
             ReflectionTestUtils.setField(job, "sentAt", NOW);
 
-            job.reopen(LATER);
+            boolean reopened = job.reopen(LATER);
 
+            assertThat(reopened).isTrue();
             assertThat(job.getStatus()).isEqualTo(PushJobStatus.PENDING);
             assertThat(job.getAttempts()).isZero();
             assertThat(job.getNextAttemptAt()).isEqualTo(LATER);
@@ -141,14 +142,15 @@ class NotificationPushJobTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = PushJobStatus.class, names = {"PENDING", "SENDING"})
-        @DisplayName("아직 보내기 전이거나 보내는 중인 작업은 그대로 둔다")
+        @EnumSource(value = PushJobStatus.class, names = {"PENDING", "PUBLISHED", "SENDING"})
+        @DisplayName("아직 보내기 전이거나 발행됐거나 보내는 중인 작업은 그대로 둔다")
         void keepsInFlight(PushJobStatus status) {
             NotificationPushJob job = withStatus(status);
             ReflectionTestUtils.setField(job, "attempts", 1);
 
-            job.reopen(LATER);
+            boolean reopened = job.reopen(LATER);
 
+            assertThat(reopened).isFalse();
             assertThat(job.getStatus()).isEqualTo(status);
             assertThat(job.getAttempts()).isEqualTo(1);
             assertThat(job.getNextAttemptAt()).isEqualTo(NOW);

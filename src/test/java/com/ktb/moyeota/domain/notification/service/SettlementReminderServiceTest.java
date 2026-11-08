@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
+import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
@@ -21,6 +22,7 @@ import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
 import com.ktb.moyeota.global.config.TestClockConfig;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,10 +32,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({SettlementReminderService.class, TestClockConfig.class})
+@RecordApplicationEvents
 class SettlementReminderServiceTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 28, 21, 0, 0);
@@ -54,6 +59,9 @@ class SettlementReminderServiceTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private ApplicationEvents events;
 
     private User host;
     private User rider;
@@ -117,8 +125,8 @@ class SettlementReminderServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PushJobStatus.class, names = {"PENDING", "SENDING"})
-    @DisplayName("이전 회차 발송 작업이 아직 대기 중이거나 보내는 중이면 그대로 둔다")
+    @EnumSource(value = PushJobStatus.class, names = {"PENDING", "PUBLISHED", "SENDING"})
+    @DisplayName("이전 회차 발송 작업이 아직 대기 중이거나 발행됐거나 보내는 중이면 그대로 둔다")
     void keepsInFlightJob(PushJobStatus inFlight) {
         previousReminder(host, inFlight);
 
@@ -154,6 +162,60 @@ class SettlementReminderServiceTest {
     }
 
     @Test
+    @DisplayName("새로 만든 발송 작업 id를 정산 하나당 한 번의 전체 발송 요청 이벤트로 알린다")
+    void publishesCreatedJobs() {
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(bulkPushRequests()).containsExactly(
+                new NotificationBulkPushRequestedEvent(List.of(jobOf(reminderOf(host)).getId(),
+                        jobOf(reminderOf(rider)).getId())));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PushJobStatus.class, names = {"SENT", "FAILED", "SKIPPED"})
+    @DisplayName("다시 연 발송 작업도 전체 발송 요청 이벤트에 넣는다")
+    void publishesReopenedJob(PushJobStatus finished) {
+        Notification previous = previousReminder(host, finished);
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(bulkPushRequests()).singleElement()
+                .satisfies(event -> assertThat(event.jobIds()).contains(jobOf(previous).getId()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PushJobStatus.class, names = {"PENDING", "PUBLISHED", "SENDING"})
+    @DisplayName("이미 발행 중인 이전 회차 작업은 다시 발행하지 않고 새 작업만 알린다")
+    void skipsInFlightJob(PushJobStatus inFlight) {
+        previousReminder(host, inFlight);
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(bulkPushRequests()).containsExactly(
+                new NotificationBulkPushRequestedEvent(List.of(jobOf(reminderOf(rider)).getId())));
+    }
+
+    @Test
+    @DisplayName("이번 회차를 이미 처리했으면 전체 발송 요청 이벤트를 내지 않는다")
+    void noEventForSameRound() {
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+        events.clear();
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+
+        assertThat(bulkPushRequests()).isEmpty();
+    }
+
+    @Test
     @DisplayName("정산이 완료됐으면 보내지 않는다")
     void skipsCompletedSettlement() {
         Settlement completed = entityManager.find(Settlement.class, settlement.getId());
@@ -166,6 +228,7 @@ class SettlementReminderServiceTest {
 
         assertThat(notificationRepository.findAll()).isEmpty();
         assertThat(jobRepository.findAll()).isEmpty();
+        assertThat(bulkPushRequests()).isEmpty();
     }
 
     @Test
@@ -196,5 +259,9 @@ class SettlementReminderServiceTest {
 
     private NotificationPushJob jobOf(Notification notification) {
         return jobRepository.findByNotificationId(notification.getId()).orElseThrow();
+    }
+
+    private List<NotificationBulkPushRequestedEvent> bulkPushRequests() {
+        return events.stream(NotificationBulkPushRequestedEvent.class).toList();
     }
 }
