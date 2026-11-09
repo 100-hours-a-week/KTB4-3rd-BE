@@ -19,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
@@ -274,6 +276,50 @@ class NotificationPushJobRepositoryTest {
             entityManager.clear();
 
             assertThat(entityManager.find(NotificationPushJob.class, job.getId())).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("claimRequested (컨슈머 발송 선점)")
+    class ClaimRequested {
+
+        @ParameterizedTest
+        @EnumSource(value = PushJobStatus.class, names = {"PENDING", "PUBLISHED"})
+        @DisplayName("대기 중이거나 발행된 작업을 SENDING으로 바꾸고 시도 횟수를 1 올린다")
+        void claim(PushJobStatus status) {
+            NotificationPushJob job = persistJob(status, NOW);
+
+            int claimed = jobRepository.claimRequested(job.getId(), NOW, LEASE_UNTIL);
+            NotificationPushJob found = reload(job);
+
+            assertThat(claimed).isEqualTo(1);
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.SENDING);
+            assertThat(found.getAttempts()).isEqualTo(1);
+            assertThat(found.getNextAttemptAt()).isEqualTo(LEASE_UNTIL);
+            assertThat(found.getUpdatedAt()).isEqualTo(NOW);
+        }
+
+        @Test
+        @DisplayName("같은 메시지를 두 번 받아도 두 번째는 0을 반환한다")
+        void onlyOnce() {
+            NotificationPushJob job = persistJob(PushJobStatus.PUBLISHED, NOW);
+
+            int first = jobRepository.claimRequested(job.getId(), NOW, LEASE_UNTIL);
+            int second = jobRepository.claimRequested(job.getId(), NOW, LEASE_UNTIL);
+
+            assertThat(first).isEqualTo(1);
+            assertThat(second).isZero();
+            assertThat(reload(job).getAttempts()).isEqualTo(1);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = PushJobStatus.class, names = {"SENDING", "SENT", "FAILED", "SKIPPED"})
+        @DisplayName("보내는 중이거나 끝난 작업은 선점하지 않는다")
+        void notRequested(PushJobStatus status) {
+            NotificationPushJob job = persistJob(status, NOW);
+
+            assertThat(jobRepository.claimRequested(job.getId(), NOW, LEASE_UNTIL)).isZero();
+            assertThat(reload(job).getStatus()).isEqualTo(status);
         }
     }
 

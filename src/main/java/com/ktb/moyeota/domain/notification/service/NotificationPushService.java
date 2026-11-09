@@ -64,6 +64,16 @@ public class NotificationPushService {
         return claimed != null && claimed == 1;
     }
 
+    public PushDeliveryOutcome deliver(Long jobId, int maxAttempts) {
+        LocalDateTime now = now();
+        Integer claimed = transactionTemplate.execute(
+                status -> jobRepository.claimRequested(jobId, now, now.plus(properties.lease())));
+        if (claimed == null || claimed != 1) {
+            return PushDeliveryOutcome.NOT_CLAIMED;
+        }
+        return send(jobId, maxAttempts);
+    }
+
     public List<Long> claimDueJobs() {
         LocalDateTime now = now();
         List<Long> ids = transactionTemplate.execute(status -> {
@@ -81,16 +91,20 @@ public class NotificationPushService {
     }
 
     public void process(Long jobId) {
+        send(jobId, properties.maxAttempts());
+    }
+
+    private PushDeliveryOutcome send(Long jobId, int maxAttempts) {
         PushTarget target = transactionTemplate.execute(status -> loadTarget(jobId));
         if (target == null) {
-            return;
+            return PushDeliveryOutcome.NOT_CLAIMED;
         }
 
         PushSendResult result = target.tokens().isEmpty()
                 ? null
                 : pushSender.send(target.tokens(), target.message());
 
-        transactionTemplate.executeWithoutResult(status -> record(jobId, result));
+        return transactionTemplate.execute(status -> record(jobId, result, maxAttempts));
     }
 
     private PushTarget loadTarget(Long jobId) {
@@ -104,40 +118,42 @@ public class NotificationPushService {
                 .orElse(null);
     }
 
-    private void record(Long jobId, PushSendResult result) {
+    private PushDeliveryOutcome record(Long jobId, PushSendResult result, int maxAttempts) {
         if (result != null && !result.unregisteredTokens().isEmpty()) {
             pushTokenRepository.deleteAllByTokenIn(result.unregisteredTokens());
         }
 
         NotificationPushJob job = jobRepository.findById(jobId).orElse(null);
         if (job == null || job.getStatus() != PushJobStatus.SENDING) {
-            return;
+            return PushDeliveryOutcome.NOT_CLAIMED;
         }
 
         LocalDateTime now = now();
         if (result == null) {
             job.markSkipped(now);
-            return;
+            return PushDeliveryOutcome.SKIPPED;
         }
-        applyResult(job, result, now);
+        return applyResult(job, result, now, maxAttempts);
     }
 
 
-    void applyResult(NotificationPushJob job, PushSendResult result, LocalDateTime now) {
+    PushDeliveryOutcome applyResult(NotificationPushJob job, PushSendResult result, LocalDateTime now,
+                                    int maxAttempts) {
         if (result.anySuccess()) {
             job.markSent(now);
-            return;
+            return PushDeliveryOutcome.SENT;
         }
 
         String error = result.errorSummary();
-        if (result.hasTransientFailure() && job.hasAttemptsLeft(properties.maxAttempts())) {
+        if (result.hasTransientFailure() && job.hasAttemptsLeft(maxAttempts)) {
             job.scheduleRetry(now, now.plus(properties.retryDelay()), error);
-            return;
+            return PushDeliveryOutcome.RETRY_SCHEDULED;
         }
 
         job.markFailed(now, error);
         log.warn("[PUSH_FAILED] jobId={}, notificationId={}, attempts={}, lastError={}",
                 job.getId(), job.getNotification().getId(), job.getAttempts(), error);
+        return result.hasTransientFailure() ? PushDeliveryOutcome.RETRIES_EXHAUSTED : PushDeliveryOutcome.FAILED;
     }
 
     static PushMessage toMessage(Notification notification) {
