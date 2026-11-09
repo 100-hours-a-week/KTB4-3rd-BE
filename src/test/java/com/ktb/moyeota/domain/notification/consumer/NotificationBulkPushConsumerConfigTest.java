@@ -13,10 +13,10 @@ import org.springframework.util.backoff.BackOffExecution;
 class NotificationBulkPushConsumerConfigTest {
 
     private static final NotificationPushKafkaProperties DEFAULTS =
-            new NotificationPushKafkaProperties(Duration.ofMinutes(2), 100, Duration.ofSeconds(5), 6);
+            new NotificationPushKafkaProperties(Duration.ofMinutes(2), 100, Duration.ofSeconds(10), 6);
 
     @RepeatedTest(20)
-    @DisplayName("재시도 대기는 5초에서 두 배씩 늘어 4번(약 5·10·20·40초) 하고 멈추며, 매번 ±20% 안에서 흔들린다")
+    @DisplayName("재시도 대기는 10초에서 두 배씩 늘어 4번(약 10·20·40·80초) 하고 멈추며, 매번 ±20% 안에서 흔들린다")
     void backOffDoublesFourTimesWithJitter() {
         BackOffExecution execution = NotificationBulkPushConsumerConfig.backOff(DEFAULTS).start();
 
@@ -27,7 +27,7 @@ class NotificationBulkPushConsumerConfigTest {
         }
 
         assertThat(waits).hasSize(NotificationBulkPushConsumerConfig.MAX_RETRIES);
-        long[] expected = {5_000, 10_000, 20_000, 40_000};
+        long[] expected = {10_000, 20_000, 40_000, 80_000};
         for (int i = 0; i < expected.length; i++) {
             assertThat(waits.get(i)).isBetween(expected[i] * 8 / 10, expected[i] * 12 / 10);
         }

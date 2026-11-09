@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record NotificationPushKafkaProperties(
         @DefaultValue("2m") Duration republishAfter,
         @DefaultValue("100") int republishBatchSize,
-        @DefaultValue("5s") Duration bulkRetryInitialInterval,
+        @DefaultValue("10s") Duration bulkRetryInitialInterval,
         @DefaultValue("6") int bulkConcurrency
 ) {
 

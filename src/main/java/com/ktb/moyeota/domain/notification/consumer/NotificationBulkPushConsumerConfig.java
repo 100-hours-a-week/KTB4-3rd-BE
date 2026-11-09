@@ -29,7 +29,7 @@ public class NotificationBulkPushConsumerConfig {
     static final int MAX_ATTEMPTS = MAX_RETRIES + 1;
     static final double RETRY_MULTIPLIER = 2.0;
     static final double RETRY_JITTER_RATIO = 0.2;
-    static final long RETRY_MAX_INTERVAL_MILLIS = 60_000L;
+    static final long RETRY_MAX_INTERVAL_MILLIS = 120_000L;
 
     @Bean(CONTAINER_FACTORY)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> notificationBulkPushContainerFactory(
