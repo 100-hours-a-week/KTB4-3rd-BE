@@ -118,10 +118,13 @@ class CongestionControllerTest {
     }
 
     @Test
-    @DisplayName("로그인하지 않으면 401")
-    void requiresLogin() throws Exception {
+    @DisplayName("로그인하지 않아도 핀 상세를 조회할 수 있다")
+    void allowsAnonymousDetail() throws Exception {
+        given(queryService.findSpot(101L)).willReturn(detail("출퇴근하는 사람이 많아요.", false));
+
         mockMvc.perform(get("/api/congestion/spots/101"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(101));
     }
 
     @Test
@@ -163,14 +166,17 @@ class CongestionControllerTest {
     }
 
     @Test
-    @DisplayName("로그인하지 않으면 조회할 수 없다")
-    void rejectsAnonymous() throws Exception {
+    @DisplayName("로그인하지 않아도 스팟 목록을 조회할 수 있다")
+    void allowsAnonymousSpots() throws Exception {
+        CongestionSpotSearchRequest expected = new CongestionSpotSearchRequest(
+                new BigDecimal("37.38"), new BigDecimal("127.10"), new BigDecimal("37.41"), new BigDecimal("127.13"));
+        given(queryService.findSpotsInBounds(expected)).willReturn(new CongestionSpotSearchResponse(List.of(), 500, false));
+
         mockMvc.perform(get("/api/congestion/spots")
                         .param("sw_lat", "37.38").param("sw_lng", "127.10")
                         .param("ne_lat", "37.41").param("ne_lng", "127.13"))
-                .andExpect(status().isUnauthorized());
-
-        verifyNoInteractions(queryService);
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.limit").value(500));
     }
 
     private static CongestionSpotDetail detail(String reason, boolean analyzing) {
