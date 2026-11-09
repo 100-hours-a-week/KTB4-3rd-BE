@@ -10,9 +10,7 @@ public interface SessionStore {
 
     Optional<SessionTokenView> findToken(String tokenHash);
 
-    boolean markSuperseded(String tokenHash, LocalDateTime now);
-
-    void appendToken(Long sessionId, String tokenHash);
+    boolean rotate(Long sessionId, String tokenHash, String newTokenHash, LocalDateTime now);
 
     void deleteSession(Long sessionId);
 

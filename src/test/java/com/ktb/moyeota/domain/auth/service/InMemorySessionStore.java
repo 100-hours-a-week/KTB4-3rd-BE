@@ -44,15 +44,14 @@ public class InMemorySessionStore implements SessionStore {
     }
 
     @Override
-    public boolean markSuperseded(String tokenHash, LocalDateTime now) {
-        TokenRow updated = tokens.computeIfPresent(tokenHash,
-                (key, row) -> row.supersededAt() == null ? new TokenRow(row.sessionId(), now) : row);
-        return updated != null && now.equals(updated.supersededAt());
-    }
-
-    @Override
-    public void appendToken(Long sessionId, String tokenHash) {
-        tokens.put(tokenHash, new TokenRow(sessionId, null));
+    public synchronized boolean rotate(Long sessionId, String tokenHash, String newTokenHash, LocalDateTime now) {
+        TokenRow current = tokens.get(tokenHash);
+        if (current == null || current.supersededAt() != null) {
+            return false;
+        }
+        tokens.put(tokenHash, new TokenRow(current.sessionId(), now));
+        tokens.put(newTokenHash, new TokenRow(sessionId, null));
+        return true;
     }
 
     @Override
