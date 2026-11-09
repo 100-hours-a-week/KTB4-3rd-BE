@@ -66,7 +66,9 @@ public class SecurityConfig {
                             "/api/carpools/*",
                             "/api/community-posts/*/comments",
                             "/api/companion-posts/*",
-                            "/api/community-posts/*"
+                            "/api/community-posts/*",
+                            "/api/congestion/spots",
+                            "/api/congestion/spots/*"
                         ).permitAll()
                         .requestMatchers("/api/wss/**").permitAll()
                         .anyRequest().hasAuthority(Authority.USER_NAME))
