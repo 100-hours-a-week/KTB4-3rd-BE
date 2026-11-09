@@ -29,6 +29,7 @@ import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
 import com.ktb.moyeota.global.external.s3.S3PresignerTestSupport;
 import com.ktb.moyeota.global.websocket.RecordingUserEventSender;
 import com.ktb.moyeota.global.websocket.UserChannel;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
@@ -70,6 +71,9 @@ class MeterAnalysisServiceTest {
 
     @Autowired
     private MeterAnalysisService meterAnalysisService;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @Autowired
     private TestEntityManager entityManager;
@@ -224,6 +228,26 @@ class MeterAnalysisServiceTest {
 
         assertFailed(1);
         assertThat(userEventSender.sent()).containsExactly(sentToHost("FAILED", 1));
+    }
+
+    @Test
+    @DisplayName("같은 결과가 두 번 오면 지표에는 반영 1건, 버림 1건으로 나눠 센다")
+    void countsDuplicateAsNotApplied() {
+        double appliedBefore = analysisCount("JUDGE_PARSE_FAILED", "true");
+        double discardedBefore = analysisCount("JUDGE_PARSE_FAILED", "false");
+
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+
+        assertThat(analysisCount("JUDGE_PARSE_FAILED", "true") - appliedBefore).isEqualTo(1);
+        assertThat(analysisCount("JUDGE_PARSE_FAILED", "false") - discardedBefore).isEqualTo(1);
+    }
+
+    private double analysisCount(String code, String applied) {
+        Counter counter = meterRegistry.find("settlement.meter.analysis")
+                .tags("result", "UNREADABLE", "code", code, "applied", applied)
+                .counter();
+        return counter == null ? 0 : counter.count();
     }
 
     private RecordingUserEventSender.Sent sentToHost(String meterAnalysisStatus, int remainingMeterAttempts) {
