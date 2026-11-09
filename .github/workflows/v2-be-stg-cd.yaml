@@ -42,6 +42,8 @@ jobs:
         service:
           - rest
           - websocket
+          - worker
+          - matching
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
