@@ -195,6 +195,37 @@ class MeterAnalysisServiceTest {
         assertThat(userEventSender.sent()).isEmpty();
     }
 
+    @Test
+    @DisplayName("Kafka 로 받은 읽음 결과를 반영하면 그 금액으로 청구 단계가 되고 방장에게 알린다")
+    void applyRead() {
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Read<>(18000));
+
+        Settlement saved = reload();
+        assertThat(saved.getMeterAnalysisStatus()).isEqualTo(MeterAnalysisStatus.PASSED);
+        assertThat(saved.getTotalAmount()).isEqualTo(18000);
+        assertThat(userEventSender.sent()).containsExactly(sentToHost("PASSED", 1));
+    }
+
+    @Test
+    @DisplayName("Kafka 로 받은 금액도 1원 ~ 999,999원 밖이면 사진 문제로 실패한다")
+    void applyAmountOutOfRange() {
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Read<>(1_000_000));
+
+        assertFailed(1);
+        assertThat(reload().getTotalAmount()).isNull();
+    }
+
+    @Test
+    @DisplayName("같은 결과가 두 번 오면 두 번째는 버리고 다시 알리지 않는다")
+    void applyDuplicate() {
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+
+        meterAnalysisService.apply(settlement.getId(), STARTED_AT, new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+
+        assertFailed(1);
+        assertThat(userEventSender.sent()).containsExactly(sentToHost("FAILED", 1));
+    }
+
     private RecordingUserEventSender.Sent sentToHost(String meterAnalysisStatus, int remainingMeterAttempts) {
         return new RecordingUserEventSender.Sent(host.getId(), UserChannel.SETTLEMENT, new MeterAnalysisFinishedMessage(
                 "METER_ANALYSIS_FINISHED", settlement.getId(), meterAnalysisStatus, remainingMeterAttempts));

@@ -41,8 +41,7 @@ public class MeterAnalysisService {
         Duration waited = Duration.between(request.startedAt(), LocalDateTime.now(clock));
         meterRegistry.timer("settlement.meter.analysis.queue.wait").record(waited);
         if (waited.compareTo(properties.queueWaitLimit()) > 0) {
-            AnalysisOutcome<Integer> outcome = new AnalysisOutcome.SystemFailure<>(QUEUE_WAIT_EXCEEDED);
-            finish(request, outcome, resultWriter.write(request, outcome));
+            apply(request.settlementId(), request.startedAt(), new AnalysisOutcome.SystemFailure<>(QUEUE_WAIT_EXCEEDED));
             return;
         }
 
@@ -50,21 +49,26 @@ public class MeterAnalysisService {
         Timer.Sample sample = Timer.start(meterRegistry);
         AnalysisOutcome<Integer> read = aiAnalysisClient.readMeter(imageUrl);
         sample.stop(meterRegistry.timer("settlement.meter.analysis.ai", "result", resultOf(read)));
-        AnalysisOutcome<Integer> outcome = withinAmountRange(read);
-        finish(request, outcome, resultWriter.write(request, outcome));
+        apply(request.settlementId(), request.startedAt(), read);
+    }
+
+    public void apply(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> analyzed) {
+        AnalysisOutcome<Integer> outcome = withinAmountRange(analyzed);
+        finish(settlementId, startedAt, outcome, resultWriter.write(settlementId, startedAt, outcome));
     }
 
     public void rejectBusy(MeterAnalysisRequestedEvent request) {
         AnalysisOutcome<Integer> outcome = new AnalysisOutcome.SystemFailure<>(QUEUE_FULL);
-        finish(request, outcome, resultWriter.writeInNewTransaction(request, outcome));
+        finish(request.settlementId(), request.startedAt(), outcome,
+                resultWriter.writeInNewTransaction(request.settlementId(), request.startedAt(), outcome));
     }
 
-    private void finish(MeterAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome,
+    private void finish(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome,
                         Optional<MeterAnalysisResultWriter.Delivery> delivery) {
         meterRegistry.counter("settlement.meter.analysis", "result", resultOf(outcome), "code", codeOf(outcome))
                 .increment();
         log.info("[METER_ANALYSIS_FINISHED] settlementId={} startedAt={} result={} code={} applied={}",
-                request.settlementId(), request.startedAt(), resultOf(outcome), codeOf(outcome),
+                settlementId, startedAt, resultOf(outcome), codeOf(outcome),
                 delivery.isPresent());
         delivery.ifPresent(d -> userEventSender.send(d.hostId(), UserChannel.SETTLEMENT, d.message()));
     }

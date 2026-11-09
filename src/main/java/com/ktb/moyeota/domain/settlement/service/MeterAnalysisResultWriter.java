@@ -2,9 +2,9 @@ package com.ktb.moyeota.domain.settlement.service;
 
 import com.ktb.moyeota.domain.settlement.dto.MeterAnalysisFinishedMessage;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
-import com.ktb.moyeota.domain.settlement.event.MeterAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -19,20 +19,20 @@ public class MeterAnalysisResultWriter {
     private final SettlementService settlementService;
 
     @Transactional
-    public Optional<Delivery> write(MeterAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        return reflect(request, outcome);
+    public Optional<Delivery> write(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome) {
+        return reflect(settlementId, startedAt, outcome);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<Delivery> writeInNewTransaction(
-            MeterAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        return reflect(request, outcome);
+            Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome) {
+        return reflect(settlementId, startedAt, outcome);
     }
 
-    private Optional<Delivery> reflect(MeterAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        Settlement settlement = settlementRepository.findByIdForUpdate(request.settlementId())
-                .orElseThrow(() -> new IllegalStateException("정산이 없다: " + request.settlementId()));
-        if (!settlement.isAnalyzingMeter(request.startedAt())) {
+    private Optional<Delivery> reflect(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome) {
+        Settlement settlement = settlementRepository.findByIdForUpdate(settlementId)
+                .orElseThrow(() -> new IllegalStateException("정산이 없다: " + settlementId));
+        if (!settlement.isAnalyzingMeter(startedAt)) {
             return Optional.empty();
         }
         switch (outcome) {
