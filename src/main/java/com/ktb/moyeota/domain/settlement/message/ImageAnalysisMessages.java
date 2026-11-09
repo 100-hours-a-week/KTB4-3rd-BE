@@ -9,6 +9,10 @@ public final class ImageAnalysisMessages {
     public static final String METER_COMPLETED = "meter.analysis.completed";
     public static final int METER_SCHEMA_VERSION = 1;
 
+    public static final String TRANSFER_REQUESTED = "transfer.analysis.requested";
+    public static final String TRANSFER_COMPLETED = "transfer.analysis.completed";
+    public static final int TRANSFER_SCHEMA_VERSION = 1;
+
     private static final String KEY_SEPARATOR = ":";
 
     private ImageAnalysisMessages() {
