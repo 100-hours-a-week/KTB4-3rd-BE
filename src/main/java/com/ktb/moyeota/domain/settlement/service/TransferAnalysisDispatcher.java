@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.settlement.config.TransferAnalysisConfig;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "moyeota.settlement.meter-analysis", name = "mode", havingValue = "http",
+        matchIfMissing = true)
 public class TransferAnalysisDispatcher {
 
     private final TransferAnalysisService transferAnalysisService;
