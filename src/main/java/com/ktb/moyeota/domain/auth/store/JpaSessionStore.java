@@ -8,11 +8,13 @@ import com.ktb.moyeota.domain.auth.repository.SessionTokenRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "moyeota.auth", name = "session-store", havingValue = "jpa", matchIfMissing = true)
 public class JpaSessionStore implements SessionStore {
 
     private final SessionRepository sessionRepository;
@@ -34,15 +36,13 @@ public class JpaSessionStore implements SessionStore {
 
     @Override
     @Transactional
-    public boolean markSuperseded(String tokenHash, LocalDateTime now) {
-        return sessionTokenRepository.markSuperseded(tokenHash, now) == 1;
-    }
-
-    @Override
-    @Transactional
-    public void appendToken(Long sessionId, String tokenHash) {
+    public boolean rotate(Long sessionId, String tokenHash, String newTokenHash, LocalDateTime now) {
+        if (sessionTokenRepository.markSuperseded(tokenHash, now) != 1) {
+            return false;
+        }
         sessionTokenRepository.save(
-                SessionToken.issue(tokenHash, sessionRepository.getReferenceById(sessionId)));
+                SessionToken.issue(newTokenHash, sessionRepository.getReferenceById(sessionId)));
+        return true;
     }
 
     @Override

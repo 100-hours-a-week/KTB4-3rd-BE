@@ -55,10 +55,14 @@ public class AuthSessionService {
         if (view.isSuperseded()) {
             return graceOrReuse(view, now);
         }
-        if (!sessionStore.markSuperseded(view.tokenHash(), now)) {
+        String rotated = opaqueTokenFactory.generate();
+        if (!sessionStore.rotate(view.sessionId(), view.tokenHash(), opaqueTokenFactory.hash(rotated), now)) {
             return new ReissueResult.Graced(accessTokenProvider.issue(view.userId()));
         }
-        return rotate(view, now);
+        return new ReissueResult.Rotated(
+                accessTokenProvider.issue(view.userId()),
+                rotated,
+                Duration.between(now, view.absoluteExpiresAt()));
     }
 
     @Transactional
@@ -73,15 +77,6 @@ public class AuthSessionService {
     @Transactional
     public void revokeAll(Long userId) {
         sessionStore.deleteAllByUserId(userId);
-    }
-
-    private ReissueResult rotate(SessionTokenView view, LocalDateTime now) {
-        String rotated = opaqueTokenFactory.generate();
-        sessionStore.appendToken(view.sessionId(), opaqueTokenFactory.hash(rotated));
-        return new ReissueResult.Rotated(
-                accessTokenProvider.issue(view.userId()),
-                rotated,
-                Duration.between(now, view.absoluteExpiresAt()));
     }
 
     private ReissueResult graceOrReuse(SessionTokenView view, LocalDateTime now) {
