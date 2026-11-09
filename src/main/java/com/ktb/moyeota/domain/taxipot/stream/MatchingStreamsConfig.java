@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Configuration
 @EnableKafkaStreams
 @EnableConfigurationProperties(TaxiPotMatchingProperties.class)
-@ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
+@ConditionalOnServerRole({ServerRole.MATCHING, ServerRole.ALL})
 @ConditionalOnProperty(prefix = "moyeota.taxi-pot.matching", name = "mode", havingValue = "kafka")
 public class MatchingStreamsConfig {
 

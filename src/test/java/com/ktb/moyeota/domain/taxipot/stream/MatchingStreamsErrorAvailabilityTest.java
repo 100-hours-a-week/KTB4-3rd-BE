@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Bean;
         classes = {KafkaTestContainerConfig.class, ClockConfig.class, EventEnvelopeFactory.class,
                 MatchingStreamsConfig.class, MatchingStreamsErrorAvailabilityTest.MetricsConfig.class},
         properties = {
-                "APP_ROLE=worker",
+                "APP_ROLE=matching",
                 "moyeota.taxi-pot.matching.mode=kafka",
                 "spring.kafka.streams.application-id=moyeota-matching-availability-test"})
 @ImportAutoConfiguration({

@@ -3,6 +3,10 @@ package com.ktb.moyeota.global.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.congestion.batch.CongestionWindowCloseScheduler;
+import com.ktb.moyeota.domain.taxipot.scheduler.TaxiPotBatchMatchingScheduler;
+import com.ktb.moyeota.domain.taxipot.scheduler.TaxiPotRideStartScheduler;
+import com.ktb.moyeota.global.outbox.publisher.OutboxPublishScheduler;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +19,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "APP_ROLE=worker")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"APP_ROLE=worker", "moyeota.taxi-pot.matching.mode=batch"})
 class WorkerRoleTest {
 
     @LocalServerPort
@@ -39,8 +43,12 @@ class WorkerRoleTest {
     }
 
     @Test
-    @DisplayName("worker 역할에서는 기존 스케줄러를 켜지 않는다")
-    void keepsExistingSchedulersOff() {
-        assertThat(context.getBeanNamesForType(SchedulingConfig.class)).isEmpty();
+    @DisplayName("worker 역할은 스케줄러 · 아웃박스 발행기 · RDB 판 묶음 매칭 · 혼잡도 배치를 켠다")
+    void runsWorkerJobs() {
+        assertThat(context.getBeanNamesForType(SchedulingConfig.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(OutboxPublishScheduler.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(TaxiPotRideStartScheduler.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(CongestionWindowCloseScheduler.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(TaxiPotBatchMatchingScheduler.class)).hasSize(1);
     }
 }
