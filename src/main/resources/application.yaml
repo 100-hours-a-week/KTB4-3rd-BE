@@ -75,6 +75,7 @@ moyeota:
   settlement:
     meter-analysis:
       mode: http
+      expire-sweep-delay: 1m
   relay:
     env: local
   internal:
