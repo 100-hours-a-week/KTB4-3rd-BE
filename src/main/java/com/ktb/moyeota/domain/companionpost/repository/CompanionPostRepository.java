@@ -20,7 +20,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
                    c.origin_lat AS originLat, c.origin_lng AS originLng
-            FROM companions c
+            FROM companions c FORCE INDEX (sidx_companions_origin)
             WHERE c.kind = 'COMPANION'
               AND c.status = 'RECRUITING'
               AND MBRContains(
@@ -39,7 +39,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
                    c.origin_lat AS originLat, c.origin_lng AS originLng
-            FROM companions c
+            FROM companions c FORCE INDEX (sidx_companions_origin)
             WHERE c.kind = 'COMPANION'
               AND c.status = 'RECRUITING'
               AND MBRIntersects(
@@ -60,7 +60,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
                    c.origin_lat AS originLat, c.origin_lng AS originLng
-            FROM companions c
+            FROM companions c FORCE INDEX (sidx_companions_origin)
             WHERE c.kind = 'COMPANION'
               AND c.status = 'RECRUITING'
               AND MBRIntersects(
@@ -101,7 +101,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
                        c.departure_at AS departureAt, c.created_at AS createdAt, c.status AS status,
                        u.nickname AS hostNickname, u.profile_image_url AS hostProfileImageUrl,
                        ST_Distance_Sphere(c.origin_location, ST_SRID(POINT(:lng, :lat), 4326)) AS distanceM
-                FROM companions c
+                FROM companions c FORCE INDEX (sidx_companions_origin)
                 JOIN users u ON u.id = c.host_id
                 WHERE c.kind = 'COMPANION'
                   AND c.status = 'RECRUITING'

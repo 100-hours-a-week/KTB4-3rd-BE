@@ -82,7 +82,7 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
                        cp.created_at AS createdAt,
                        u.nickname AS authorNickname, u.profile_image_url AS authorProfileImageUrl,
                        ST_Distance_Sphere(cp.location, ST_SRID(POINT(:lng, :lat), 4326)) AS distanceM
-                FROM community_posts cp
+                FROM community_posts cp FORCE INDEX (sidx_community_posts_location)
                 JOIN users u ON u.id = cp.author_id
                 WHERE cp.deleted_at IS NULL
                   AND MBRContains(
