@@ -65,11 +65,13 @@ public class MeterAnalysisService {
 
     private void finish(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome,
                         Optional<MeterAnalysisResultWriter.Delivery> delivery) {
-        meterRegistry.counter("settlement.meter.analysis", "result", resultOf(outcome), "code", codeOf(outcome))
+        meterRegistry.counter("settlement.meter.analysis",
+                        "result", resultOf(outcome),
+                        "code", codeOf(outcome),
+                        "applied", String.valueOf(delivery.isPresent()))
                 .increment();
         log.info("[METER_ANALYSIS_FINISHED] settlementId={} startedAt={} result={} code={} applied={}",
-                settlementId, startedAt, resultOf(outcome), codeOf(outcome),
-                delivery.isPresent());
+                settlementId, startedAt, resultOf(outcome), codeOf(outcome), delivery.isPresent());
         delivery.ifPresent(d -> userEventSender.send(d.hostId(), UserChannel.SETTLEMENT, d.message()));
     }
 
