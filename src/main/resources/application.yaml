@@ -72,6 +72,9 @@ moyeota:
     auto-cancel-sweep-delay: 10m
   chat:
     close-sweep-delay: 10m
+  settlement:
+    meter-analysis:
+      mode: http
   relay:
     env: local
   internal:
