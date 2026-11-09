@@ -26,7 +26,6 @@ public class AuthSessionService {
     private final AuthProperties authProperties;
     private final Clock clock;
 
-    @Transactional
     public IssuedSession issue(Long userId) {
         String refreshToken = opaqueTokenFactory.generate();
         Duration ttl = authProperties.refresh().ttl();
@@ -34,12 +33,14 @@ public class AuthSessionService {
         return new IssuedSession(accessTokenProvider.issue(userId), refreshToken, ttl);
     }
 
-    @Transactional
     public ReissueResult reissue(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             return new ReissueResult.Rejected();
         }
+        return sessionStore.withinStoreTransaction(() -> reissueStored(refreshToken));
+    }
 
+    private ReissueResult reissueStored(String refreshToken) {
         Optional<SessionTokenView> found = sessionStore.findToken(opaqueTokenFactory.hash(refreshToken));
         if (found.isEmpty()) {
             return new ReissueResult.Rejected();
@@ -65,13 +66,15 @@ public class AuthSessionService {
                 Duration.between(now, view.absoluteExpiresAt()));
     }
 
-    @Transactional
     public void revokeSession(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             return;
         }
-        sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
-                .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
+        sessionStore.withinStoreTransaction(() -> {
+            sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
+                    .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
+            return null;
+        });
     }
 
     @Transactional
