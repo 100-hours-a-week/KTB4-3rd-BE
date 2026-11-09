@@ -7,6 +7,7 @@ import com.ktb.moyeota.domain.auth.repository.SessionRepository;
 import com.ktb.moyeota.domain.auth.repository.SessionTokenRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,12 @@ public class JpaSessionStore implements SessionStore {
 
     private final SessionRepository sessionRepository;
     private final SessionTokenRepository sessionTokenRepository;
+
+    @Override
+    @Transactional
+    public <T> T withinStoreTransaction(Supplier<T> operations) {
+        return operations.get();
+    }
 
     @Override
     @Transactional

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -89,6 +90,11 @@ public class RedisSessionStore implements SessionStore {
 
     private final StringRedisTemplate redisTemplate;
     private final Clock clock;
+
+    @Override
+    public <T> T withinStoreTransaction(Supplier<T> operations) {
+        return operations.get();
+    }
 
     @Override
     public Long create(Long userId, String tokenHash, LocalDateTime absoluteExpiresAt) {

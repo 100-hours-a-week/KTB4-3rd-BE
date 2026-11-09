@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 public class InMemorySessionStore implements SessionStore {
 
@@ -19,6 +20,11 @@ public class InMemorySessionStore implements SessionStore {
     private final AtomicLong sequence = new AtomicLong();
     private final Map<Long, SessionRow> sessions = new ConcurrentHashMap<>();
     private final Map<String, TokenRow> tokens = new ConcurrentHashMap<>();
+
+    @Override
+    public <T> T withinStoreTransaction(Supplier<T> operations) {
+        return operations.get();
+    }
 
     @Override
     public Long create(Long userId, String tokenHash, LocalDateTime absoluteExpiresAt) {
