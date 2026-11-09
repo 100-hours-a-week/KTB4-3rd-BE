@@ -17,7 +17,8 @@ services:
           - -c
           - |
             until /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1; do sleep 1; done
-            for topic in notification.push.request notification.bulk-push.request; do
+            for topic in notification.push.request notification.bulk-push.request \
+                settlement.image-analysis.request settlement.image-analysis.result; do
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
                 --topic "$$topic" --partitions 6 --config retention.ms=86400000
               /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
