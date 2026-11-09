@@ -106,9 +106,9 @@ public class NotificationPushJob {
         this.updatedAt = now;
     }
 
-    public void reopen(LocalDateTime now) {
-        if (status == PushJobStatus.PENDING || status == PushJobStatus.SENDING) {
-            return;
+    public boolean reopen(LocalDateTime now) {
+        if (status == PushJobStatus.PENDING || status == PushJobStatus.PUBLISHED || status == PushJobStatus.SENDING) {
+            return false;
         }
         this.status = PushJobStatus.PENDING;
         this.attempts = 0;
@@ -116,6 +116,7 @@ public class NotificationPushJob {
         this.lastError = null;
         this.sentAt = null;
         this.updatedAt = now;
+        return true;
     }
 
     public boolean hasAttemptsLeft(int maxAttempts) {

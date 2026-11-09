@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
+import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
@@ -14,8 +15,11 @@ import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +35,7 @@ public class SettlementReminderService {
     private final SettlementReminderRepository reminderRepository;
     private final NotificationRepository notificationRepository;
     private final NotificationPushJobRepository pushJobRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -50,37 +55,49 @@ public class SettlementReminderService {
                 .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
         Long hostId = taxiPot.getHost().getId();
         LocalDateTime now = now();
+        List<Long> jobIds = new ArrayList<>();
         for (CompanionParticipant participant : reminderRepository.findPendingParticipants(taxiPot.getId())) {
             User recipient = participant.getUser();
             String content = recipient.getId().equals(hostId) ? HOST_CONTENT : RIDER_CONTENT;
-            remindRecipient(recipient, settlement.getId(), chatRoom, content, round, now);
+            remindRecipient(recipient, settlement.getId(), chatRoom, content, round, now).ifPresent(jobIds::add);
+        }
+        if (!jobIds.isEmpty()) {
+            eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds));
         }
     }
 
-    private void remindRecipient(User recipient, Long settlementId, ChatRoom chatRoom, String content,
-                                 LocalDateTime round, LocalDateTime now) {
-        notificationRepository.findByRecipientIdAndTypeAndEventId(
-                        recipient.getId(), NotificationType.SETTLEMENT_COMPLETION_REMINDER, settlementId)
-                .ifPresentOrElse(
-                        notification -> resend(notification, content, round, now),
-                        () -> create(recipient, settlementId, chatRoom, content, now));
+    private Optional<Long> remindRecipient(User recipient, Long settlementId, ChatRoom chatRoom, String content,
+                                           LocalDateTime round, LocalDateTime now) {
+        Optional<Notification> existing = notificationRepository.findByRecipientIdAndTypeAndEventId(
+                recipient.getId(), NotificationType.SETTLEMENT_COMPLETION_REMINDER, settlementId);
+        if (existing.isEmpty()) {
+            return Optional.of(create(recipient, settlementId, chatRoom, content, now));
+        }
+        return resend(existing.get(), content, round, now);
     }
 
-    private void create(User recipient, Long settlementId, ChatRoom chatRoom, String content, LocalDateTime now) {
+    private Long create(User recipient, Long settlementId, ChatRoom chatRoom, String content, LocalDateTime now) {
         Notification notification = notificationRepository.save(
                 Notification.createSettlementReminder(recipient, settlementId, chatRoom, content, now));
-        pushJobRepository.save(NotificationPushJob.create(notification, now));
+        return saveJob(notification, now);
     }
 
-    private void resend(Notification notification, String content, LocalDateTime round, LocalDateTime now) {
+    private Optional<Long> resend(Notification notification, String content, LocalDateTime round,
+                                  LocalDateTime now) {
         if (notification.isRemindedSince(round)) {
-            return;
+            return Optional.empty();
         }
         notification.remind(content, now);
-        pushJobRepository.findByNotificationId(notification.getId())
-                .ifPresentOrElse(
-                        job -> job.reopen(now),
-                        () -> pushJobRepository.save(NotificationPushJob.create(notification, now)));
+        Optional<NotificationPushJob> existing = pushJobRepository.findByNotificationId(notification.getId());
+        if (existing.isEmpty()) {
+            return Optional.of(saveJob(notification, now));
+        }
+        NotificationPushJob job = existing.get();
+        return job.reopen(now) ? Optional.of(job.getId()) : Optional.empty();
+    }
+
+    private Long saveJob(Notification notification, LocalDateTime now) {
+        return pushJobRepository.save(NotificationPushJob.create(notification, now)).getId();
     }
 
     private LocalDateTime now() {
