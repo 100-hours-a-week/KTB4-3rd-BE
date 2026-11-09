@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.ktb.moyeota.domain.settlement.message.ImageAnalysisMessages;
 import com.ktb.moyeota.domain.settlement.service.MeterAnalysisService;
+import com.ktb.moyeota.domain.settlement.service.TransferAnalysisService;
 import com.ktb.moyeota.global.config.KafkaConfig;
 import com.ktb.moyeota.global.config.KafkaTestContainerConfig;
 import com.ktb.moyeota.global.config.TestClockConfig;
@@ -50,6 +51,9 @@ class ImageAnalysisResultConsumerTest {
     private BlockingQueue<Applied> applied;
 
     @Autowired
+    private BlockingQueue<TransferApplied> transferApplied;
+
+    @Autowired
     private BlockingQueue<ConsumerRecord<String, String>> deadLetters;
 
     @Test
@@ -80,9 +84,9 @@ class ImageAnalysisResultConsumerTest {
     }
 
     @Test
-    @DisplayName("송금 결과처럼 미터기가 아닌 결과는 버전과 상관없이 건너뛰고 DLT 로 보내지 않는다")
+    @DisplayName("미터기 · 송금 결과가 아닌 결과는 버전과 상관없이 건너뛰고 DLT 로 보내지 않는다")
     void skipsOtherEvents() throws Exception {
-        send(104L, "receipt.analysis.completed", 2, """
+        send(104L, "unknown.analysis.completed", 2, """
                 {"settlement_id":104,"user_id":7,"analysis_status":"READ"}
                 """);
         send(105L, ImageAnalysisMessages.METER_COMPLETED, 1, """
@@ -92,6 +96,7 @@ class ImageAnalysisResultConsumerTest {
 
         assertThat(awaitApplied(105L).settlementId()).isEqualTo(105L);
         assertThat(applied).noneMatch(a -> a.settlementId().equals(104L));
+        assertThat(transferApplied).noneMatch(a -> a.settlementId().equals(104L));
         assertThat(deadLetters).noneMatch(record -> record.key().startsWith("104:"));
     }
 
@@ -131,6 +136,72 @@ class ImageAnalysisResultConsumerTest {
         assertThat(applied).noneMatch(a -> a.settlementId().equals(108L));
     }
 
+    @Test
+    @DisplayName("송금 읽음 결과는 동승자 · 몇 번째 제출인지와 읽은 금액을 함께 반영한다")
+    void appliesTransferRead() throws Exception {
+        send(201L, ImageAnalysisMessages.TRANSFER_COMPLETED, 1, """
+                {"settlement_id":201,"user_id":7,"attempt":1,
+                 "analysis_status":"READ","error_code":null,"amount_cost":6000}
+                """);
+
+        assertThat(awaitTransferApplied(201L))
+                .isEqualTo(new TransferApplied(201L, 7L, 1, new AnalysisOutcome.Read<>(6000)));
+    }
+
+    @Test
+    @DisplayName("송금 사진 문제 · 시스템 문제 결과는 오류 코드를 그대로 넘긴다")
+    void appliesTransferFailures() throws Exception {
+        send(202L, ImageAnalysisMessages.TRANSFER_COMPLETED, 1, """
+                {"settlement_id":202,"user_id":7,"attempt":1,
+                 "analysis_status":"UNREADABLE","error_code":"JUDGE_PARSE_FAILED","amount_cost":null}
+                """);
+        send(203L, ImageAnalysisMessages.TRANSFER_COMPLETED, 1, """
+                {"settlement_id":203,"user_id":7,"attempt":1,
+                 "analysis_status":"SYSTEM_FAILURE","error_code":"MODEL_NOT_READY","amount_cost":null}
+                """);
+
+        assertThat(awaitTransferApplied(202L).outcome())
+                .isEqualTo(new AnalysisOutcome.Unreadable<>("JUDGE_PARSE_FAILED"));
+        assertThat(awaitTransferApplied(203L).outcome())
+                .isEqualTo(new AnalysisOutcome.SystemFailure<>("MODEL_NOT_READY"));
+    }
+
+    @Test
+    @DisplayName("송금 읽음인데 금액이 없으면 반영하지 않고 바로 DLT 로 보낸다")
+    void sendsTransferReadWithoutAmountToDeadLetter() throws Exception {
+        String eventId = send(204L, ImageAnalysisMessages.TRANSFER_COMPLETED, 1, """
+                {"settlement_id":204,"user_id":7,"attempt":1,
+                 "analysis_status":"READ","error_code":null,"amount_cost":null}
+                """);
+
+        assertThat(awaitDeadLetter(eventId).key()).isEqualTo("204:9");
+        assertThat(transferApplied).noneMatch(a -> a.settlementId().equals(204L));
+    }
+
+    @Test
+    @DisplayName("송금 결과에 동승자가 없으면 반영하지 않고 바로 DLT 로 보낸다")
+    void sendsTransferWithoutUserToDeadLetter() throws Exception {
+        String eventId = send(205L, ImageAnalysisMessages.TRANSFER_COMPLETED, 1, """
+                {"settlement_id":205,"attempt":1,
+                 "analysis_status":"READ","error_code":null,"amount_cost":6000}
+                """);
+
+        awaitDeadLetter(eventId);
+        assertThat(transferApplied).noneMatch(a -> a.settlementId().equals(205L));
+    }
+
+    @Test
+    @DisplayName("송금 결과도 읽지 못하는 버전은 반영하지 않고 바로 DLT 로 보낸다")
+    void sendsUnsupportedTransferVersionToDeadLetter() throws Exception {
+        String eventId = send(206L, ImageAnalysisMessages.TRANSFER_COMPLETED, 2, """
+                {"settlement_id":206,"user_id":7,"attempt":1,
+                 "analysis_status":"READ","error_code":null,"amount_cost":6000}
+                """);
+
+        awaitDeadLetter(eventId);
+        assertThat(transferApplied).noneMatch(a -> a.settlementId().equals(206L));
+    }
+
     private String send(Long settlementId, String eventType, int schemaVersion, String data) throws Exception {
         String eventId = UUID.randomUUID().toString();
         String value = """
@@ -154,6 +225,19 @@ class ImageAnalysisResultConsumerTest {
         throw new AssertionError("settlement_id=" + settlementId + " 결과가 반영되지 않았습니다");
     }
 
+    private TransferApplied awaitTransferApplied(Long settlementId) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+        while (System.nanoTime() < deadline) {
+            for (TransferApplied each : transferApplied) {
+                if (each.settlementId().equals(settlementId)) {
+                    return each;
+                }
+            }
+            Thread.sleep(200);
+        }
+        throw new AssertionError("settlement_id=" + settlementId + " 송금 결과가 반영되지 않았습니다");
+    }
+
     private ConsumerRecord<String, String> awaitDeadLetter(String eventId) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
         while (System.nanoTime() < deadline) {
@@ -168,6 +252,24 @@ class ImageAnalysisResultConsumerTest {
     }
 
     record Applied(Long settlementId, LocalDateTime startedAt, AnalysisOutcome<Integer> outcome) {
+    }
+
+    record TransferApplied(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+    }
+
+    static class RecordingTransferAnalysisService extends TransferAnalysisService {
+
+        private final BlockingQueue<TransferApplied> applied;
+
+        RecordingTransferAnalysisService(BlockingQueue<TransferApplied> applied) {
+            super(null, null, null, null, null, null, null);
+            this.applied = applied;
+        }
+
+        @Override
+        public void apply(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+            applied.add(new TransferApplied(settlementId, userId, attempt, outcome));
+        }
     }
 
     static class RecordingMeterAnalysisService extends MeterAnalysisService {
@@ -206,6 +308,16 @@ class ImageAnalysisResultConsumerTest {
         @Bean
         MeterAnalysisService meterAnalysisService(BlockingQueue<Applied> applied) {
             return new RecordingMeterAnalysisService(applied);
+        }
+
+        @Bean
+        BlockingQueue<TransferApplied> transferApplied() {
+            return new LinkedBlockingQueue<>();
+        }
+
+        @Bean
+        TransferAnalysisService transferAnalysisService(BlockingQueue<TransferApplied> transferApplied) {
+            return new RecordingTransferAnalysisService(transferApplied);
         }
 
         @Bean
