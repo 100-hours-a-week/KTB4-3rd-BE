@@ -4,7 +4,6 @@ import com.ktb.moyeota.domain.settlement.dto.TransferAnalyzedMessage;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
-import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.settlement.repository.SettlementParticipantRepository;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.global.external.ai.AnalysisOutcome;
@@ -25,24 +24,24 @@ public class TransferAnalysisResultWriter {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public Optional<Delivery> write(TransferAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        return reflect(request, outcome);
+    public Optional<Delivery> write(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+        return reflect(settlementId, userId, attempt, outcome);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<Delivery> writeInNewTransaction(
-            TransferAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        return reflect(request, outcome);
+            Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+        return reflect(settlementId, userId, attempt, outcome);
     }
 
-    private Optional<Delivery> reflect(TransferAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome) {
-        Settlement settlement = settlementRepository.findByIdForUpdate(request.settlementId())
-                .orElseThrow(() -> new IllegalStateException("정산이 없다: " + request.settlementId()));
+    private Optional<Delivery> reflect(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+        Settlement settlement = settlementRepository.findByIdForUpdate(settlementId)
+                .orElseThrow(() -> new IllegalStateException("정산이 없다: " + settlementId));
         SettlementParticipant charge = settlementParticipantRepository
-                .findBySettlementIdAndUserId(request.settlementId(), request.userId())
+                .findBySettlementIdAndUserId(settlementId, userId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "청구가 없다: settlementId=" + request.settlementId() + " userId=" + request.userId()));
-        if (!charge.isAnalyzingTransfer(request.attempt())) {
+                        "청구가 없다: settlementId=" + settlementId + " userId=" + userId));
+        if (!charge.isAnalyzingTransfer(attempt)) {
             return Optional.empty();
         }
         switch (outcome) {
@@ -54,8 +53,8 @@ public class TransferAnalysisResultWriter {
             eventPublisher.publishEvent(
                     new SettlementTransferExhaustedEvent(settlement.getId(), settlement.getCompanion().getId()));
         }
-        return Optional.of(new Delivery(List.of(request.userId(), settlement.getPayee().getId()),
-                TransferAnalyzedMessage.from(request.settlementId(), request.userId(), charge)));
+        return Optional.of(new Delivery(List.of(userId, settlement.getPayee().getId()),
+                TransferAnalyzedMessage.from(settlementId, userId, charge)));
     }
 
     public record Delivery(List<Long> recipientIds, TransferAnalyzedMessage message) {

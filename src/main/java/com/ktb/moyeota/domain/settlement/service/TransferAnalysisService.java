@@ -37,8 +37,8 @@ public class TransferAnalysisService {
         Duration waited = Duration.between(request.requestedAt(), LocalDateTime.now(clock));
         meterRegistry.timer("settlement.transfer.analysis.queue.wait").record(waited);
         if (waited.compareTo(properties.queueWaitLimit()) > 0) {
-            AnalysisOutcome<Integer> outcome = new AnalysisOutcome.SystemFailure<>(QUEUE_WAIT_EXCEEDED);
-            finish(request, outcome, resultWriter.write(request, outcome));
+            apply(request.settlementId(), request.userId(), request.attempt(),
+                    new AnalysisOutcome.SystemFailure<>(QUEUE_WAIT_EXCEEDED));
             return;
         }
 
@@ -46,21 +46,25 @@ public class TransferAnalysisService {
         Timer.Sample sample = Timer.start(meterRegistry);
         AnalysisOutcome<Integer> outcome = aiAnalysisClient.readTransfer(imageUrl);
         sample.stop(meterRegistry.timer("settlement.transfer.analysis.ai", "result", resultOf(outcome)));
-        finish(request, outcome, resultWriter.write(request, outcome));
+        apply(request.settlementId(), request.userId(), request.attempt(), outcome);
+    }
+
+    public void apply(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome) {
+        finish(settlementId, userId, attempt, outcome, resultWriter.write(settlementId, userId, attempt, outcome));
     }
 
     public void rejectBusy(TransferAnalysisRequestedEvent request) {
         AnalysisOutcome<Integer> outcome = new AnalysisOutcome.SystemFailure<>(QUEUE_FULL);
-        finish(request, outcome, resultWriter.writeInNewTransaction(request, outcome));
+        finish(request.settlementId(), request.userId(), request.attempt(), outcome,
+                resultWriter.writeInNewTransaction(request.settlementId(), request.userId(), request.attempt(), outcome));
     }
 
-    private void finish(TransferAnalysisRequestedEvent request, AnalysisOutcome<Integer> outcome,
+    private void finish(Long settlementId, Long userId, int attempt, AnalysisOutcome<Integer> outcome,
                         Optional<TransferAnalysisResultWriter.Delivery> delivery) {
         meterRegistry.counter("settlement.transfer.analysis", "result", resultOf(outcome), "code", codeOf(outcome))
                 .increment();
         log.info("[TRANSFER_ANALYSIS_FINISHED] settlementId={} userId={} attempt={} result={} code={} applied={}",
-                request.settlementId(), request.userId(), request.attempt(), resultOf(outcome), codeOf(outcome),
-                delivery.isPresent());
+                settlementId, userId, attempt, resultOf(outcome), codeOf(outcome), delivery.isPresent());
         delivery.ifPresent(d -> d.recipientIds()
                 .forEach(recipientId -> userEventSender.send(recipientId, UserChannel.SETTLEMENT, d.message())));
     }

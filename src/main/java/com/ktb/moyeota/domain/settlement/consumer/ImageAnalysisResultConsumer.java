@@ -2,7 +2,9 @@ package com.ktb.moyeota.domain.settlement.consumer;
 
 import com.ktb.moyeota.domain.settlement.message.ImageAnalysisMessages;
 import com.ktb.moyeota.domain.settlement.message.MeterAnalysisResultData;
+import com.ktb.moyeota.domain.settlement.message.TransferAnalysisResultData;
 import com.ktb.moyeota.domain.settlement.service.MeterAnalysisService;
+import com.ktb.moyeota.domain.settlement.service.TransferAnalysisService;
 import com.ktb.moyeota.global.config.ConditionalOnServerRole;
 import com.ktb.moyeota.global.config.ServerRole;
 import com.ktb.moyeota.global.event.EventEnvelope;
@@ -30,6 +32,7 @@ public class ImageAnalysisResultConsumer {
     public static final String GROUP_ID = "settlement-image-analysis-result-applier";
 
     private final MeterAnalysisService meterAnalysisService;
+    private final TransferAnalysisService transferAnalysisService;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
@@ -37,6 +40,7 @@ public class ImageAnalysisResultConsumer {
     public void consume(@Payload EventEnvelope<JsonNode> envelope) {
         switch (envelope.eventType()) {
             case ImageAnalysisMessages.METER_COMPLETED -> applyMeter(envelope);
+            case ImageAnalysisMessages.TRANSFER_COMPLETED -> applyTransfer(envelope);
             default -> log.debug("[IMAGE_ANALYSIS_RESULT_SKIPPED] eventId={}, eventType={}",
                     envelope.eventId(), envelope.eventType());
         }
@@ -46,6 +50,12 @@ public class ImageAnalysisResultConsumer {
         envelope.requireSchemaVersion(ImageAnalysisMessages.METER_SCHEMA_VERSION);
         MeterAnalysisResultData data = read(envelope, MeterAnalysisResultData.class);
         meterAnalysisService.apply(data.settlementId(), toServerTime(data.analysisStartedAt()), data.toOutcome());
+    }
+
+    private void applyTransfer(EventEnvelope<JsonNode> envelope) {
+        envelope.requireSchemaVersion(ImageAnalysisMessages.TRANSFER_SCHEMA_VERSION);
+        TransferAnalysisResultData data = read(envelope, TransferAnalysisResultData.class);
+        transferAnalysisService.apply(data.settlementId(), data.userId(), data.attempt(), data.toOutcome());
     }
 
     private LocalDateTime toServerTime(OffsetDateTime time) {
