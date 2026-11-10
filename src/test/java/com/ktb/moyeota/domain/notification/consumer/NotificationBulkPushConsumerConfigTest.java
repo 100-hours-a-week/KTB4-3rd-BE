@@ -13,7 +13,8 @@ import org.springframework.util.backoff.BackOffExecution;
 class NotificationBulkPushConsumerConfigTest {
 
     private static final NotificationPushKafkaProperties DEFAULTS =
-            new NotificationPushKafkaProperties(Duration.ofMinutes(2), 100, Duration.ofSeconds(10), 6);
+            new NotificationPushKafkaProperties(
+                    Duration.ofMinutes(2), Duration.ofMinutes(10), 5, 100, Duration.ofSeconds(10), 6);
 
     @RepeatedTest(20)
     @DisplayName("재시도 대기는 10초에서 두 배씩 늘어 4번(약 10·20·40·80초) 하고 멈추며, 매번 ±20% 안에서 흔들린다")
