@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.chat.service;
 import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.chat.entity.SystemMessageText;
 import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
@@ -56,25 +57,62 @@ public class ChatSystemMessageService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void requestMeter(ChatRoom chatRoom) {
-        publish(chatRoom, Message.meterRequestedSystemMessage(chatRoom, newSystemMessageKey(), "택시 미터기 사진을 보내주세요"));
+        publish(chatRoom, Message.meterRequestedSystemMessage(chatRoom, newSystemMessageKey(),
+                SystemMessageText.METER_REQUESTED.getText()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void requestTransfer(ChatRoom chatRoom, MessageItem.Settlement settlement) {
         publish(chatRoom,
-                Message.transferRequestedSystemMessage(chatRoom, newSystemMessageKey(), "방장이 정산을 요청했어요"),
+                Message.transferRequestedSystemMessage(chatRoom, newSystemMessageKey(),
+                        SystemMessageText.TRANSFER_REQUESTED.getText()),
                 settlement);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void completeSettlement(ChatRoom chatRoom) {
-        publish(chatRoom, Message.settlementCompletedSystemMessage(chatRoom, newSystemMessageKey(), "정산이 완료됐어요"));
+        publish(chatRoom, Message.settlementCompletedSystemMessage(chatRoom, newSystemMessageKey(),
+                SystemMessageText.SETTLEMENT_COMPLETED.getText()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void notifyTransferUnverified(ChatRoom chatRoom) {
         publish(chatRoom, Message.transferUnverifiedSystemMessage(chatRoom, newSystemMessageKey(),
-                "송금 확인이 어려워요. 대면으로 송금 내역을 확인한 뒤 방장이 정산을 완료해주세요"));
+                SystemMessageText.TRANSFER_UNVERIFIED.getText()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void enter(ChatRoom chatRoom, User joiner, String messageKey) {
+        publishOnce(chatRoom, Message.joinSystemMessage(chatRoom, joiner, messageKey, null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void leave(ChatRoom chatRoom, User leaver, String messageKey) {
+        publishOnce(chatRoom, Message.leaveSystemMessage(chatRoom, leaver, messageKey, null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void rideStarted(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.rideStartedSystemMessage(chatRoom, messageKey, null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void rideEnded(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.rideEndedSystemMessage(chatRoom, messageKey, null));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestMeter(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.meterRequestedSystemMessage(chatRoom, messageKey,
+                SystemMessageText.METER_REQUESTED.getText()));
+    }
+
+    private void publishOnce(ChatRoom chatRoom, Message message) {
+        chatRoomRepository.findByIdForUpdate(chatRoom.getId());
+        if (messageRepository.existsByChatRoomIdAndClientMessageId(chatRoom.getId(), message.getClientMessageId())) {
+            return;
+        }
+        save(chatRoom, message, null);
     }
 
     private void publish(ChatRoom chatRoom, Message message) {
@@ -83,6 +121,10 @@ public class ChatSystemMessageService {
 
     private void publish(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
         chatRoomRepository.findByIdForUpdate(chatRoom.getId());
+        save(chatRoom, message, settlement);
+    }
+
+    private void save(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
         eventPublisher.publishEvent(
