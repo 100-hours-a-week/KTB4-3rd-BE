@@ -30,7 +30,9 @@ import org.springframework.kafka.core.KafkaTemplate;
 @SpringBootTest(
         classes = {KafkaConfig.class, ChatCompanionFactConsumer.class, KafkaTestContainerConfig.class,
                 ChatCompanionFactConsumerTest.ListenerConfig.class},
-        properties = "spring.kafka.consumer.auto-offset-reset=earliest")
+        properties = {
+                "spring.kafka.consumer.auto-offset-reset=earliest",
+                "moyeota.chat.system-message.mode=kafka"})
 @ImportAutoConfiguration({
         JacksonAutoConfiguration.class,
         KafkaAutoConfiguration.class,

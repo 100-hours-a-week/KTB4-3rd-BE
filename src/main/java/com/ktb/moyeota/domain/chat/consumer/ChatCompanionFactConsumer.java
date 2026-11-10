@@ -9,6 +9,7 @@ import com.ktb.moyeota.global.event.EventEnvelope;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
+@ConditionalOnProperty(prefix = "moyeota.chat.system-message", name = "mode", havingValue = "kafka")
 public class ChatCompanionFactConsumer {
 
     public static final String GROUP_ID = "chat-system-message-writer";
