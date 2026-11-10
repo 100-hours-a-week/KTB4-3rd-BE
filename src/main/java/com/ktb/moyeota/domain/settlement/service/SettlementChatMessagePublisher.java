@@ -8,11 +8,14 @@ import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "moyeota.chat.system-message", name = "mode", havingValue = "direct",
+        matchIfMissing = true)
 public class SettlementChatMessagePublisher {
 
     private final ChatRoomRepository chatRoomRepository;
