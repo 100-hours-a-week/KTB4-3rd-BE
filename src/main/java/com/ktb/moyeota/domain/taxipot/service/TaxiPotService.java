@@ -16,6 +16,7 @@ import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotLeftEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchCanceledEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchRequestedEvent;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideEndedEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.matching.GeoPoint;
 import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
@@ -228,7 +229,6 @@ public class TaxiPotService {
     private void startRide(Companion taxiPot) {
         LocalDateTime startedAt = LocalDateTime.now(clock);
         taxiPot.startRide(startedAt);
-        chatSystemMessageService.rideStarted(findChatRoom(taxiPot));
         eventPublisher.publishEvent(new TaxiPotRideStartedEvent(taxiPot.getId(), startedAt,
                 taxiPot.getOriginLat(), taxiPot.getOriginLng(), taxiPot.getDestLat(), taxiPot.getDestLng()));
     }
@@ -236,9 +236,7 @@ public class TaxiPotService {
     private void completeRide(Companion taxiPot) {
         taxiPot.endRide();
         settlementRepository.save(Settlement.open(taxiPot));
-        ChatRoom chatRoom = findChatRoom(taxiPot);
-        chatSystemMessageService.rideEnded(chatRoom);
-        chatSystemMessageService.requestMeter(chatRoom);
+        eventPublisher.publishEvent(new TaxiPotRideEndedEvent(taxiPot.getId()));
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {

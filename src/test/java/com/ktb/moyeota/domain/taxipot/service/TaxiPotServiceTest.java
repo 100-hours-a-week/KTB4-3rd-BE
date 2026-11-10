@@ -19,7 +19,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
@@ -30,6 +29,7 @@ import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
 import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties.MatchingMode;
 import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideEndedEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
@@ -50,6 +50,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -301,16 +302,19 @@ class TaxiPotServiceTest {
         }
 
         @Test
-        @DisplayName("운행을 종료할 때는 운행 시작 이벤트를 발행하지 않는다")
-        void noEventOnComplete() {
+        @DisplayName("운행을 종료할 때는 운행 시작 이벤트가 아니라 운행 종료 이벤트 하나만 발행한다")
+        void publishesOnlyRideEndedOnComplete() {
             Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            ReflectionTestUtils.setField(pot, "id", TAXI_POT_ID);
             given(taxiPotRepository.findTaxiPotForParticipantForUpdate(TAXI_POT_ID, USER_ID))
                     .willReturn(Optional.of(pot));
             given(chatRoomRepository.findByCompanionId(any())).willReturn(Optional.of(ChatRoom.create(pot)));
 
             service.changeStatus(USER_ID, TAXI_POT_ID, COMPLETED);
 
-            verifyNoInteractions(eventPublisher);
+            ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(published.capture());
+            assertThat(published.getAllValues()).containsExactly(new TaxiPotRideEndedEvent(TAXI_POT_ID));
         }
 
     }
