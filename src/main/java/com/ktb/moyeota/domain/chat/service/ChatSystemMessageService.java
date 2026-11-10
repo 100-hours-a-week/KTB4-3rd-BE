@@ -107,12 +107,34 @@ public class ChatSystemMessageService {
                 SystemMessageText.METER_REQUESTED.getText()));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestTransfer(ChatRoom chatRoom, MessageItem.Settlement settlement, String messageKey) {
+        publishOnce(chatRoom, Message.transferRequestedSystemMessage(chatRoom, messageKey,
+                SystemMessageText.TRANSFER_REQUESTED.getText()), settlement);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void completeSettlement(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.settlementCompletedSystemMessage(chatRoom, messageKey,
+                SystemMessageText.SETTLEMENT_COMPLETED.getText()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void notifyTransferUnverified(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.transferUnverifiedSystemMessage(chatRoom, messageKey,
+                SystemMessageText.TRANSFER_UNVERIFIED.getText()));
+    }
+
     private void publishOnce(ChatRoom chatRoom, Message message) {
+        publishOnce(chatRoom, message, null);
+    }
+
+    private void publishOnce(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
         chatRoomRepository.findByIdForUpdate(chatRoom.getId());
         if (messageRepository.existsByChatRoomIdAndClientMessageId(chatRoom.getId(), message.getClientMessageId())) {
             return;
         }
-        save(chatRoom, message, null);
+        save(chatRoom, message, settlement);
     }
 
     private void publish(ChatRoom chatRoom, Message message) {

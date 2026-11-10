@@ -9,9 +9,7 @@ import com.ktb.moyeota.domain.companion.message.CompanionChangedMessages;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.event.InvalidEventException;
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,12 +33,12 @@ public class ChatCompanionFactWriter {
         switch (eventType) {
             case CompanionChangedMessages.MATCHED, CompanionChangedMessages.PARTICIPANT_JOINED ->
                     chatSystemMessageService.enter(chatRoom, participant(eventId, data),
-                            messageKey(eventId, MessageType.SYSTEM_JOIN));
+                            SystemMessageKeys.of(eventId, MessageType.SYSTEM_JOIN));
             case CompanionChangedMessages.PARTICIPANT_LEFT ->
                     chatSystemMessageService.leave(chatRoom, participant(eventId, data),
-                            messageKey(eventId, MessageType.SYSTEM_LEAVE));
+                            SystemMessageKeys.of(eventId, MessageType.SYSTEM_LEAVE));
             case CompanionChangedMessages.RIDE_STARTED -> chatSystemMessageService.rideStarted(
-                    chatRoom, messageKey(eventId, MessageType.SYSTEM_RIDE_STARTED));
+                    chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_RIDE_STARTED));
             case CompanionChangedMessages.RIDE_ENDED -> writeRideEnded(eventId, data, chatRoom);
             default -> throw new InvalidEventException("채팅이 처리하지 않는 동행 바뀜 종류입니다. event_id="
                     + eventId + " event_type=" + eventType);
@@ -49,10 +47,10 @@ public class ChatCompanionFactWriter {
     }
 
     private void writeRideEnded(String eventId, CompanionChangedData data, ChatRoom chatRoom) {
-        chatSystemMessageService.rideEnded(chatRoom, messageKey(eventId, MessageType.SYSTEM_RIDE_ENDED));
+        chatSystemMessageService.rideEnded(chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_RIDE_ENDED));
         if (data.kind() == CompanionKind.TAXI_POT) {
             chatSystemMessageService.requestMeter(
-                    chatRoom, messageKey(eventId, MessageType.SYSTEM_METER_REQUESTED));
+                    chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_METER_REQUESTED));
         }
     }
 
@@ -63,10 +61,5 @@ public class ChatCompanionFactWriter {
         return userRepository.findById(data.userId())
                 .orElseThrow(() -> new InvalidEventException(
                         "입장 · 퇴장한 사용자가 없습니다. event_id=" + eventId + " user_id=" + data.userId()));
-    }
-
-    private static String messageKey(String eventId, MessageType messageType) {
-        return UUID.nameUUIDFromBytes((eventId + ":" + messageType.name()).getBytes(StandardCharsets.UTF_8))
-                .toString();
     }
 }
