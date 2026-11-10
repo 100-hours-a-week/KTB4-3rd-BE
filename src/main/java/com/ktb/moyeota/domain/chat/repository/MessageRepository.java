@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
+    boolean existsByChatRoomIdAndClientMessageId(Long roomId, String clientMessageId);
+
 
     @Query("""
             SELECT m FROM Message m
