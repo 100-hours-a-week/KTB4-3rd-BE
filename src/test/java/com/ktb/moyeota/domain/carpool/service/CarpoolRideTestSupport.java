@@ -5,6 +5,7 @@ import static com.ktb.moyeota.fixture.CompanionFixture.carpool;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ktb.moyeota.domain.chat.service.CompanionParticipantChatMessageListener;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
@@ -36,7 +37,7 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 @DataJpaTest
 @RecordApplicationEvents
 @Import({CarpoolRideService.class, CarpoolDetailReader.class, ChatSystemMessageService.class,
-        CarpoolRideChatMessageListener.class,
+        CarpoolRideChatMessageListener.class, CompanionParticipantChatMessageListener.class,
         TestClockConfig.class, CarpoolRideTestSupport.Config.class})
 abstract class CarpoolRideTestSupport {
 

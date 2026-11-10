@@ -9,12 +9,15 @@ import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantJoinedEvent;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantLeftEvent;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +30,7 @@ public class ChatParticipationService {
     private final CompanionParticipantRepository companionParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
-    private final ChatSystemMessageService chatSystemMessageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ChatParticipateResponse participate(Long userId, Long companionId) {
@@ -54,7 +57,7 @@ public class ChatParticipationService {
         ChatRoom chatRoom = chatRoomRepository.findByCompanionId(companionId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
 
-        chatSystemMessageService.enter(chatRoom, user);
+        eventPublisher.publishEvent(new CompanionParticipantJoinedEvent(companionId, companion.getKind(), userId));
 
         return new ChatParticipateResponse(participant.getId(), chatRoom.getId());
     }
@@ -93,9 +96,7 @@ public class ChatParticipationService {
 
         participant.leave();
 
-        if (!isLastParticipant) {
-            chatSystemMessageService.leave(chatRoom, participant.getUser());
-        }
+        eventPublisher.publishEvent(new CompanionParticipantLeftEvent(companionId, companion.getKind(), userId));
 
         chatRoomRepository.decreaseCurrentCount(companionId);
 

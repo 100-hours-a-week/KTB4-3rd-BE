@@ -3,7 +3,6 @@ package com.ktb.moyeota.domain.taxipot.service;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
-import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
@@ -42,7 +41,6 @@ public class TaxiPotMatchReflector {
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
-    private final ChatSystemMessageService chatSystemMessageService;
     private final NotificationCommandService notificationCommandService;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
@@ -132,7 +130,6 @@ public class TaxiPotMatchReflector {
     private void matchAll(List<TaxiPotMatchRequest> requests, Companion taxiPot, ChatRoom chatRoom) {
         for (TaxiPotMatchRequest request : requests) {
             request.matchTo(taxiPot);
-            chatSystemMessageService.enter(chatRoom, request.getUser());
             notificationCommandService.createForChatRoom(request.getUser(), NotificationType.MATCHING_COMPLETED,
                     request.getId(), chatRoom, MATCHED_NOTICE);
         }

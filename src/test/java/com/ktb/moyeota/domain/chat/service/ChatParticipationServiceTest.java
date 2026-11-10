@@ -19,7 +19,10 @@ import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantJoinedEvent;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantLeftEvent;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.domain.user.repository.UserRepository;
@@ -33,6 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -57,7 +61,7 @@ class ChatParticipationServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private ChatSystemMessageService chatSystemMessageService;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private ChatParticipationService service;
@@ -95,7 +99,7 @@ class ChatParticipationServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NOT_FOUND);
             verify(companionParticipantRepository, never()).findActiveByCompanionIdAndUserId(any(), any());
-            verify(chatSystemMessageService, never()).enter(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test
@@ -109,7 +113,7 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.ALREADY_PARTICIPATING);
-            verify(chatSystemMessageService, never()).enter(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test
@@ -126,11 +130,11 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NOT_JOINABLE);
-            verify(chatSystemMessageService, never()).enter(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test
-        @DisplayName("정상 참여하면 참여자 id와 채팅방 id를 반환하고 입장 시스템 메시지를 보낸다")
+        @DisplayName("정상 참여하면 참여자 id와 채팅방 id를 반환하고 참여 사실(입장)을 발행한다")
         void participatesSuccessfully() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
@@ -148,11 +152,11 @@ class ChatParticipationServiceTest {
 
             assertThat(response.companionParticipantId()).isEqualTo(100L);
             assertThat(response.chatRoomId()).isEqualTo(ROOM_ID);
-            verify(chatSystemMessageService).enter(chatRoom, guest);
+            verify(eventPublisher).publishEvent(new CompanionParticipantJoinedEvent(COMPANION_ID, CompanionKind.COMPANION, GUEST_ID));
         }
 
         @Test
-        @DisplayName("입장 시스템 메시지 저장이 실패하면 예외가 전파되어 참여도 함께 롤백 대상이 된다")
+        @DisplayName("입장 처리(시스템 메시지 저장)가 실패하면 예외가 전파되어 참여도 함께 롤백 대상이 된다")
         void enterMessageFailurePropagates() {
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.empty());
@@ -163,7 +167,8 @@ class ChatParticipationServiceTest {
             given(companionParticipantRepository.save(any(CompanionParticipant.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
-            willThrow(new IllegalStateException("메시지 저장 실패")).given(chatSystemMessageService).enter(chatRoom, guest);
+            willThrow(new IllegalStateException("메시지 저장 실패")).given(eventPublisher)
+                    .publishEvent(new CompanionParticipantJoinedEvent(COMPANION_ID, CompanionKind.COMPANION, GUEST_ID));
 
             assertThatThrownBy(() -> service.participate(GUEST_ID, COMPANION_ID))
                     .isInstanceOf(IllegalStateException.class);
@@ -191,7 +196,7 @@ class ChatParticipationServiceTest {
             assertThat(response.companionParticipantId()).isEqualTo(100L);
             assertThat(previous.getOutcomeStatus()).isEqualTo(OutcomeStatus.PENDING);
             assertThat(previous.getLeftAt()).isNull();
-            verify(chatSystemMessageService).enter(chatRoom, guest);
+            verify(eventPublisher).publishEvent(new CompanionParticipantJoinedEvent(COMPANION_ID, CompanionKind.COMPANION, GUEST_ID));
         }
 
         @Test
@@ -210,7 +215,7 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.ALREADY_PARTICIPATING);
-            verify(chatSystemMessageService, never()).enter(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
     }
 
@@ -228,11 +233,11 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.NOT_PARTICIPATING);
-            verify(chatSystemMessageService, never()).leave(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test
-        @DisplayName("방장이 아니면 위임 없이 나가고 퇴장 시스템 메시지를 보낸다")
+        @DisplayName("방장이 아니면 위임 없이 나가고 참여 사실(퇴장)을 발행한다")
         void nonHostLeavesWithoutTransfer() {
             CompanionParticipant guestParticipation = CompanionParticipant.join(companion, guest);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
@@ -248,11 +253,11 @@ class ChatParticipationServiceTest {
             verify(companionParticipantRepository, never())
                     .findFirstByCompanionIdAndUserIdNotAndLeftAtIsNullOrderByJoinedAtAsc(any(), any());
             assertThat(guestParticipation.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
-            verify(chatSystemMessageService).leave(chatRoom, guest);
+            verify(eventPublisher).publishEvent(new CompanionParticipantLeftEvent(COMPANION_ID, CompanionKind.COMPANION, GUEST_ID));
         }
 
         @Test
-        @DisplayName("방장이고 혼자 남았으면 채팅방을 닫고, 알릴 사람이 없으니 퇴장 메시지는 보내지 않는다")
+        @DisplayName("방장이고 혼자 남았으면 채팅방을 먼저 닫고 퇴장 사실을 발행한다. 닫힌 방이라 퇴장 메시지는 남지 않는다")
         void closesRoomWhenHostAlone() {
             ReflectionTestUtils.setField(companion, "currentCount", 1);
             CompanionParticipant hostParticipation = CompanionParticipant.join(companion, host);
@@ -265,7 +270,7 @@ class ChatParticipationServiceTest {
 
             assertThat(chatRoom.getClosedAt()).isNotNull();
             assertThat(hostParticipation.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
-            verify(chatSystemMessageService, never()).leave(any(), any());
+            verify(eventPublisher).publishEvent(new CompanionParticipantLeftEvent(COMPANION_ID, CompanionKind.COMPANION, HOST_ID));
         }
 
         @Test
@@ -286,7 +291,7 @@ class ChatParticipationServiceTest {
             service.leave(HOST_ID, COMPANION_ID);
 
             assertThat(companion.getHost()).isEqualTo(guest);
-            verify(chatSystemMessageService).leave(chatRoom, host);
+            verify(eventPublisher).publishEvent(new CompanionParticipantLeftEvent(COMPANION_ID, CompanionKind.COMPANION, HOST_ID));
         }
 
         @Test
@@ -306,18 +311,19 @@ class ChatParticipationServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ChatErrorCode.COMPANION_NEXT_HOST_NOT_FOUND);
-            verify(chatSystemMessageService, never()).leave(any(), any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test
-        @DisplayName("퇴장 시스템 메시지 저장이 실패하면 예외가 전파되어 나가기도 함께 롤백 대상이 된다")
+        @DisplayName("퇴장 처리(시스템 메시지 저장)가 실패하면 예외가 전파되어 나가기도 함께 롤백 대상이 된다")
         void leaveMessageFailurePropagates() {
             CompanionParticipant guestParticipation = CompanionParticipant.join(companion, guest);
             given(companionParticipantRepository.findActiveByCompanionIdAndUserId(COMPANION_ID, GUEST_ID))
                     .willReturn(Optional.of(guestParticipation));
             given(companionPostRepository.findCompanionPostById(COMPANION_ID)).willReturn(Optional.of(companion));
             given(chatRoomRepository.findByCompanionId(COMPANION_ID)).willReturn(Optional.of(chatRoom));
-            willThrow(new IllegalStateException("메시지 저장 실패")).given(chatSystemMessageService).leave(chatRoom, guest);
+            willThrow(new IllegalStateException("메시지 저장 실패")).given(eventPublisher)
+                    .publishEvent(new CompanionParticipantLeftEvent(COMPANION_ID, CompanionKind.COMPANION, GUEST_ID));
 
             assertThatThrownBy(() -> service.leave(GUEST_ID, COMPANION_ID))
                     .isInstanceOf(IllegalStateException.class);

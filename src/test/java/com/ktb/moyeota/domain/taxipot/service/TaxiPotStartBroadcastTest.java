@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
+import com.ktb.moyeota.domain.chat.service.CompanionParticipantChatMessageListener;
 import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.event.ChatMessageBroadcaster;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
@@ -28,8 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({TaxiPotService.class, ChatSystemMessageService.class, ChatMessageBroadcaster.class,
-        TestClockConfig.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, CompanionParticipantChatMessageListener.class,
+        ChatMessageBroadcaster.class, TestClockConfig.class})
 class TaxiPotStartBroadcastTest {
 
     @Autowired
