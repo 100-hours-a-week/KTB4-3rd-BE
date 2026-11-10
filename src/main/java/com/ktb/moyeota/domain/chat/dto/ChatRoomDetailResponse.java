@@ -1,9 +1,11 @@
 package com.ktb.moyeota.domain.chat.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import java.time.LocalDateTime;
 
 public record ChatRoomDetailResponse(
@@ -18,11 +20,14 @@ public record ChatRoomDetailResponse(
         Integer currentCount,
         Integer capacity,
         CompanionStatus companionStatus,
+        SettlementStatus settlementStatus,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Boolean rated,
         LocalDateTime closedAt,
         Long lastReadMessageId
 ) {
 
-    public static ChatRoomDetailResponse of(ChatRoom chatRoom, Long lastReadMessageId) {
+    public static ChatRoomDetailResponse of(
+            ChatRoom chatRoom, Long lastReadMessageId, SettlementStatus settlementStatus, Boolean rated) {
         Companion companion = chatRoom.getCompanion();
         String title = companion.getDepartureAt().getHour() + "시 " + companion.getOriginName();
 
@@ -38,6 +43,8 @@ public record ChatRoomDetailResponse(
                 companion.getCurrentCount(),
                 companion.getCapacity(),
                 companion.getStatus(),
+                settlementStatus,
+                rated,
                 chatRoom.getClosedAt(),
                 lastReadMessageId
         );

@@ -13,16 +13,26 @@ import com.ktb.moyeota.domain.community.exception.CommunityErrorCode;
 import com.ktb.moyeota.domain.community.repository.CommunityNearbyProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPinProjection;
 import com.ktb.moyeota.domain.community.repository.CommunityPostRepository;
+import com.ktb.moyeota.domain.community.service.cache.CellPins;
+import com.ktb.moyeota.domain.community.service.cache.MapPinCellCache;
+import com.ktb.moyeota.domain.community.service.cache.MapPinCellLoader;
+import com.ktb.moyeota.domain.community.service.cache.MapPinMetrics;
+import com.ktb.moyeota.domain.community.service.cache.ViewportFallbackReason;
+import com.ktb.moyeota.domain.community.service.grid.CellBounds;
+import com.ktb.moyeota.domain.community.service.grid.GridCell;
+import com.ktb.moyeota.domain.community.service.grid.MapGrid;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionNearbyProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPinProjection;
 import com.ktb.moyeota.domain.companionpost.repository.CompanionPostRepository;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,32 +47,164 @@ public class HomeService {
     private static final int NEARBY_PAGE_SIZE = 10;
 
     private static final BigDecimal MAX_VIEWPORT_SPAN_DEGREES = BigDecimal.valueOf(1.0);
+    private static final Comparator<MapPinItem> PIN_ORDER =
+            Comparator.comparing(MapPinItem::type).thenComparing(MapPinItem::id);
 
     private final CommunityPostRepository communityPostRepository;
     private final CompanionPostRepository companionPostRepository;
     private final NearbyPostCursorCodec cursorCodec;
     private final ImageUrlResolver imageUrlResolver;
+    private final MapGrid mapGrid;
+    private final MapPinCellCache mapPinCellCache;
+    private final MapPinCellLoader mapPinCellLoader;
+    private final MapPinMetrics mapPinMetrics;
 
-    @Transactional(readOnly = true)
     public MapPinSearchResponse searchMapPins(MapPinSearchRequest request) {
         validateViewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
+        Viewport viewport = new Viewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
+        List<GridCell> cells = mapGrid.cellsCovering(viewport);
+        int requestLevel = cells.getFirst().level();
+        int lowestLevel = mapGrid.lowestSplitLevel(requestLevel);
+
+        List<MapPinItem> items = new ArrayList<>();
+        List<GridCell> floorOverflowed = new ArrayList<>();
+        int depth = 0;
+        while (!cells.isEmpty()) {
+            Optional<Map<GridCell, CellPins>> cached = mapPinCellCache.readCells(cells);
+            if (cached.isEmpty()) {
+                mapPinMetrics.countViewportFallback(ViewportFallbackReason.CACHE_UNAVAILABLE);
+                return searchViewport(viewport);
+            }
+            depth = requestLevel - cells.getFirst().level();
+            List<GridCell> partlyOverflowed = new ArrayList<>();
+            if (collectLevel(cells, cached.get(), viewport, items, partlyOverflowed)) {
+                mapPinMetrics.recordSplitDepth(depth);
+                return exceeded();
+            }
+            List<GridCell> children = new ArrayList<>();
+            for (GridCell cell : partlyOverflowed) {
+                if (cell.level() > lowestLevel) {
+                    children.addAll(mapGrid.childrenOverlapping(cell, viewport));
+                } else {
+                    floorOverflowed.add(cell);
+                }
+            }
+            cells = children;
+        }
+        mapPinMetrics.recordSplitDepth(depth);
+
+        if (!floorOverflowed.isEmpty()) {
+            mapPinMetrics.countFloorOverflowed();
+            if (collectFloorPieces(floorOverflowed, viewport, items)) {
+                return exceeded();
+            }
+        }
+        items.sort(PIN_ORDER);
+        return new MapPinSearchResponse(items, PIN_LIMIT, false);
+    }
+
+    private boolean collectLevel(List<GridCell> cells, Map<GridCell, CellPins> cached, Viewport viewport,
+            List<MapPinItem> items, List<GridCell> partlyOverflowed) {
+        List<GridCell> missed = new ArrayList<>();
+        for (GridCell cell : cells) {
+            CellPins pins = cached.get(cell);
+            if (pins == null) {
+                missed.add(cell);
+                continue;
+            }
+            if (collect(cell, pins, viewport, items, partlyOverflowed) == CellVerdict.EXCEEDED) {
+                return true;
+            }
+        }
+
+        missed.sort(Comparator.comparing((GridCell cell) -> !mapGrid.isFullyInside(cell, viewport)));
+        for (GridCell cell : missed) {
+            CellPins pins = mapPinCellLoader.load(cell);
+            if (collect(cell, pins, viewport, items, partlyOverflowed) == CellVerdict.EXCEEDED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private CellVerdict collect(GridCell cell, CellPins pins, Viewport viewport, List<MapPinItem> items,
+            List<GridCell> partlyOverflowed) {
+        if (pins.overflow()) {
+            if (mapGrid.isFullyInside(cell, viewport)) {
+                return CellVerdict.EXCEEDED;
+            }
+            partlyOverflowed.add(cell);
+            return CellVerdict.COLLECTED;
+        }
+        for (MapPinItem pin : pins.pins()) {
+            if (isInside(pin, viewport)) {
+                items.add(pin);
+            }
+        }
+        return items.size() > PIN_LIMIT ? CellVerdict.EXCEEDED : CellVerdict.COLLECTED;
+    }
+
+    private boolean collectFloorPieces(List<GridCell> cells, Viewport viewport, List<MapPinItem> items) {
+        for (GridCell cell : cells) {
+            CellBounds bounds = mapGrid.boundsOf(cell);
+            for (CommunityPinProjection pin : communityPostRepository.findPinsInCellWithinViewport(
+                    bounds.minLat(), bounds.minLng(), bounds.maxLat(), bounds.maxLng(),
+                    viewport.swLat(), viewport.swLng(), viewport.neLat(), viewport.neLng(),
+                    PIN_FETCH_LIMIT - items.size())) {
+                items.add(toItem(pin));
+            }
+            if (items.size() > PIN_LIMIT) {
+                return true;
+            }
+            for (CompanionPinProjection pin : companionPostRepository.findPinsInCellWithinViewport(
+                    bounds.minLat(), bounds.minLng(), bounds.maxLat(), bounds.maxLng(),
+                    viewport.swLat(), viewport.swLng(), viewport.neLat(), viewport.neLng(),
+                    PIN_FETCH_LIMIT - items.size())) {
+                items.add(toItem(pin));
+            }
+            if (items.size() > PIN_LIMIT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private MapPinSearchResponse searchViewport(Viewport viewport) {
         List<CommunityPinProjection> communityPins = communityPostRepository.findPinsInViewport(
-                request.swLat(), request.swLng(), request.neLat(), request.neLng(), PIN_FETCH_LIMIT);
+                viewport.swLat(), viewport.swLng(), viewport.neLat(), viewport.neLng(), PIN_FETCH_LIMIT);
         List<CompanionPinProjection> companionPins = companionPostRepository.findPinsInViewport(
-                request.swLat(), request.swLng(), request.neLat(), request.neLng(), PIN_FETCH_LIMIT);
+                viewport.swLat(), viewport.swLng(), viewport.neLat(), viewport.neLng(), PIN_FETCH_LIMIT);
 
         List<MapPinItem> items = new ArrayList<>(communityPins.size() + companionPins.size());
         for (CommunityPinProjection pin : communityPins) {
-            items.add(new MapPinItem(MapPinType.COMMUNITY, pin.getId(), pin.getLat(), pin.getLng()));
+            items.add(toItem(pin));
         }
         for (CompanionPinProjection pin : companionPins) {
-            items.add(new MapPinItem(MapPinType.COMPANION, pin.getId(), pin.getOriginLat(), pin.getOriginLng()));
+            items.add(toItem(pin));
         }
 
         if (items.size() > PIN_LIMIT) {
-            return new MapPinSearchResponse(List.of(), PIN_LIMIT, true);
+            return exceeded();
         }
+        items.sort(PIN_ORDER);
         return new MapPinSearchResponse(items, PIN_LIMIT, false);
+    }
+
+    private static MapPinItem toItem(CommunityPinProjection pin) {
+        return new MapPinItem(MapPinType.COMMUNITY, pin.getId(), pin.getLat(), pin.getLng());
+    }
+
+    private static MapPinItem toItem(CompanionPinProjection pin) {
+        return new MapPinItem(MapPinType.COMPANION, pin.getId(), pin.getOriginLat(), pin.getOriginLng());
+    }
+
+    private static boolean isInside(MapPinItem pin, Viewport viewport) {
+        return viewport.swLat().compareTo(pin.lat()) <= 0 && pin.lat().compareTo(viewport.neLat()) <= 0
+                && viewport.swLng().compareTo(pin.lng()) <= 0 && pin.lng().compareTo(viewport.neLng()) <= 0;
+    }
+
+    private static MapPinSearchResponse exceeded() {
+        return new MapPinSearchResponse(List.of(), PIN_LIMIT, true);
     }
 
     @Transactional(readOnly = true)
@@ -135,6 +277,10 @@ public class HomeService {
             }
         }
         return Optional.ofNullable(last);
+    }
+
+    private enum CellVerdict {
+        COLLECTED, EXCEEDED
     }
 
     private record Candidate(MapPinType type, Long id, double distance, LocalDateTime createdAt, NearbyPostItem item) {

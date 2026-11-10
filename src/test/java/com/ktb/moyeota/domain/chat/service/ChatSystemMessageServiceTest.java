@@ -5,12 +5,14 @@ import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +33,9 @@ class ChatSystemMessageServiceTest {
 
     private static final Long ROOM_ID = 501L;
     private static final Long MESSAGE_ID = 900L;
+
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
 
     @Mock
     private MessageRepository messageRepository;
@@ -64,6 +70,16 @@ class ChatSystemMessageServiceTest {
         assertThat(saved.getValue().getMessageType()).isEqualTo(MessageType.SYSTEM_JOIN);
         assertThat(saved.getValue().getSender()).isEqualTo(joiner);
         assertThat(saved.getValue().getClientMessageId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+    }
+
+    @Test
+    @DisplayName("시스템 메시지를 저장하기 전에 채팅방 행을 X락으로 먼저 조회한다")
+    void locksChatRoomBeforeSave() {
+        service.enter(chatRoom, joiner);
+
+        InOrder order = inOrder(chatRoomRepository, messageRepository);
+        order.verify(chatRoomRepository).findByIdForUpdate(ROOM_ID);
+        order.verify(messageRepository).save(any(Message.class));
     }
 
     @Test

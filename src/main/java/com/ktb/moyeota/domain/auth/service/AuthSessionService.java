@@ -26,7 +26,6 @@ public class AuthSessionService {
     private final AuthProperties authProperties;
     private final Clock clock;
 
-    @Transactional
     public IssuedSession issue(Long userId) {
         String refreshToken = opaqueTokenFactory.generate();
         Duration ttl = authProperties.refresh().ttl();
@@ -34,12 +33,14 @@ public class AuthSessionService {
         return new IssuedSession(accessTokenProvider.issue(userId), refreshToken, ttl);
     }
 
-    @Transactional
     public ReissueResult reissue(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             return new ReissueResult.Rejected();
         }
+        return sessionStore.withinStoreTransaction(() -> reissueStored(refreshToken));
+    }
 
+    private ReissueResult reissueStored(String refreshToken) {
         Optional<SessionTokenView> found = sessionStore.findToken(opaqueTokenFactory.hash(refreshToken));
         if (found.isEmpty()) {
             return new ReissueResult.Rejected();
@@ -55,28 +56,30 @@ public class AuthSessionService {
         if (view.isSuperseded()) {
             return graceOrReuse(view, now);
         }
-        if (!sessionStore.markSuperseded(view.tokenHash(), now)) {
+        String rotated = opaqueTokenFactory.generate();
+        if (!sessionStore.rotate(view.sessionId(), view.tokenHash(), opaqueTokenFactory.hash(rotated), now)) {
             return new ReissueResult.Graced(accessTokenProvider.issue(view.userId()));
         }
-        return rotate(view, now);
-    }
-
-    @Transactional
-    public void revokeSession(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            return;
-        }
-        sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
-                .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
-    }
-
-    private ReissueResult rotate(SessionTokenView view, LocalDateTime now) {
-        String rotated = opaqueTokenFactory.generate();
-        sessionStore.appendToken(view.sessionId(), opaqueTokenFactory.hash(rotated));
         return new ReissueResult.Rotated(
                 accessTokenProvider.issue(view.userId()),
                 rotated,
                 Duration.between(now, view.absoluteExpiresAt()));
+    }
+
+    public void revokeSession(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+        sessionStore.withinStoreTransaction(() -> {
+            sessionStore.findToken(opaqueTokenFactory.hash(refreshToken))
+                    .ifPresent(view -> sessionStore.deleteSession(view.sessionId()));
+            return null;
+        });
+    }
+
+    @Transactional
+    public void revokeAll(Long userId) {
+        sessionStore.deleteAllByUserId(userId);
     }
 
     private ReissueResult graceOrReuse(SessionTokenView view, LocalDateTime now) {

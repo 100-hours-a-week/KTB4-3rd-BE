@@ -12,5 +12,6 @@ public record TaxiPotDetail(
         LocalDateTime departureAt,
         int currentCount,
         int capacity,
-        Long hostId) {
+        Long hostId,
+        Long settlementId) {
 }

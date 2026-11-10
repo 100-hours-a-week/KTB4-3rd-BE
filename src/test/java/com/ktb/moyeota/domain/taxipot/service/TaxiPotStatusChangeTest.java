@@ -20,29 +20,36 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.user.entity.User;
+import com.ktb.moyeota.global.config.MutableClock;
+import com.ktb.moyeota.global.config.TestClockConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotStatusChangeTest.FixedClock.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
 class TaxiPotStatusChangeTest {
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private TaxiPotService taxiPotService;
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @BeforeEach
+    void fixClock() {
+        clock.set(DEPARTURE_AT);
+    }
 
     @Test
     @DisplayName("운행을 시작하면 응답에 바뀐 상태가 담긴다")
@@ -113,23 +120,23 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 종료하면 채팅방에 운행 종료 알림이 남는다")
+    @DisplayName("운행을 종료하면 채팅방에 운행 종료 알림과 미터기 사진 요청이 차례로 남는다")
     void leavesRideEndedMessage() {
         Companion pot = persistTaxiPot(IN_PROGRESS);
 
         taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), COMPLETED);
 
-        assertThat(messageTypes(pot)).containsExactly(MessageType.SYSTEM_RIDE_ENDED);
+        assertThat(messageTypes(pot)).containsExactly(MessageType.SYSTEM_RIDE_ENDED, MessageType.SYSTEM_METER_REQUESTED);
     }
 
     @Test
-    @DisplayName("운행을 종료하면 채팅방이 닫힌다")
-    void closesChatRoomOnRideEnd() {
+    @DisplayName("운행을 종료해도 정산을 위해 채팅방은 열려 있다")
+    void keepsChatRoomOpenOnRideEnd() {
         Companion pot = persistTaxiPot(IN_PROGRESS);
 
         taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), COMPLETED);
 
-        assertThat(reloadChatRoom(pot).getClosedAt()).isNotNull();
+        assertThat(reloadChatRoom(pot).getClosedAt()).isNull();
     }
 
     @Test
@@ -156,8 +163,8 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 종료하면 함께 탄 참여자가 모두 완주하고 진행 중인 택시팟이 없어진다")
-    void completesRidersOnRideEnd() {
+    @DisplayName("운행을 종료해도 함께 탄 참여자는 정산이 끝날 때까지 진행 중이고 진행 중인 택시팟으로 남는다")
+    void keepsRidersPendingOnRideEnd() {
         User host = entityManager.persist(bankAccountHolder("방장"));
         User member = entityManager.persist(bankAccountHolder("동승자"));
         Companion pot = persistRidingPot(host, member);
@@ -167,10 +174,11 @@ class TaxiPotStatusChangeTest {
         entityManager.flush();
         assertThat(participantsOf(pot))
                 .allSatisfy(p -> {
-                    assertThat(p.isCompleted()).isTrue();
-                    assertThat(p.getLeftAt()).isNotNull();
+                    assertThat(p.getOutcomeStatus()).isEqualTo(PENDING);
+                    assertThat(p.getLeftAt()).isNull();
                 });
-        assertThat(taxiPotService.findMyCurrent(member.getId())).isEmpty();
+        assertThat(taxiPotService.findMyCurrent(member.getId()))
+                .hasValueSatisfying(current -> assertThat(current.status()).isEqualTo(COMPLETED));
     }
 
     private Companion persistRidingPot(User host, User member) {
@@ -201,7 +209,7 @@ class TaxiPotStatusChangeTest {
     }
 
     private Companion persistTaxiPot(CompanionStatus status) {
-        User host = entityManager.persist(user("방장"));
+        User host = entityManager.persist(bankAccountHolder("방장"));
         Companion pot = entityManager.persist(taxiPot(host, status, 2));
         entityManager.persist(ChatRoom.create(pot));
         entityManager.persistAndFlush(participant(pot, host, PENDING));
@@ -221,15 +229,5 @@ class TaxiPotStatusChangeTest {
         entityManager.flush();
         entityManager.clear();
         return entityManager.find(Companion.class, pot.getId());
-    }
-
-    @TestConfiguration
-    static class FixedClock {
-
-        @Bean
-        Clock clock() {
-            ZoneId kst = ZoneId.of("Asia/Seoul");
-            return Clock.fixed(DEPARTURE_AT.atZone(kst).toInstant(), kst);
-        }
     }
 }

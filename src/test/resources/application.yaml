@@ -12,6 +12,12 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: create-drop
+  data:
+    redis:
+      timeout: 200ms
+      connect-timeout: 1s
+      repositories:
+        enabled: false
   task:
     execution:
       mode: force
@@ -30,6 +36,8 @@ moyeota:
     cookie:
       secure: false
       same-site: lax
+  congestion:
+    author-key-secret: dGVzdC1vbmx5LWNvbmdlc3Rpb24tYXV0aG9yLWtleSE=
   crypto:
     account-key: bG9jYWwtb25seS1tb3llb3RhLWFjY291bnQta2V5ISE=
   oauth:
@@ -41,12 +49,29 @@ moyeota:
       authorize-uri: https://kauth.kakao.com/oauth/authorize
       token-uri: https://kauth.kakao.com/oauth/token
       user-info-uri: https://kapi.kakao.com/v2/user/me
+  kakao-unlink:
+    unlink-uri: https://kapi.kakao.com/v1/user/unlink
   kakao-navi:
     directions-uri: https://apis-navi.kakaomobility.com/v1/directions
+  ai:
+    base-url: http://localhost:8000
   taxi-pot:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
     auto-cancel-sweep-delay: 10m
+  carpool:
+    ride-start-sweep-delay: 10s
+    ride-end-sweep-delay: 10s
+    auto-cancel-sweep-delay: 10m
+  chat:
+    close-sweep-delay: 10m
+  settlement:
+    meter-analysis:
+      expire-sweep-delay: 1m
+  relay:
+    env: local
+  internal:
+    api-key: test-only-internal-api-key
   storage:
     s3:
       bucket: moyeota-test-images

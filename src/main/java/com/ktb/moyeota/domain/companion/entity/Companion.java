@@ -139,6 +139,13 @@ public class Companion {
                 originName, originLat, originLng, destName, destLat, destLng, departureAt, TAXI_POT_CAPACITY);
     }
 
+    public static Companion openCarpool(User host, String originName, BigDecimal originLat, BigDecimal originLng,
+                                        String destName, BigDecimal destLat, BigDecimal destLng,
+                                        LocalDateTime departureAt, int recruitCount) {
+        return new Companion(host, host, CompanionKind.CARPOOL, TransportType.OWNED_CAR, null,
+                originName, originLat, originLng, destName, destLat, destLng, departureAt, recruitCount + 1);
+    }
+
     public boolean isDepartureAtFuture() {
         return departureAt != null && departureAt.isAfter(LocalDateTime.now());
     }
@@ -195,6 +202,17 @@ public class Companion {
         }
     }
 
+    public void leaveCarpool(CompanionParticipant leaver) {
+        if (status == CompanionStatus.IN_PROGRESS) {
+            throw new BusinessException(CompanionErrorCode.RIDE_IN_PROGRESS);
+        }
+        if (status != CompanionStatus.RECRUITING) {
+            throw new IllegalStateException("모집 중이 아닌 카풀에서는 나갈 수 없다: " + id);
+        }
+        leaver.leave();
+        this.currentCount--;
+    }
+
     public void startRide(LocalDateTime now) {
         if (status != CompanionStatus.RECRUITING) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
@@ -215,12 +233,16 @@ public class Companion {
         }
     }
 
-    public void completeRide(List<CompanionParticipant> riders) {
+    public void completeCarpoolRide(List<CompanionParticipant> riders) {
+        endRide();
+        riders.forEach(CompanionParticipant::complete);
+    }
+
+    public void endRide() {
         if (status != CompanionStatus.IN_PROGRESS) {
             throw new BusinessException(CompanionErrorCode.INVALID_STATE_TRANSITION);
         }
         this.status = CompanionStatus.COMPLETED;
-        riders.forEach(CompanionParticipant::complete);
     }
 
     public void cancel(List<CompanionParticipant> remaining) {

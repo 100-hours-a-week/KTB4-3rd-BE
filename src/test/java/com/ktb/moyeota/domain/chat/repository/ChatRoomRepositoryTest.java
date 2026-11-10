@@ -114,6 +114,22 @@ class ChatRoomRepositoryTest {
         }
 
         @Test
+        @DisplayName("운행을 마친 채팅방은 닫히기 전까지 조회된다")
+        void includesCompletedRoomUntilClosed() {
+            Companion companion = persist(companionPost(host));
+            ChatRoomJoinResult joined = joinRoomWithMessage(companion, me, "hi");
+            joined.participant().complete();
+            entityManager.persistAndFlush(joined.participant());
+
+            assertThat(chatRoomRepository.findMyChatRooms(me.getId(), null, null, null, 10)).hasSize(1);
+
+            joined.chatRoom().close();
+            entityManager.persistAndFlush(joined.chatRoom());
+
+            assertThat(chatRoomRepository.findMyChatRooms(me.getId(), null, null, null, 10)).isEmpty();
+        }
+
+        @Test
         @DisplayName("나간 채팅방은 조회되지 않는다")
         void excludesLeftRoom() {
             Companion companion = persist(companionPost(host));

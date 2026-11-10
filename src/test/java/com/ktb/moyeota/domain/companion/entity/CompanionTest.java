@@ -12,6 +12,7 @@ import static com.ktb.moyeota.fixture.CompanionFixture.DEST_NAME;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LAT;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_NAME;
+import static com.ktb.moyeota.fixture.CompanionFixture.carpool;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.UserFixture.user;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class CompanionTest {
@@ -52,6 +54,29 @@ class CompanionTest {
             assertThat(pot.getCurrentCount()).isEqualTo(1);
             assertThat(pot.getHost()).isSameAs(host);
             assertThat(pot.getCreator()).isSameAs(host);
+        }
+    }
+
+    @Nested
+    @DisplayName("카풀 열기")
+    class OpenCarpool {
+
+        @ParameterizedTest
+        @CsvSource({"1, 2", "3, 4"})
+        @DisplayName("등록한 사람이 방장인 자가용 카풀이 모집 중으로 열리고, 정원은 모집 인원에 방장을 더한 값이다")
+        void opens(int recruitCount, int capacity) {
+            User host = user("방장");
+
+            Companion carpool = Companion.openCarpool(
+                    host, ORIGIN_NAME, ORIGIN_LAT, ORIGIN_LNG, DEST_NAME, DEST_LAT, DEST_LNG, DEPARTURE_AT, recruitCount);
+
+            assertThat(carpool.getKind()).isEqualTo(CompanionKind.CARPOOL);
+            assertThat(carpool.getTransportType()).isEqualTo(TransportType.OWNED_CAR);
+            assertThat(carpool.getStatus()).isEqualTo(RECRUITING);
+            assertThat(carpool.getCapacity()).isEqualTo(capacity);
+            assertThat(carpool.getCurrentCount()).isEqualTo(1);
+            assertThat(carpool.getHost()).isSameAs(host);
+            assertThat(carpool.getCreator()).isSameAs(host);
         }
     }
 
@@ -198,6 +223,51 @@ class CompanionTest {
     }
 
     @Nested
+    @DisplayName("카풀 나가기")
+    class LeaveCarpool {
+
+        private final User host = user(1L, "방장");
+        private final User member = user(2L, "동승자");
+
+        @Test
+        @DisplayName("동승자가 나가면 인원이 줄고 참여가 끝나며 모집은 이어진다")
+        void memberLeaves() {
+            Companion carpool = carpool(host, RECRUITING, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            carpool.leaveCarpool(leaving);
+
+            assertThat(carpool.getCurrentCount()).isEqualTo(1);
+            assertThat(carpool.getStatus()).isEqualTo(RECRUITING);
+            assertThat(carpool.getHost()).isSameAs(host);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(OutcomeStatus.INCOMPLETE);
+        }
+
+        @Test
+        @DisplayName("운행 중이면 RIDE_IN_PROGRESS이고 나가려고 해도 아무것도 바뀌지 않는다")
+        void rideInProgress() {
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            assertErrorCode(() -> carpool.leaveCarpool(leaving), CompanionErrorCode.RIDE_IN_PROGRESS);
+            assertThat(carpool.getCurrentCount()).isEqualTo(2);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = CompanionStatus.class, names = {"COMPLETED", "CANCELED"})
+        @DisplayName("끝난 카풀에서는 나갈 수 없고 아무것도 바뀌지 않는다")
+        void notRecruiting(CompanionStatus status) {
+            Companion carpool = carpool(host, status, 2);
+            CompanionParticipant leaving = participant(carpool, member, PENDING);
+
+            assertThatThrownBy(() -> carpool.leaveCarpool(leaving)).isInstanceOf(IllegalStateException.class);
+            assertThat(carpool.getCurrentCount()).isEqualTo(2);
+            assertThat(leaving.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+    }
+
+    @Nested
     @DisplayName("운행 시작")
     class StartRide {
 
@@ -258,8 +328,8 @@ class CompanionTest {
     }
 
     @Nested
-    @DisplayName("운행 종료")
-    class CompleteRide {
+    @DisplayName("카풀 운행 종료")
+    class CompleteCarpoolRide {
 
         private final User host = user(1L, "방장");
         private final User member = user(2L, "동승자");
@@ -267,21 +337,21 @@ class CompanionTest {
         @Test
         @DisplayName("운행 중이면 완료된다")
         void completes() {
-            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
 
-            pot.completeRide(List.of());
+            carpool.completeCarpoolRide(List.of());
 
-            assertThat(pot.getStatus()).isEqualTo(COMPLETED);
+            assertThat(carpool.getStatus()).isEqualTo(COMPLETED);
         }
 
         @Test
         @DisplayName("운행한 참여자는 모두 완주한 참여가 된다")
         void completesRiders() {
-            Companion pot = taxiPot(host, IN_PROGRESS, 2);
-            CompanionParticipant hostRider = participant(pot, host, PENDING);
-            CompanionParticipant memberRider = participant(pot, member, PENDING);
+            Companion carpool = carpool(host, IN_PROGRESS, 2);
+            CompanionParticipant hostRider = participant(carpool, host, PENDING);
+            CompanionParticipant memberRider = participant(carpool, member, PENDING);
 
-            pot.completeRide(List.of(hostRider, memberRider));
+            carpool.completeCarpoolRide(List.of(hostRider, memberRider));
 
             assertThat(List.of(hostRider, memberRider))
                     .extracting(CompanionParticipant::getOutcomeStatus)
@@ -292,12 +362,39 @@ class CompanionTest {
         @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
         @DisplayName("운행 중이 아니면 INVALID_STATE_TRANSITION이다")
         void notInProgress(CompanionStatus status) {
-            Companion pot = taxiPot(host, status, 2);
-            CompanionParticipant rider = participant(pot, member, PENDING);
+            Companion carpool = carpool(host, status, 2);
+            CompanionParticipant rider = participant(carpool, member, PENDING);
 
-            assertErrorCode(() -> pot.completeRide(List.of(rider)), CompanionErrorCode.INVALID_STATE_TRANSITION);
-            assertThat(pot.getStatus()).isEqualTo(status);
+            assertErrorCode(() -> carpool.completeCarpoolRide(List.of(rider)), CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertThat(carpool.getStatus()).isEqualTo(status);
             assertThat(rider.getOutcomeStatus()).isEqualTo(PENDING);
+        }
+    }
+
+    @Nested
+    @DisplayName("택시팟 운행 종료")
+    class EndRide {
+
+        private final User host = user(1L, "방장");
+
+        @Test
+        @DisplayName("운행 중이면 완료 상태가 된다")
+        void ends() {
+            Companion pot = taxiPot(host, IN_PROGRESS, 2);
+
+            pot.endRide();
+
+            assertThat(pot.getStatus()).isEqualTo(COMPLETED);
+        }
+
+        @ParameterizedTest(name = "{0}", quoteTextArguments = false)
+        @EnumSource(value = CompanionStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("운행 중이 아니면 INVALID_STATE_TRANSITION이다")
+        void notInProgress(CompanionStatus status) {
+            Companion pot = taxiPot(host, status, 2);
+
+            assertErrorCode(pot::endRide, CompanionErrorCode.INVALID_STATE_TRANSITION);
+            assertThat(pot.getStatus()).isEqualTo(status);
         }
     }
 

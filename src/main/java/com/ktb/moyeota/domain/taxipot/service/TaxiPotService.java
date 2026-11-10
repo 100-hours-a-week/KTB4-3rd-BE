@@ -7,11 +7,22 @@ import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
+import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequest;
+import com.ktb.moyeota.domain.taxipot.entity.TaxiPotMatchRequestStatus;
 import com.ktb.moyeota.domain.taxipot.error.TaxiPotErrorCode;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotLeftEvent;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchCanceledEvent;
+import com.ktb.moyeota.domain.taxipot.event.TaxiPotMatchRequestedEvent;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
+import com.ktb.moyeota.domain.taxipot.matching.GeoPoint;
+import com.ktb.moyeota.domain.taxipot.matching.RegionCell;
 import com.ktb.moyeota.domain.taxipot.model.CurrentTaxiPot;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotDetail;
 import com.ktb.moyeota.domain.taxipot.model.TaxiPotStartCommand;
+import com.ktb.moyeota.domain.taxipot.repository.TaxiPotMatchRequestRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotParticipantRepository;
 import com.ktb.moyeota.domain.taxipot.repository.TaxiPotRepository;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -25,14 +36,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
+@EnableConfigurationProperties(TaxiPotMatchingProperties.class)
 public class TaxiPotService {
 
     private static final Duration MAX_DEPARTURE_LEAD_TIME = Duration.ofHours(3);
@@ -41,17 +55,21 @@ public class TaxiPotService {
 
     private final TaxiPotRepository taxiPotRepository;
     private final TaxiPotParticipantRepository taxiPotParticipantRepository;
+    private final TaxiPotMatchRequestRepository taxiPotMatchRequestRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final SettlementRepository settlementRepository;
     private final ChatSystemMessageService chatSystemMessageService;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
+    private final TaxiPotMatchingProperties matchingProperties;
 
     @Transactional(readOnly = true)
     public Optional<CurrentTaxiPot> findMyCurrent(Long userId) {
         return taxiPotParticipantRepository.findCurrentTaxiPot(userId)
-                .map(taxiPot -> toCurrentTaxiPot(taxiPot, findChatRoom(taxiPot).getId()));
+                .map(taxiPot -> toCurrentTaxiPot(taxiPot, findChatRoom(taxiPot).getId()))
+                .or(() -> hasMatchingRequest(userId) ? Optional.of(CurrentTaxiPot.matching()) : Optional.empty());
     }
 
     public CurrentTaxiPot start(Long userId, TaxiPotStartCommand command) {
@@ -62,7 +80,9 @@ public class TaxiPotService {
 
         for (int attempt = 1; ; attempt++) {
             try {
-                return transactionTemplate.execute(status -> joinOrOpen(userId, command, departureAt));
+                return transactionTemplate.execute(status -> matchingProperties.queuesRequests()
+                        ? requestMatching(userId, command, departureAt)
+                        : joinOrOpen(userId, command, departureAt));
             } catch (CannotAcquireLockException e) {
                 if (attempt == MAX_START_ATTEMPTS) {
                     throw new BusinessException(TaxiPotErrorCode.MATCH_BUSY);
@@ -71,15 +91,23 @@ public class TaxiPotService {
         }
     }
 
-    private CurrentTaxiPot joinOrOpen(Long userId, TaxiPotStartCommand command, LocalDateTime departureAt) {
-        User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
-        if (!user.hasBankAccount()) {
-            throw new BusinessException(TaxiPotErrorCode.BANK_ACCOUNT_REQUIRED);
-        }
-        if (taxiPotParticipantRepository.findCurrentTaxiPot(userId).isPresent()) {
+    private CurrentTaxiPot requestMatching(Long userId, TaxiPotStartCommand command, LocalDateTime departureAt) {
+        User user = lockStartableUser(userId);
+        RegionCell region = matchingProperties.regionGrid()
+                .cellOf(GeoPoint.of(command.originLat(), command.originLng()));
+        try {
+            TaxiPotMatchRequest request = taxiPotMatchRequestRepository.saveAndFlush(TaxiPotMatchRequest.start(user,
+                    command.originName(), command.originLat(), command.originLng(),
+                    command.destName(), command.destLat(), command.destLng(), departureAt, region));
+            eventPublisher.publishEvent(new TaxiPotMatchRequestedEvent(request.getId()));
+        } catch (DataIntegrityViolationException e) {
             throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
         }
+        return CurrentTaxiPot.matching();
+    }
+
+    private CurrentTaxiPot joinOrOpen(Long userId, TaxiPotStartCommand command, LocalDateTime departureAt) {
+        User user = lockStartableUser(userId);
 
         ChatRoom chatRoom = taxiPotRepository.findMatchableTaxiPotForUpdate(
                         command.originLat(), command.originLng(), command.destLat(), command.destLng(), departureAt)
@@ -87,6 +115,21 @@ public class TaxiPotService {
                 .orElseGet(() -> openTaxiPot(user, command, departureAt));
         chatSystemMessageService.enter(chatRoom, user);
         return toCurrentTaxiPot(chatRoom.getCompanion(), chatRoom.getId());
+    }
+
+    public void cancelMatching(Long userId) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        Boolean canceled = transactionTemplate.execute(status -> taxiPotMatchRequestRepository
+                .findMatchingIdByUserId(userId)
+                .map(requestId -> cancelRequest(requestId, now))
+                .orElse(false));
+        if (Boolean.TRUE.equals(canceled)) {
+            return;
+        }
+        if (taxiPotParticipantRepository.existsCurrentTaxiPot(userId)) {
+            throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_COMPLETED);
+        }
+        throw new BusinessException(TaxiPotErrorCode.MATCH_REQUEST_NOT_FOUND);
     }
 
     @Transactional
@@ -103,6 +146,7 @@ public class TaxiPotService {
         if (leaver.isCompleted()) {
             return;
         }
+        eventPublisher.publishEvent(new TaxiPotLeftEvent(taxiPotId, userId));
         ChatRoom chatRoom = findChatRoom(taxiPot);
         chatSystemMessageService.leave(chatRoom, leaver.getUser());
         if (taxiPot.getStatus() == CompanionStatus.CANCELED) {
@@ -173,6 +217,14 @@ public class TaxiPotService {
         taxiPotRepository.findById(taxiPotId).ifPresent(taxiPot -> taxiPot.estimateArrival(etaAt));
     }
 
+    private boolean cancelRequest(Long requestId, LocalDateTime now) {
+        if (taxiPotMatchRequestRepository.cancel(requestId, now) != 1) {
+            return false;
+        }
+        eventPublisher.publishEvent(new TaxiPotMatchCanceledEvent(requestId));
+        return true;
+    }
+
     private void startRide(Companion taxiPot) {
         LocalDateTime startedAt = LocalDateTime.now(clock);
         taxiPot.startRide(startedAt);
@@ -182,10 +234,11 @@ public class TaxiPotService {
     }
 
     private void completeRide(Companion taxiPot) {
-        taxiPot.completeRide(taxiPotParticipantRepository.findPendingParticipants(taxiPot.getId()));
+        taxiPot.endRide();
+        settlementRepository.save(Settlement.open(taxiPot));
         ChatRoom chatRoom = findChatRoom(taxiPot);
         chatSystemMessageService.rideEnded(chatRoom);
-        chatRoom.close();
+        chatSystemMessageService.requestMeter(chatRoom);
     }
 
     private ChatRoom joinTaxiPot(Companion taxiPot, User user) {
@@ -194,6 +247,22 @@ public class TaxiPotService {
                 .orElse(null);
         taxiPotParticipantRepository.save(taxiPot.join(user, previous));
         return findChatRoom(taxiPot);
+    }
+
+    private User lockStartableUser(Long userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
+        if (!user.hasBankAccount()) {
+            throw new BusinessException(TaxiPotErrorCode.BANK_ACCOUNT_REQUIRED);
+        }
+        if (taxiPotParticipantRepository.findCurrentTaxiPot(userId).isPresent() || hasMatchingRequest(userId)) {
+            throw new BusinessException(TaxiPotErrorCode.MATCH_ALREADY_IN_PROGRESS);
+        }
+        return user;
+    }
+
+    private boolean hasMatchingRequest(Long userId) {
+        return taxiPotMatchRequestRepository.existsByUserIdAndStatus(userId, TaxiPotMatchRequestStatus.MATCHING);
     }
 
     private ChatRoom findChatRoom(Companion taxiPot) {
@@ -240,6 +309,7 @@ public class TaxiPotService {
                 companion.getDepartureAt(),
                 companion.getCurrentCount(),
                 companion.getCapacity(),
-                companion.getHost().getId());
+                companion.getHost().getId(),
+                settlementRepository.findIdByCompanionId(companion.getId()).orElse(null));
     }
 }

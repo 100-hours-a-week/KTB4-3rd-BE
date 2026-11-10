@@ -2,7 +2,6 @@ package com.ktb.moyeota.domain.chat.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ktb.moyeota.domain.chat.dto.ChatRoomCursor;
-import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.util.Base64;
@@ -30,13 +29,13 @@ public class ChatRoomCursorCodec {
             return new ChatRoomCursor(null, null);
         }
         if (!cursor.startsWith(PREFIX)) {
-            throw new BusinessException(ChatErrorCode.INVALID_CURSOR);
+            throw new BusinessException(CommonErrorCode.INVALID_CURSOR);
         }
         try {
             byte[] json = Base64.getUrlDecoder().decode(cursor.substring(PREFIX.length()));
             return objectMapper.readValue(json, ChatRoomCursor.class);
         } catch (Exception e) {
-            throw new BusinessException(ChatErrorCode.INVALID_CURSOR);
+            throw new BusinessException(CommonErrorCode.INVALID_CURSOR);
         }
     }
 }

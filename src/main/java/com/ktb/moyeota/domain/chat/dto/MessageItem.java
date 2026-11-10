@@ -15,8 +15,14 @@ public record MessageItem(
         SystemActor joiner,
         SystemActor leaver,
         String content,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Settlement settlement
 ) {
+
+    public MessageItem(Long id, MessageType type, Sender sender, SystemActor joiner, SystemActor leaver,
+                       String content, LocalDateTime createdAt) {
+        this(id, type, sender, joiner, leaver, content, createdAt, null);
+    }
 
     public record Sender(
             Long id,
@@ -28,7 +34,17 @@ public record MessageItem(
     public record SystemActor(Long id, String name) {
     }
 
+    public record Settlement(Long settlementId, Integer totalAmount, Integer amountPerPerson, Payee payee) {
+    }
+
+    public record Payee(Long id, String name, String bankName, String accountNo) {
+    }
+
     public static MessageItem from(Message message, String senderProfileImageUrl) {
+        return from(message, senderProfileImageUrl, null);
+    }
+
+    public static MessageItem from(Message message, String senderProfileImageUrl, Settlement settlement) {
         return switch (message.getMessageType()) {
             case TEXT -> text(message, senderProfileImageUrl);
             case SYSTEM_JOIN -> join(message);
@@ -37,6 +53,9 @@ public record MessageItem(
             case SYSTEM_RIDE_END_REQUESTED -> rideEndRequested(message);
             case SYSTEM_RIDE_STARTED -> rideStarted(message);
             case SYSTEM_RIDE_ENDED -> rideEnded(message);
+            case SYSTEM_TRANSFER_REQUESTED -> transferRequested(message, settlement);
+            case SYSTEM_METER_REQUESTED, SYSTEM_TRANSFER_DONE, SYSTEM_TRANSFER_UNVERIFIED,
+                 SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, SYSTEM_SETTLEMENT_COMPLETED -> systemNotice(message);
         };
     }
 
@@ -54,10 +73,14 @@ public record MessageItem(
 
     private static Sender sender(Message message, String profileImageUrl) {
         User sender = message.getSender();
-        if (message.getChatRoom().getCompanion().getKind() == CompanionKind.TAXI_POT) {
+        if (usesRealName(message.getChatRoom().getCompanion().getKind())) {
             return new Sender(sender.getId(), sender.getName(), null, profileImageUrl);
         }
         return new Sender(sender.getId(), null, sender.getNickname(), profileImageUrl);
+    }
+
+    private static boolean usesRealName(CompanionKind kind) {
+        return kind == CompanionKind.TAXI_POT || kind == CompanionKind.CARPOOL;
     }
 
     private static MessageItem join(Message message) {
@@ -131,6 +154,31 @@ public record MessageItem(
                 null,
                 null,
                 message.getCreatedAt()
+        );
+    }
+
+    private static MessageItem systemNotice(Message message) {
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                message.getContent(),
+                message.getCreatedAt()
+        );
+    }
+
+    private static MessageItem transferRequested(Message message, Settlement settlement) {
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                message.getContent(),
+                message.getCreatedAt(),
+                settlement
         );
     }
 }

@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.taxipot.controller;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -95,6 +97,21 @@ class TaxiPotControllerTest {
     }
 
     @Test
+    @DisplayName("찾는 중이면 status MATCHING과 팟 필드 null을 내린다")
+    void currentMatching() throws Exception {
+        given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.of(CurrentTaxiPot.matching()));
+
+        mockMvc.perform(get(CURRENT_TAXI_POT).with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("조회에 성공했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
+    }
+
+    @Test
     @DisplayName("진행 중인 택시팟이 없어도 404가 아니라 200과 data null이다")
     void none() throws Exception {
         given(taxiPotService.findMyCurrent(42L)).willReturn(Optional.empty());
@@ -120,7 +137,7 @@ class TaxiPotControllerTest {
     @DisplayName("참여 중인 택시팟이면 200과 상세 정보를 내린다")
     void detail() throws Exception {
         given(taxiPotService.find(42L, 30L)).willReturn(new TaxiPotDetail(30L, 501L, CompanionStatus.IN_PROGRESS,
-                "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 7L));
+                "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 7L, null));
 
         mockMvc.perform(get("/api/taxi-pots/30").with(member()))
                 .andExpect(status().isOk())
@@ -133,7 +150,8 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.current_count").value(3))
                 .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.host_id").value(7))
-                .andExpect(jsonPath("$.data.chat_room_id").value(501));
+                .andExpect(jsonPath("$.data.chat_room_id").value(501))
+                .andExpect(jsonPath("$.data", not(hasKey("settlement_id"))));
     }
 
     @Test
@@ -151,7 +169,7 @@ class TaxiPotControllerTest {
     @DisplayName("운행을 시작하면 200과 바뀐 상세 정보를 내린다")
     void startRide() throws Exception {
         given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.IN_PROGRESS)).willReturn(new TaxiPotDetail(30L, 501L,
-                CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+                CompanionStatus.IN_PROGRESS, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L, null));
 
         mockMvc.perform(changeStatus("IN_PROGRESS").with(member()))
                 .andExpect(status().isOk())
@@ -163,12 +181,13 @@ class TaxiPotControllerTest {
     @DisplayName("운행을 종료하면 200과 바뀐 상세 정보를 내린다")
     void completeRide() throws Exception {
         given(taxiPotService.changeStatus(42L, 30L, CompanionStatus.COMPLETED)).willReturn(new TaxiPotDetail(30L, 501L,
-                CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L));
+                CompanionStatus.COMPLETED, "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 17, 30), 3, 4, 42L, 77L));
 
         mockMvc.perform(changeStatus("COMPLETED").with(member()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("운행 상태가 변경됐어요"))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.settlement_id").value(77));
     }
 
     @ParameterizedTest(name = "{0}", quoteTextArguments = false)
@@ -219,6 +238,22 @@ class TaxiPotControllerTest {
                 .andExpect(jsonPath("$.data.id").value(30))
                 .andExpect(jsonPath("$.data.chat_room_id").value(501))
                 .andExpect(jsonPath("$.data.current_count").value(2));
+    }
+
+    @Test
+    @DisplayName("찾는 중으로 접수되면 202와 status MATCHING을 내리고 Location은 없다")
+    void startMatchAccepted() throws Exception {
+        given(taxiPotService.start(any(), any())).willReturn(CurrentTaxiPot.matching());
+
+        mockMvc.perform(startMatch(startBody()).with(member()))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(jsonPath("$.message").value("매칭을 시작했습니다"))
+                .andExpect(jsonPath("$.data.status").value("MATCHING"))
+                .andExpect(jsonPath("$.data.capacity").value(4))
+                .andExpect(content().string(containsString("\"id\":null")))
+                .andExpect(content().string(containsString("\"chat_room_id\":null")))
+                .andExpect(content().string(containsString("\"current_count\":null")));
     }
 
     @Test
@@ -286,6 +321,29 @@ class TaxiPotControllerTest {
         mockMvc.perform(delete("/api/taxi-pots/30/participants/me").with(member()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("RIDE_IN_PROGRESS"));
+    }
+
+    @Test
+    @DisplayName("찾는 중 매칭을 취소하면 204이고 본문이 없다")
+    void cancelMatching() throws Exception {
+        mockMvc.perform(delete("/api/taxi-pots/match-requests/me").with(member()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(taxiPotService).cancelMatching(42L);
+    }
+
+    @ParameterizedTest(name = "{0}이면 {1}")
+    @CsvSource({
+            "MATCH_REQUEST_NOT_FOUND, 404",
+            "MATCH_ALREADY_COMPLETED, 409"})
+    @DisplayName("취소할 찾는 중 매칭이 없거나 이미 묶였으면 그에 맞는 코드로 응답한다")
+    void cancelMatchingRejected(TaxiPotErrorCode errorCode, int status) throws Exception {
+        willThrow(new BusinessException(errorCode)).given(taxiPotService).cancelMatching(42L);
+
+        mockMvc.perform(delete("/api/taxi-pots/match-requests/me").with(member()))
+                .andExpect(status().is(status))
+                .andExpect(jsonPath("$.error.code").value(errorCode.name()));
     }
 
     private static final Map<String, String> START_VALUES = Map.of(

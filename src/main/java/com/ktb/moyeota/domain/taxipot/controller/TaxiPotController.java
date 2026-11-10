@@ -31,6 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TaxiPotController {
 
+    private static final String MATCHING_STATUS = "MATCHING";
+
     private final TaxiPotService taxiPotService;
 
     @GetMapping("/users/me/current-taxi-pot")
@@ -48,8 +50,17 @@ public class TaxiPotController {
     public ResponseEntity<ApiResponse<CurrentTaxiPotResponse>> start(
             @AuthUser Long userId, @Valid @RequestBody TaxiPotStartRequest request) {
         CurrentTaxiPot taxiPot = taxiPotService.start(userId, toCommand(request));
-        return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id()))
-                .body(ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot)));
+        ApiResponse<CurrentTaxiPotResponse> body = ApiResponse.of(TaxiPotSuccessCode.MATCH_STARTED, toResponse(taxiPot));
+        if (taxiPot.isMatching()) {
+            return ResponseEntity.accepted().body(body);
+        }
+        return ResponseEntity.created(URI.create("/api/taxi-pots/" + taxiPot.id())).body(body);
+    }
+
+    @DeleteMapping("/taxi-pots/match-requests/me")
+    public ResponseEntity<Void> cancelMatching(@AuthUser Long userId) {
+        taxiPotService.cancelMatching(userId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/taxi-pots/{companion_id}/participants/me")
@@ -88,7 +99,8 @@ public class TaxiPotController {
 
     private static CurrentTaxiPotResponse toResponse(CurrentTaxiPot taxiPot) {
         return new CurrentTaxiPotResponse(
-                taxiPot.id(), taxiPot.chatRoomId(), taxiPot.status().name(), taxiPot.currentCount(), taxiPot.capacity());
+                taxiPot.id(), taxiPot.chatRoomId(), taxiPot.isMatching() ? MATCHING_STATUS : taxiPot.status().name(),
+                taxiPot.currentCount(), taxiPot.capacity());
     }
 
     private static TaxiPotDetailResponse toResponse(TaxiPotDetail detail) {
@@ -101,6 +113,7 @@ public class TaxiPotController {
                 detail.departureAt(),
                 detail.currentCount(),
                 detail.capacity(),
-                detail.hostId());
+                detail.hostId(),
+                detail.settlementId());
     }
 }

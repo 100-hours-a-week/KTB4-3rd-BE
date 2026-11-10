@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Positive;
 @WithinImagePolicy
 public record PresignedUrlRequest(
         @NotBlank
-        @Pattern(regexp = "^(PROFILE)$", message = "INVALID_ENUM")
+        @Pattern(regexp = "^(PROFILE|METER|TRANSFER)$", message = "INVALID_ENUM")
         String purpose,
 
         @NotBlank

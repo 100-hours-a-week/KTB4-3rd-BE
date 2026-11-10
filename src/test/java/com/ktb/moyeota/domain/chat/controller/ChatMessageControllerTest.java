@@ -20,6 +20,7 @@ import com.ktb.moyeota.global.config.CorsConfig;
 import com.ktb.moyeota.global.config.CorsProperties;
 import com.ktb.moyeota.global.config.WebConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.exception.CommonErrorCode;
 import com.ktb.moyeota.global.exception.GlobalExceptionHandler;
 import com.ktb.moyeota.global.security.AuthProperties;
 import com.ktb.moyeota.global.security.Authority;
@@ -136,7 +137,7 @@ class ChatMessageControllerTest {
     @DisplayName("잘못된 커서면 400 INVALID_CURSOR다")
     void invalidCursor() throws Exception {
         given(chatMessageService.findMessages(42L, 30L, "before", "abc", null))
-                .willThrow(new BusinessException(ChatErrorCode.INVALID_CURSOR));
+                .willThrow(new BusinessException(CommonErrorCode.INVALID_CURSOR));
 
         mockMvc.perform(get("/api/chat-rooms/30/messages")
                         .queryParam("direction", "before").queryParam("before", "abc").with(member()))

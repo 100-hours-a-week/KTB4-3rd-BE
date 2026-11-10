@@ -115,7 +115,7 @@ public class KakaoOAuthClient {
     }
 
     private OAuthLoginException unavailable(String message, Throwable cause) {
-        log.warn("[KAKAO_UNAVAILABLE] {}", message, cause);
+        log.error("[KAKAO_UNAVAILABLE] {}", message, cause);
         return new OAuthLoginException(OAuthLoginError.OAUTH_UNAVAILABLE, cause);
     }
 }

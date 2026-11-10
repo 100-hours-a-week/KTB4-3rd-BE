@@ -63,6 +63,19 @@ class PresignedUrlRequestTest {
     }
 
     @Test
+    @DisplayName("미터기 · 송금 사진은 금액을 읽는 서버가 받는 jpeg · png, 5MB까지만 올릴 수 있다")
+    void settlementPhotosWithinAnalysisLimit() {
+        assertThat(violations(new PresignedUrlRequest("METER", "image/jpeg", FIVE_MB))).isEmpty();
+        assertThat(violations(new PresignedUrlRequest("TRANSFER", "image/png", FIVE_MB))).isEmpty();
+        assertThat(violations(new PresignedUrlRequest("METER", "image/jpeg", FIVE_MB + 1)))
+                .containsExactly(Map.entry("contentLength", "OUT_OF_RANGE"));
+        assertThat(violations(new PresignedUrlRequest("METER", "image/webp", 100L)))
+                .containsExactly(Map.entry("contentType", "INVALID_ENUM"));
+        assertThat(violations(new PresignedUrlRequest("TRANSFER", "image/webp", 100L)))
+                .containsExactly(Map.entry("contentType", "INVALID_ENUM"));
+    }
+
+    @Test
     @DisplayName("커맨드로 바꾸면 enum과 타입이 해석된다")
     void toCommand() {
         assertThat(new PresignedUrlRequest("PROFILE", "image/webp", 100L).toCommand())

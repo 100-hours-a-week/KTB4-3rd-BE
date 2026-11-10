@@ -16,7 +16,12 @@ import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
+import com.ktb.moyeota.domain.rating.repository.CompanionRatingRepository;
+import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
+import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
@@ -35,6 +40,8 @@ public class ChatRoomService {
     private final MessageRepository messageRepository;
     private final ChatRoomCursorCodec chatRoomCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
+    private final SettlementRepository settlementRepository;
+    private final CompanionRatingRepository companionRatingRepository;
 
     @Transactional(readOnly = true)
     public ChatRoomListResponse findMyChatRooms(Long userId, CompanionKind kind, String cursor) {
@@ -61,6 +68,11 @@ public class ChatRoomService {
     }
 
     @Transactional(readOnly = true)
+    public boolean isActiveParticipant(Long roomId, Long userId) {
+        return companionParticipantRepository.existsActiveByChatRoomIdAndUserId(roomId, userId);
+    }
+
+    @Transactional(readOnly = true)
     public ChatRoomDetailResponse findDetail(Long userId, Long roomId) {
         CompanionParticipant participant = companionParticipantRepository
                 .findActiveByChatRoomIdAndUserId(roomId, userId)
@@ -70,8 +82,10 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
         Long lastReadMessageId = (participant.getMessage() != null) ? participant.getMessage().getId() : null;
+        SettlementStatus settlementStatus = resolveSettlementStatus(chatRoom.getCompanion());
+        Boolean rated = resolveRated(userId, chatRoom.getCompanion(), participant, settlementStatus);
 
-        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId);
+        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId, settlementStatus, rated);
     }
 
     @Transactional
@@ -100,6 +114,35 @@ public class ChatRoomService {
     public void createChatRoomForCompanion(Companion companion, User host) {
         chatRoomRepository.save(ChatRoom.create(companion));
         companionParticipantRepository.save(CompanionParticipant.join(companion, host));
+    }
+
+    private SettlementStatus resolveSettlementStatus(Companion companion) {
+        if (companion.getStatus() != CompanionStatus.COMPLETED || companion.getKind() != CompanionKind.TAXI_POT) {
+            return null;
+        }
+        return settlementRepository.findWithPayeeByCompanionId(companion.getId())
+                .map(Settlement::getStatus)
+                .orElse(null);
+    }
+
+    private Boolean resolveRated(
+            Long userId, Companion companion, CompanionParticipant viewer, SettlementStatus settlementStatus) {
+        if (!isRatingOpen(companion, settlementStatus) || !viewer.isCompleted()
+                || !companionParticipantRepository.existsOtherCompletedParticipant(companion.getId(), userId)) {
+            return null;
+        }
+        return companionRatingRepository.existsByCompanionIdAndRaterId(companion.getId(), userId);
+    }
+
+    private boolean isRatingOpen(Companion companion, SettlementStatus settlementStatus) {
+        if (companion.getStatus() != CompanionStatus.COMPLETED) {
+            return false;
+        }
+        return switch (companion.getKind()) {
+            case TAXI_POT -> settlementStatus == SettlementStatus.COMPLETED;
+            case CARPOOL -> true;
+            case COMPANION -> false;
+        };
     }
 
     private boolean hasUnread(ChatRoomListProjection row) {

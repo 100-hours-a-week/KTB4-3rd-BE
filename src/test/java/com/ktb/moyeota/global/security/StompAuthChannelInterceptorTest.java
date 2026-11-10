@@ -1,7 +1,5 @@
 package com.ktb.moyeota.global.security;
 
-import static com.ktb.moyeota.fixture.CompanionFixture.companionPost;
-import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,11 +7,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
-import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
 import com.ktb.moyeota.global.exception.BusinessException;
+import com.ktb.moyeota.global.websocket.subscription.ChatRoomParticipantChecker;
 import java.security.Principal;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,13 +35,13 @@ class StompAuthChannelInterceptorTest {
     private JwtDecoder jwtDecoder;
 
     @Mock
-    private CompanionParticipantRepository companionParticipantRepository;
+    private ChatRoomParticipantChecker participantChecker;
 
     private StompAuthChannelInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
-        interceptor = new StompAuthChannelInterceptor(jwtDecoder, companionParticipantRepository);
+        interceptor = new StompAuthChannelInterceptor(jwtDecoder, participantChecker);
     }
 
     @Nested
@@ -103,8 +99,7 @@ class StompAuthChannelInterceptorTest {
         @Test
         @DisplayName("채팅방 활성 참여자면 구독이 그대로 통과된다")
         void passesForActiveParticipant() {
-            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
-                    .willReturn(Optional.of(anyParticipant()));
+            given(participantChecker.isParticipant(ROOM_ID, USER_ID)).willReturn(true);
 
             Message<byte[]> subscribeMessage = subscribeMessage("/sub/chat/" + ROOM_ID, USER_ID);
 
@@ -116,8 +111,7 @@ class StompAuthChannelInterceptorTest {
         @Test
         @DisplayName("비참여자의 구독은 조용히 취소된다")
         void dropsForNonParticipant() {
-            given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
-                    .willReturn(Optional.empty());
+            given(participantChecker.isParticipant(ROOM_ID, USER_ID)).willReturn(false);
 
             Message<byte[]> subscribeMessage = subscribeMessage("/sub/chat/" + ROOM_ID, USER_ID);
 
@@ -127,14 +121,38 @@ class StompAuthChannelInterceptorTest {
         }
 
         @Test
-        @DisplayName("채팅방 구독이 아니면 참여자 검증을 하지 않는다")
-        void ignoresNonChatDestinations() {
+        @DisplayName("브로커 주소(/sub) 아래에서 채팅방이 아닌 곳은 구독이 조용히 취소된다")
+        void dropsNonChatBrokerDestinations() {
             Message<byte[]> subscribeMessage = subscribeMessage("/sub/other/123", USER_ID);
 
             Message<?> result = interceptor.preSend(subscribeMessage, null);
 
+            assertThat(result).isNull();
+            verify(participantChecker, never()).isParticipant(any(), any());
+        }
+
+        @Test
+        @DisplayName("다른 사람의 개인 채널 내부 주소를 직접 구독하면 조용히 취소된다")
+        void dropsDirectUserSessionDestination() {
+            Message<byte[]> subscribeMessage =
+                    subscribeMessage("/sub/settlement-user873e637e-1c6d-4ebc-af3e-57517efb4cef", USER_ID);
+
+            assertThat(interceptor.preSend(subscribeMessage, null)).isNull();
+        }
+
+        @Test
+        @DisplayName("방 번호가 숫자가 아닌 채팅방 주소는 조용히 취소된다")
+        void dropsMalformedChatDestination() {
+            assertThat(interceptor.preSend(subscribeMessage("/sub/chat/abc", USER_ID), null)).isNull();
+        }
+
+        @Test
+        @DisplayName("개인 채널(/user/...) 구독은 참여자 검증 없이 통과한다")
+        void passesUserDestination() {
+            Message<?> result = interceptor.preSend(subscribeMessage("/user/sub/settlement", USER_ID), null);
+
             assertThat(result).isNotNull();
-            verify(companionParticipantRepository, never()).findActiveByChatRoomIdAndUserId(any(), any());
+            verify(participantChecker, never()).isParticipant(any(), any());
         }
 
         private Message<byte[]> subscribeMessage(String destination, Long userId) {
@@ -147,10 +165,6 @@ class StompAuthChannelInterceptorTest {
         private Principal principal(Long userId) {
             String name = String.valueOf(userId);
             return () -> name;
-        }
-
-        private CompanionParticipant anyParticipant() {
-            return CompanionParticipant.join(companionPost(user("호스트")), user("참여자"));
         }
     }
 

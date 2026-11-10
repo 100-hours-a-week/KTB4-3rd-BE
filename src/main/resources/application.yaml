@@ -8,6 +8,22 @@ spring:
     property-naming-strategy: SNAKE_CASE
   jpa:
     open-in-view: false
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/moyeota}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 200ms
+      connect-timeout: 1s
+      repositories:
+        enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    streams:
+      application-id: moyeota-matching
+      properties:
+        processing.guarantee: exactly_once_v2
   task:
     execution:
       mode: force
@@ -20,6 +36,7 @@ sentry:
 
 moyeota:
   auth:
+    session-store: jpa
     jwt:
       issuer: moyeota
       access-token-ttl: 30m
@@ -36,12 +53,34 @@ moyeota:
       authorize-uri: https://kauth.kakao.com/oauth/authorize
       token-uri: https://kauth.kakao.com/oauth/token
       user-info-uri: https://kapi.kakao.com/v2/user/me
+  kakao-unlink:
+    unlink-uri: https://kapi.kakao.com/v1/user/unlink
   kakao-navi:
     directions-uri: https://apis-navi.kakaomobility.com/v1/directions
   taxi-pot:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
     auto-cancel-sweep-delay: 10m
+    matching:
+      mode: batch
+      sweep-delay: 5s
+      cell-meters: 2000
+      radius-meters: 100
+      neighbor-limit: 8
+  carpool:
+    ride-start-sweep-delay: 10s
+    ride-end-sweep-delay: 10s
+    auto-cancel-sweep-delay: 10m
+  chat:
+    close-sweep-delay: 10m
+  settlement:
+    meter-analysis:
+      mode: http
+      expire-sweep-delay: 1m
+  relay:
+    env: local
+  internal:
+    api-key: ${INTERNAL_API_KEY:}
   storage:
     s3:
       region: ap-northeast-2

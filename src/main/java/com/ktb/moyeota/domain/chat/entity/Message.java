@@ -78,6 +78,22 @@ public class Message {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_RIDE_END_REQUESTED, content);
     }
 
+    public static Message meterRequestedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_METER_REQUESTED, content);
+    }
+
+    public static Message transferRequestedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_TRANSFER_REQUESTED, content);
+    }
+
+    public static Message settlementCompletedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_SETTLEMENT_COMPLETED, content);
+    }
+
+    public static Message transferUnverifiedSystemMessage(ChatRoom chatRoom, String clientMessageId, String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_TRANSFER_UNVERIFIED, content);
+    }
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();

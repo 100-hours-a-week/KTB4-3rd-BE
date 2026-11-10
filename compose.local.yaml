@@ -1,0 +1,26 @@
+name: moyeota-local
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: moyeota-redis
+    ports:
+      - "6379:6379"
+  kafka:
+    image: apache/kafka:4.2.0
+    container_name: moyeota-kafka
+    ports:
+      - "9092:9092"
+    post_start:
+      - command:
+          - /bin/sh
+          - -c
+          - |
+            until /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1; do sleep 1; done
+            for topic in notification.push.request notification.bulk-push.request \
+                settlement.image-analysis.request settlement.image-analysis.result; do
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
+                --topic "$$topic" --partitions 6 --config retention.ms=86400000
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists \
+                --topic "$$topic-dlt" --partitions 1
+            done

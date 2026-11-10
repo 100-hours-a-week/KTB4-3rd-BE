@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 public class InMemorySessionStore implements SessionStore {
 
@@ -19,6 +20,11 @@ public class InMemorySessionStore implements SessionStore {
     private final AtomicLong sequence = new AtomicLong();
     private final Map<Long, SessionRow> sessions = new ConcurrentHashMap<>();
     private final Map<String, TokenRow> tokens = new ConcurrentHashMap<>();
+
+    @Override
+    public <T> T withinStoreTransaction(Supplier<T> operations) {
+        return operations.get();
+    }
 
     @Override
     public Long create(Long userId, String tokenHash, LocalDateTime absoluteExpiresAt) {
@@ -44,20 +50,28 @@ public class InMemorySessionStore implements SessionStore {
     }
 
     @Override
-    public boolean markSuperseded(String tokenHash, LocalDateTime now) {
-        TokenRow updated = tokens.computeIfPresent(tokenHash,
-                (key, row) -> row.supersededAt() == null ? new TokenRow(row.sessionId(), now) : row);
-        return updated != null && now.equals(updated.supersededAt());
-    }
-
-    @Override
-    public void appendToken(Long sessionId, String tokenHash) {
-        tokens.put(tokenHash, new TokenRow(sessionId, null));
+    public synchronized boolean rotate(Long sessionId, String tokenHash, String newTokenHash, LocalDateTime now) {
+        TokenRow current = tokens.get(tokenHash);
+        if (current == null || current.supersededAt() != null) {
+            return false;
+        }
+        tokens.put(tokenHash, new TokenRow(current.sessionId(), now));
+        tokens.put(newTokenHash, new TokenRow(sessionId, null));
+        return true;
     }
 
     @Override
     public void deleteSession(Long sessionId) {
         sessions.remove(sessionId);
         tokens.entrySet().removeIf(entry -> entry.getValue().sessionId().equals(sessionId));
+    }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
+        sessions.entrySet().stream()
+                .filter(entry -> entry.getValue().userId().equals(userId))
+                .map(Map.Entry::getKey)
+                .toList()
+                .forEach(this::deleteSession);
     }
 }

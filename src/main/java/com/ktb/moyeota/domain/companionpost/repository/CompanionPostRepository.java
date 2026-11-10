@@ -20,7 +20,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
     @Query(nativeQuery = true, value = """
             SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
                    c.origin_lat AS originLat, c.origin_lng AS originLng
-            FROM companions c
+            FROM companions c FORCE INDEX (sidx_companions_origin)
             WHERE c.kind = 'COMPANION'
               AND c.status = 'RECRUITING'
               AND MBRContains(
@@ -30,6 +30,54 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
             LIMIT :limit
             """)
     List<CompanionPinProjection> findPinsInViewport(
+            @Param("swLat") BigDecimal swLat,
+            @Param("swLng") BigDecimal swLng,
+            @Param("neLat") BigDecimal neLat,
+            @Param("neLng") BigDecimal neLng,
+            @Param("limit") int limit);
+
+    @Query(nativeQuery = true, value = """
+            SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
+                   c.origin_lat AS originLat, c.origin_lng AS originLng
+            FROM companions c FORCE INDEX (sidx_companions_origin)
+            WHERE c.kind = 'COMPANION'
+              AND c.status = 'RECRUITING'
+              AND MBRIntersects(
+                    ST_GeomFromText(CONCAT('POLYGON((', :minLat, ' ', :minLng, ',', :maxLat, ' ', :minLng, ',', :maxLat, ' ', :maxLng, ',', :minLat, ' ', :maxLng, ',', :minLat, ' ', :minLng, '))'), 4326),
+                    c.origin_location
+                  )
+              AND c.origin_lat >= :minLat AND c.origin_lat < :maxLat
+              AND c.origin_lng >= :minLng AND c.origin_lng < :maxLng
+            LIMIT :limit
+            """)
+    List<CompanionPinProjection> findPinsInCell(
+            @Param("minLat") BigDecimal minLat,
+            @Param("minLng") BigDecimal minLng,
+            @Param("maxLat") BigDecimal maxLat,
+            @Param("maxLng") BigDecimal maxLng,
+            @Param("limit") int limit);
+
+    @Query(nativeQuery = true, value = """
+            SELECT c.id AS id, c.origin_name AS originName, c.dest_name AS destName,
+                   c.origin_lat AS originLat, c.origin_lng AS originLng
+            FROM companions c FORCE INDEX (sidx_companions_origin)
+            WHERE c.kind = 'COMPANION'
+              AND c.status = 'RECRUITING'
+              AND MBRIntersects(
+                    ST_GeomFromText(CONCAT('POLYGON((', :minLat, ' ', :minLng, ',', :maxLat, ' ', :minLng, ',', :maxLat, ' ', :maxLng, ',', :minLat, ' ', :maxLng, ',', :minLat, ' ', :minLng, '))'), 4326),
+                    c.origin_location
+                  )
+              AND c.origin_lat >= :minLat AND c.origin_lat < :maxLat
+              AND c.origin_lng >= :minLng AND c.origin_lng < :maxLng
+              AND c.origin_lat >= :swLat AND c.origin_lat <= :neLat
+              AND c.origin_lng >= :swLng AND c.origin_lng <= :neLng
+            LIMIT :limit
+            """)
+    List<CompanionPinProjection> findPinsInCellWithinViewport(
+            @Param("minLat") BigDecimal minLat,
+            @Param("minLng") BigDecimal minLng,
+            @Param("maxLat") BigDecimal maxLat,
+            @Param("maxLng") BigDecimal maxLng,
             @Param("swLat") BigDecimal swLat,
             @Param("swLng") BigDecimal swLng,
             @Param("neLat") BigDecimal neLat,
@@ -53,7 +101,7 @@ public interface CompanionPostRepository extends JpaRepository<Companion, Long> 
                        c.departure_at AS departureAt, c.created_at AS createdAt, c.status AS status,
                        u.nickname AS hostNickname, u.profile_image_url AS hostProfileImageUrl,
                        ST_Distance_Sphere(c.origin_location, ST_SRID(POINT(:lng, :lat), 4326)) AS distanceM
-                FROM companions c
+                FROM companions c FORCE INDEX (sidx_companions_origin)
                 JOIN users u ON u.id = c.host_id
                 WHERE c.kind = 'COMPANION'
                   AND c.status = 'RECRUITING'

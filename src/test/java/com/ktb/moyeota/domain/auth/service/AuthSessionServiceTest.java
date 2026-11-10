@@ -260,6 +260,34 @@ class AuthSessionServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("사용자 세션 전체 폐기")
+    class RevokeAll {
+
+        @Test
+        @DisplayName("모든 기기의 리프레시 토큰이 거부된다")
+        void rejectsEveryDevice() {
+            String deviceA = openSession();
+            String deviceB = openSession();
+
+            service.revokeAll(USER_ID);
+
+            assertThat(service.reissue(deviceA)).isInstanceOf(ReissueResult.Rejected.class);
+            assertThat(service.reissue(deviceB)).isInstanceOf(ReissueResult.Rejected.class);
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 세션은 살아 있다")
+        void keepsOtherUsers() {
+            openSession();
+            IssuedSession other = service.issue(USER_ID + 1);
+
+            service.revokeAll(USER_ID);
+
+            assertThat(service.reissue(other.refreshToken())).isInstanceOf(ReissueResult.Rotated.class);
+        }
+    }
+
     static class MutableClock extends Clock {
 
         private Instant instant;

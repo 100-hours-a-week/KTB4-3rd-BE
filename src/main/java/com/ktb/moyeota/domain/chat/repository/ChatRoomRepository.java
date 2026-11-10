@@ -3,10 +3,12 @@ package com.ktb.moyeota.domain.chat.repository;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,6 +25,10 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             WHERE cr.id = :roomId
             """)
     Optional<ChatRoom> findByIdWithCompanion(@Param("roomId") Long roomId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cr FROM ChatRoom cr WHERE cr.id = :roomId")
+    Optional<ChatRoom> findByIdForUpdate(@Param("roomId") Long roomId);
 
 
     @Query(nativeQuery = true, value = """
@@ -44,7 +50,8 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
                 JOIN users u ON u.id = c.host_id
                 LEFT JOIN messages m ON m.id = cr.last_message_id
                 WHERE pp.user_id = :userId
-                  AND pp.left_at IS NULL
+                  AND (pp.left_at IS NULL OR pp.outcome_status = 'COMPLETED')
+                  AND cr.closed_at IS NULL
                   AND (:kind IS NULL OR c.kind = :kind)
             ) t
             WHERE :cursorRoomId IS NULL
@@ -73,4 +80,17 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     @Modifying
     @Query("UPDATE Companion c SET c.currentCount = c.currentCount - 1 WHERE c.id = :id AND c.currentCount > 0")
     int decreaseCurrentCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("""
+            UPDATE ChatRoom cr
+            SET cr.closedAt = :now
+            WHERE cr.closedAt IS NULL
+              AND EXISTS (
+                  SELECT p FROM CompanionParticipant p
+                  WHERE p.companion = cr.companion
+                    AND p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED
+                    AND p.leftAt <= :completedBefore)
+            """)
+    int closeCompletedBefore(@Param("completedBefore") LocalDateTime completedBefore, @Param("now") LocalDateTime now);
 }

@@ -5,6 +5,7 @@ import static com.ktb.moyeota.fixture.UserFixture.user;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -28,9 +29,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageSendServiceTest {
@@ -52,6 +56,9 @@ class ChatMessageSendServiceTest {
 
     @Mock
     private ImageUrlResolver imageUrlResolver;
+
+    @Spy
+    private TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));
 
     @InjectMocks
     private ChatMessageSendService service;
@@ -82,7 +89,7 @@ class ChatMessageSendServiceTest {
         void savesAndUpdatesLastMessageId() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
 
             Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
@@ -102,7 +109,7 @@ class ChatMessageSendServiceTest {
         void updatesSenderLastRead() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
 
             Message saved = Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요");
@@ -125,7 +132,7 @@ class ChatMessageSendServiceTest {
             sender.changeProfileImage("profile/a.png");
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
             given(messageRepository.save(any(Message.class)))
                     .willReturn(Message.createGeneralMessage(chatRoom, sender, "1", "안녕하세요"));
@@ -164,7 +171,7 @@ class ChatMessageSendServiceTest {
         void reusesExistingMessageOnDuplicateClientMessageId() {
             given(companionParticipantRepository.findActiveByChatRoomIdAndUserId(ROOM_ID, USER_ID))
                     .willReturn(Optional.of(participant));
-            given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByIdForUpdate(ROOM_ID)).willReturn(Optional.of(chatRoom));
             given(userRepository.findById(USER_ID)).willReturn(Optional.of(sender));
             given(messageRepository.save(any(Message.class)))
                     .willThrow(new DataIntegrityViolationException("uk_messages_room_client"));

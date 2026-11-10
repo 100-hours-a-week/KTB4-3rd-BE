@@ -31,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReportService {
 
-    private static final Duration REPORT_PERIOD_AFTER_RIDE = Duration.ofHours(72);
+    private static final Duration REPORT_PERIOD_AFTER_RIDE = Duration.ofHours(48);
 
     private final MessageReportRepository messageReportRepository;
     private final UserReportRepository userReportRepository;

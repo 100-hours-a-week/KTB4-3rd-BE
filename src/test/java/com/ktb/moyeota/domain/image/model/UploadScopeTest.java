@@ -29,6 +29,10 @@ class UploadScopeTest {
     @DisplayName("회원가입 세션은 프로필 용도만, 회원은 모든 용도를 올릴 수 있다")
     void signupAllowsOnlyProfile() {
         assertThat(UploadScope.signup("0123456789abcdef").allows(ImagePurpose.PROFILE)).isTrue();
+        assertThat(UploadScope.signup("0123456789abcdef").allows(ImagePurpose.METER)).isFalse();
+        assertThat(UploadScope.signup("0123456789abcdef").allows(ImagePurpose.TRANSFER)).isFalse();
         assertThat(UploadScope.user(42L).allows(ImagePurpose.PROFILE)).isTrue();
+        assertThat(UploadScope.user(42L).allows(ImagePurpose.METER)).isTrue();
+        assertThat(UploadScope.user(42L).allows(ImagePurpose.TRANSFER)).isTrue();
     }
 }

@@ -19,8 +19,13 @@ repositories {
 }
 
 dependencies {
+    implementation 'com.google.firebase:firebase-admin:9.11.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-registry-otlp'
+    // Spring Boot 4의 OTLP 자동 구성(OtlpMetricsExportAutoConfiguration)은 이 모듈의 클래스가 있어야 켜진다.
+    // starter-opentelemetry 대신 모듈만 넣어 트레이싱 브리지와 OTLP 트레이스 exporter는 붙지 않게 한다 (트레이스는 Sentry).
+    implementation 'org.springframework.boot:spring-boot-opentelemetry'
     implementation 'org.springframework.boot:spring-boot-starter-json'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -29,6 +34,12 @@ dependencies {
     implementation 'software.amazon.awssdk:s3'
     implementation 'org.springframework.boot:spring-boot-h2console'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:7.2.2'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.2.2'
+    implementation 'org.apache.kafka:kafka-streams'
     implementation 'org.springframework.boot:spring-boot-starter-restclient'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
@@ -40,6 +51,13 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-redis-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-mongodb-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-kafka'
+    testImplementation 'org.testcontainers:testcontainers-mongodb'
+    testImplementation 'org.apache.kafka:kafka-streams-test-utils'
     testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
@@ -57,6 +75,8 @@ sentry {
 
 tasks.named('test') {
     useJUnitPlatform()
+    maxHeapSize = '1g'
+    maxParallelForks = Math.max(1, Math.min(3, Runtime.runtime.availableProcessors().intdiv(2)))
 }
 
 jar {

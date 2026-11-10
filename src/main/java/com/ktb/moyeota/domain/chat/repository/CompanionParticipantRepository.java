@@ -2,6 +2,9 @@ package com.ktb.moyeota.domain.chat.repository;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.Message;
+import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,10 +19,29 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
             JOIN chat_rooms cr ON cr.companion_id = pp.companion_id
             WHERE cr.id = :roomId
               AND pp.user_id = :userId
-              AND pp.left_at IS NULL
+              AND (pp.left_at IS NULL OR pp.outcome_status = 'COMPLETED')
+              AND cr.closed_at IS NULL
             """)
     Optional<CompanionParticipant> findActiveByChatRoomIdAndUserId(
             @Param("roomId") Long roomId, @Param("userId") Long userId);
+
+    @Query("""
+            select count(p) > 0 from CompanionParticipant p
+              join ChatRoom cr on cr.companion = p.companion
+             where cr.id = :roomId
+               and p.user.id = :userId
+               and (p.leftAt is null or p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED)
+               and cr.closedAt is null
+            """)
+    boolean existsActiveByChatRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
+    @Query("""
+            select count(p) > 0 from CompanionParticipant p
+             where p.companion.id = :companionId
+               and p.user.id <> :userId
+               and p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.COMPLETED
+            """)
+    boolean existsOtherCompletedParticipant(@Param("companionId") Long companionId, @Param("userId") Long userId);
 
 
     @Modifying
@@ -50,4 +72,14 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
     Optional<CompanionParticipant> findByCompanionIdAndUserId(Long companionId, Long userId);
 
     boolean existsByCompanionIdAndUserId(Long companionId, Long userId);
+
+    @Query("""
+            SELECT p.companion.id FROM CompanionParticipant p
+            WHERE p.user.id = :userId
+              AND p.leftAt IS NULL
+              AND p.companion.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.COMPANION
+              AND p.companion.status IN :statuses
+            """)
+    List<Long> findJoinedCompanionPostIds(
+            @Param("userId") Long userId, @Param("statuses") Collection<CompanionStatus> statuses);
 }

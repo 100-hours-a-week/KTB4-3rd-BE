@@ -48,6 +48,12 @@ public class ChatStompExceptionHandler {
         return fail(CommonErrorCode.MALFORMED_REQUEST);
     }
 
+    @MessageExceptionHandler(ChatSendFailedException.class)
+    @SendToUser(destinations = ERROR_DESTINATION, broadcast = false)
+    public ChatSendErrorResponse handleSendFailed(ChatSendFailedException e) {
+        return new ChatSendErrorResponse(e.getClientMessageId(), e.getMessage(), e.getError());
+    }
+
     @MessageExceptionHandler(BusinessException.class)
     @SendToUser(destinations = ERROR_DESTINATION, broadcast = false)
     public ChatSendErrorResponse handleBusiness(BusinessException e) {
