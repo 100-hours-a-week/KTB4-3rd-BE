@@ -36,6 +36,7 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 @DataJpaTest
 @RecordApplicationEvents
 @Import({CarpoolRideService.class, CarpoolDetailReader.class, ChatSystemMessageService.class,
+        CarpoolRideChatMessageListener.class,
         TestClockConfig.class, CarpoolRideTestSupport.Config.class})
 abstract class CarpoolRideTestSupport {
 

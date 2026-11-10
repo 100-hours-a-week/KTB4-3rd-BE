@@ -34,7 +34,8 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({TaxiPotService.class, ChatSystemMessageService.class, TestClockConfig.class})
+@Import({TaxiPotService.class, ChatSystemMessageService.class, TaxiPotRideChatMessageListener.class,
+        TestClockConfig.class})
 class TaxiPotStatusChangeTest {
 
     @Autowired

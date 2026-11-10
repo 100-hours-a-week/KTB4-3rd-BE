@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.carpool.service;
 
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
+import com.ktb.moyeota.domain.carpool.event.CarpoolRideEndedEvent;
 import com.ktb.moyeota.domain.carpool.event.CarpoolRideStartedEvent;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
 import com.ktb.moyeota.domain.carpool.repository.CarpoolParticipantRepository;
@@ -110,14 +111,13 @@ public class CarpoolRideService {
     private void startRide(Companion carpool) {
         LocalDateTime startedAt = LocalDateTime.now(clock);
         carpool.startRide(startedAt);
-        chatSystemMessageService.rideStarted(findChatRoom(carpool));
         eventPublisher.publishEvent(new CarpoolRideStartedEvent(carpool.getId(), startedAt,
                 carpool.getOriginLat(), carpool.getOriginLng(), carpool.getDestLat(), carpool.getDestLng()));
     }
 
     private void completeRide(Companion carpool) {
         carpool.completeCarpoolRide(carpoolParticipantRepository.findPendingParticipants(carpool.getId()));
-        chatSystemMessageService.rideEnded(findChatRoom(carpool));
+        eventPublisher.publishEvent(new CarpoolRideEndedEvent(carpool.getId()));
     }
 
     private ChatRoom findChatRoom(Companion carpool) {

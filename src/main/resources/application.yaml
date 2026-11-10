@@ -73,6 +73,8 @@ moyeota:
     auto-cancel-sweep-delay: 10m
   chat:
     close-sweep-delay: 10m
+    system-message:
+      mode: direct
   settlement:
     meter-analysis:
       mode: http
