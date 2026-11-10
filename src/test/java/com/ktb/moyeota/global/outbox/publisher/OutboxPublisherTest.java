@@ -10,6 +10,7 @@ import com.ktb.moyeota.global.outbox.entity.OutboxEvent;
 import com.ktb.moyeota.global.outbox.entity.OutboxStatus;
 import com.ktb.moyeota.global.outbox.publisher.OutboxPublisher.PublishResult;
 import com.ktb.moyeota.global.outbox.repository.OutboxEventRepository;
+import com.ktb.moyeota.global.event.EventHeaders;
 import com.ktb.moyeota.global.trace.TraceId;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -69,7 +70,7 @@ class OutboxPublisherTest {
     private BlockingQueue<ConsumerRecord<String, String>> received;
 
     @Test
-    @DisplayName("발행 대기 이벤트를 봉투로 조립해 토픽 · 키 · 추적 ID 헤더와 함께 보내고 발행 완료로 바꾼다")
+    @DisplayName("발행 대기 이벤트를 봉투로 조립해 토픽 · 키 · 이벤트 종류 · 추적 ID 헤더와 함께 보내고 발행 완료로 바꾼다")
     void publishesEnvelope() throws Exception {
         OutboxEvent event = persist(event(TOPIC, "101:7", "trace-outbox-1"));
 
@@ -78,6 +79,8 @@ class OutboxPublisherTest {
         assertThat(result).isEqualTo(new PublishResult(1, 0));
         ConsumerRecord<String, String> record = awaitRecord(event.getEventId());
         assertThat(record.key()).isEqualTo("101:7");
+        assertThat(new String(record.headers().lastHeader(EventHeaders.EVENT_TYPE).value(), StandardCharsets.UTF_8))
+                .isEqualTo("settlement.transfer-analysis.requested");
         assertThat(new String(record.headers().lastHeader(TraceId.KAFKA_HEADER).value(), StandardCharsets.UTF_8))
                 .isEqualTo("trace-outbox-1");
         JsonNode json = jsonMapper.readTree(record.value());

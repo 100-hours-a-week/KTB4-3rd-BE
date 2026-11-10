@@ -1,6 +1,7 @@
 package com.ktb.moyeota.global.outbox.publisher;
 
 import com.ktb.moyeota.global.event.EventEnvelope;
+import com.ktb.moyeota.global.event.EventHeaders;
 import com.ktb.moyeota.global.outbox.config.OutboxProperties;
 import com.ktb.moyeota.global.outbox.entity.OutboxEvent;
 import com.ktb.moyeota.global.outbox.repository.OutboxEventRepository;
@@ -119,6 +120,7 @@ public class OutboxPublisher {
                 data);
         ProducerRecord<String, String> record = new ProducerRecord<>(
                 event.getTopic(), event.getMessageKey(), jsonMapper.writeValueAsString(envelope));
+        record.headers().add(EventHeaders.EVENT_TYPE, event.getEventType().getBytes(StandardCharsets.UTF_8));
         if (event.getTraceId() != null) {
             record.headers().add(TraceId.KAFKA_HEADER, event.getTraceId().getBytes(StandardCharsets.UTF_8));
         }
