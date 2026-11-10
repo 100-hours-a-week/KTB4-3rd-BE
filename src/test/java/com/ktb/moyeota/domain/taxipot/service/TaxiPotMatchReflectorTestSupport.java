@@ -38,7 +38,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @RecordApplicationEvents
-@Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, NotificationCommandService.class,
+@Import({TaxiPotMatchReflector.class, ChatSystemMessageService.class, TaxiPotMatchChatMessageListener.class,
+        NotificationCommandService.class,
         TestClockConfig.class})
 abstract class TaxiPotMatchReflectorTestSupport {
 
