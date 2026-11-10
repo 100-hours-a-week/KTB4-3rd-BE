@@ -11,8 +11,10 @@ import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantLeftEvent;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.time.Clock;
 import java.time.Duration;
@@ -67,7 +69,7 @@ public class CarpoolRideService {
             throw new BusinessException(CarpoolErrorCode.HOST_CANNOT_LEAVE);
         }
         carpool.leaveCarpool(leaver);
-        chatSystemMessageService.leave(findChatRoom(carpool), leaver.getUser());
+        eventPublisher.publishEvent(new CompanionParticipantLeftEvent(carpoolId, CompanionKind.CARPOOL, userId));
     }
 
     @Transactional(readOnly = true)

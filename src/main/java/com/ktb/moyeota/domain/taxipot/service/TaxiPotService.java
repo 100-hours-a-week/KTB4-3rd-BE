@@ -5,8 +5,11 @@ import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantJoinedEvent;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantLeftEvent;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
 import com.ktb.moyeota.domain.taxipot.config.TaxiPotMatchingProperties;
@@ -114,7 +117,8 @@ public class TaxiPotService {
                         command.originLat(), command.originLng(), command.destLat(), command.destLng(), departureAt)
                 .map(matched -> joinTaxiPot(matched, user))
                 .orElseGet(() -> openTaxiPot(user, command, departureAt));
-        chatSystemMessageService.enter(chatRoom, user);
+        eventPublisher.publishEvent(new CompanionParticipantJoinedEvent(
+                chatRoom.getCompanion().getId(), CompanionKind.TAXI_POT, user.getId()));
         return toCurrentTaxiPot(chatRoom.getCompanion(), chatRoom.getId());
     }
 
@@ -148,8 +152,8 @@ public class TaxiPotService {
             return;
         }
         eventPublisher.publishEvent(new TaxiPotLeftEvent(taxiPotId, userId));
+        eventPublisher.publishEvent(new CompanionParticipantLeftEvent(taxiPotId, CompanionKind.TAXI_POT, userId));
         ChatRoom chatRoom = findChatRoom(taxiPot);
-        chatSystemMessageService.leave(chatRoom, leaver.getUser());
         if (taxiPot.getStatus() == CompanionStatus.CANCELED) {
             chatRoom.close();
         }

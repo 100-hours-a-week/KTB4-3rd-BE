@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.ktb.moyeota.domain.chat.service.CompanionParticipantChatMessageListener;
 import com.ktb.moyeota.domain.auth.entity.OAuthAccount;
 import com.ktb.moyeota.domain.auth.model.OAuthProvider;
 import com.ktb.moyeota.domain.auth.repository.OAuthAccountRepository;
@@ -58,7 +59,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
 @Import({UserService.class, AuthSessionService.class, JpaSessionStore.class, OpaqueTokenFactory.class,
-        ChatParticipationService.class, ChatSystemMessageService.class, TestClockConfig.class})
+        ChatParticipationService.class, ChatSystemMessageService.class, CompanionParticipantChatMessageListener.class,
+        TestClockConfig.class})
 @EnableConfigurationProperties(AuthProperties.class)
 class UserWithdrawalTest {
 
