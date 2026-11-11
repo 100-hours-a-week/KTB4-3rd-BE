@@ -20,7 +20,7 @@ public class ChatCompanionFactWriter {
 
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
-    private final ChatSystemMessageService chatSystemMessageService;
+    private final SystemMessageWriter systemMessageWriter;
 
     @Transactional
     public boolean write(String eventId, String eventType, CompanionChangedData data) {
@@ -32,12 +32,12 @@ public class ChatCompanionFactWriter {
         ChatRoom chatRoom = openChatRoom.get();
         switch (eventType) {
             case CompanionChangedMessages.MATCHED, CompanionChangedMessages.PARTICIPANT_JOINED ->
-                    chatSystemMessageService.enter(chatRoom, participant(eventId, data),
+                    systemMessageWriter.enter(chatRoom, participant(eventId, data),
                             SystemMessageKeys.of(eventId, MessageType.SYSTEM_JOIN));
             case CompanionChangedMessages.PARTICIPANT_LEFT ->
-                    chatSystemMessageService.leave(chatRoom, participant(eventId, data),
+                    systemMessageWriter.leave(chatRoom, participant(eventId, data),
                             SystemMessageKeys.of(eventId, MessageType.SYSTEM_LEAVE));
-            case CompanionChangedMessages.RIDE_STARTED -> chatSystemMessageService.rideStarted(
+            case CompanionChangedMessages.RIDE_STARTED -> systemMessageWriter.rideStarted(
                     chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_RIDE_STARTED));
             case CompanionChangedMessages.RIDE_ENDED -> writeRideEnded(eventId, data, chatRoom);
             default -> throw new InvalidEventException("채팅이 처리하지 않는 동행 바뀜 종류입니다. event_id="
@@ -47,9 +47,9 @@ public class ChatCompanionFactWriter {
     }
 
     private void writeRideEnded(String eventId, CompanionChangedData data, ChatRoom chatRoom) {
-        chatSystemMessageService.rideEnded(chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_RIDE_ENDED));
+        systemMessageWriter.rideEnded(chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_RIDE_ENDED));
         if (data.kind() == CompanionKind.TAXI_POT) {
-            chatSystemMessageService.requestMeter(
+            systemMessageWriter.requestMeter(
                     chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_METER_REQUESTED));
         }
     }

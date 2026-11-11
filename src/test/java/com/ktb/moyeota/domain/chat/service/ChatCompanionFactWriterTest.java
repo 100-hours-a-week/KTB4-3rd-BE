@@ -28,7 +28,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({ChatCompanionFactWriter.class, ChatSystemMessageService.class})
+@Import({ChatCompanionFactWriter.class, ChatSystemMessageService.class, MysqlSystemMessageWriter.class})
 class ChatCompanionFactWriterTest {
 
     @Autowired
