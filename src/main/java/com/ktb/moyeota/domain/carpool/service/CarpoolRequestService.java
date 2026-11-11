@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.carpool.service;
 
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
+import com.ktb.moyeota.domain.carpool.entity.RejectReason;
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.HandledJoinRequest;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
@@ -23,8 +24,10 @@ import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CarpoolRequestService {
 
     private static final int MAX_REQUESTS_PER_CARPOOL = 3;
+    private static final int EXPIRE_BATCH_SIZE = 100;
+    private static final String CAPACITY_FULL_MESSAGE = "카풀 자리가 모두 찼어요. 다른 카풀을 찾아보세요";
+    private static final String DEPARTED_MESSAGE = "출발 시간이 지나 동승 요청이 종료됐어요";
 
     private final CarpoolRepository carpoolRepository;
     private final CarpoolParticipantRepository carpoolParticipantRepository;
@@ -69,7 +75,7 @@ public class CarpoolRequestService {
 
         return switch (result) {
             case ACCEPTED -> accept(carpool, request);
-            case REJECTED -> reject(request);
+            case REJECTED -> reject(carpool, request);
             case PENDING -> throw new IllegalArgumentException("대기 상태로는 처리할 수 없다: " + requestId);
         };
     }
@@ -92,13 +98,39 @@ public class CarpoolRequestService {
         chatSystemMessageService.enter(chatRoom, requester);
         notificationCommandService.createForChatRoom(requester, NotificationType.CARPOOL_REQUEST_ACCEPTED,
                 request.getId(), chatRoom, carpool.getHost().getNickname() + "님이 동승 요청을 수락했어요");
+        if (carpool.getCurrentCount() == carpool.getCapacity()) {
+            rejectRemaining(carpool.getId(), RejectReason.CAPACITY_FULL,
+                    NotificationType.CARPOOL_REQUEST_REJECTED, CAPACITY_FULL_MESSAGE);
+        }
         return new HandledJoinRequest(request.getId(), request.getStatus(), chatRoom.getId(),
                 carpool.getCurrentCount(), carpool.getCapacity());
     }
 
-    private HandledJoinRequest reject(CompanionRequest request) {
-        request.reject();
+    private HandledJoinRequest reject(Companion carpool, CompanionRequest request) {
+        request.reject(RejectReason.HOST);
+        notificationCommandService.createWithoutTarget(request.getRequester(), NotificationType.CARPOOL_REQUEST_REJECTED,
+                request.getId(), carpool.getHost().getNickname() + "님이 동승 요청을 거절했어요");
         return HandledJoinRequest.rejected(request.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> findExpireDueIds() {
+        return companionRequestRepository.findDepartedCarpoolIdsWithPending(
+                LocalDateTime.now(clock), PageRequest.of(0, EXPIRE_BATCH_SIZE));
+    }
+
+    @Transactional
+    public void expireDepartedRequests(Long carpoolId) {
+        carpoolRepository.findCarpoolForUpdate(carpoolId)
+                .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
+        rejectRemaining(carpoolId, RejectReason.DEPARTED, NotificationType.CARPOOL_REQUEST_EXPIRED, DEPARTED_MESSAGE);
+    }
+
+    private void rejectRemaining(Long carpoolId, RejectReason reason, NotificationType type, String content) {
+        for (CompanionRequest pending : companionRequestRepository.findPendingWithRequester(carpoolId)) {
+            pending.reject(reason);
+            notificationCommandService.createWithoutTarget(pending.getRequester(), type, pending.getId(), content);
+        }
     }
 
     private ChatRoom findChatRoom(Companion carpool) {
@@ -135,8 +167,8 @@ public class CarpoolRequestService {
                 carpool.getId(), userId, CompanionRequestStatus.PENDING)) {
             throw new BusinessException(CarpoolErrorCode.REQUEST_ALREADY_PENDING);
         }
-        if (companionRequestRepository.countByCompanionIdAndRequesterId(carpool.getId(), userId)
-                >= MAX_REQUESTS_PER_CARPOOL) {
+        if (companionRequestRepository.countByCompanionIdAndRequesterIdAndRejectReason(
+                carpool.getId(), userId, RejectReason.HOST) >= MAX_REQUESTS_PER_CARPOOL) {
             throw new BusinessException(CarpoolErrorCode.REQUEST_LIMIT_EXCEEDED);
         }
     }

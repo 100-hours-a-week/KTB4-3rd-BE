@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.carpool.repository;
 
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
+import com.ktb.moyeota.domain.carpool.entity.RejectReason;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,7 +20,27 @@ public interface CompanionRequestRepository extends JpaRepository<CompanionReque
     boolean existsByCompanionIdAndRequesterIdAndStatus(
             Long companionId, Long requesterId, CompanionRequestStatus status);
 
-    long countByCompanionIdAndRequesterId(Long companionId, Long requesterId);
+    long countByCompanionIdAndRequesterIdAndRejectReason(
+            Long companionId, Long requesterId, RejectReason rejectReason);
+
+    @Query("""
+            select r from CompanionRequest r
+              join fetch r.requester
+             where r.companion.id = :companionId
+               and r.status = com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus.PENDING
+             order by r.id
+            """)
+    List<CompanionRequest> findPendingWithRequester(@Param("companionId") Long companionId);
+
+    @Query("""
+            select distinct c.id from CompanionRequest r
+              join r.companion c
+             where c.kind = com.ktb.moyeota.domain.companion.entity.CompanionKind.CARPOOL
+               and c.departureAt < :now
+               and r.status = com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus.PENDING
+             order by c.id
+            """)
+    List<Long> findDepartedCarpoolIdsWithPending(@Param("now") LocalDateTime now, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<CompanionRequest> findForUpdateByIdAndCompanionId(Long id, Long companionId);

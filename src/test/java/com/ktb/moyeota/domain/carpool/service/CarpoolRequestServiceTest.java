@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequest;
 import com.ktb.moyeota.domain.carpool.entity.CompanionRequestStatus;
+import com.ktb.moyeota.domain.carpool.entity.RejectReason;
 import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
@@ -166,7 +167,7 @@ class CarpoolRequestServiceTest {
     }
 
     @Test
-    @DisplayName("같은 카풀에는 거절된 요청을 포함해 총 3번까지 요청한다")
+    @DisplayName("같은 카풀에는 호스트가 거절한 요청을 포함해 총 3번까지 요청한다")
     void limitsToThreeRequests() {
         Companion carpool = persistCarpool(RECRUITING, 1);
         rejectedRequest(carpool);
@@ -233,8 +234,10 @@ class CarpoolRequestServiceTest {
 
     private void changeAllToRejected(Companion carpool) {
         entityManager.getEntityManager()
-                .createQuery("UPDATE CompanionRequest r SET r.status = :status WHERE r.companion.id = :id")
+                .createQuery("UPDATE CompanionRequest r SET r.status = :status, r.rejectReason = :reason"
+                        + " WHERE r.companion.id = :id")
                 .setParameter("status", CompanionRequestStatus.REJECTED)
+                .setParameter("reason", RejectReason.HOST)
                 .setParameter("id", carpool.getId())
                 .executeUpdate();
         entityManager.clear();

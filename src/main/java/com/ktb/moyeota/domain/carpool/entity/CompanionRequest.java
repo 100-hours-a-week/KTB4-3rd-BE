@@ -50,6 +50,10 @@ public class CompanionRequest {
     @Column(nullable = false, length = 20)
     private CompanionRequestStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reject_reason", length = 20)
+    private RejectReason rejectReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -73,8 +77,12 @@ public class CompanionRequest {
         handle(CompanionRequestStatus.ACCEPTED);
     }
 
-    public void reject() {
+    public void reject(RejectReason reason) {
+        if (reason == null) {
+            throw new IllegalArgumentException("거절 사유가 필요합니다");
+        }
         handle(CompanionRequestStatus.REJECTED);
+        this.rejectReason = reason;
     }
 
     private void handle(CompanionRequestStatus result) {
