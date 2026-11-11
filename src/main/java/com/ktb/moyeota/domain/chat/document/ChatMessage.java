@@ -52,6 +52,14 @@ public class ChatMessage {
         return new ChatMessage(roomId, MessageType.TEXT, senderId, clientMessageId, content, createdAt);
     }
 
+    public static ChatMessage system(Long roomId, MessageType type, Long actorId, String clientMessageId,
+            String content, Instant createdAt) {
+        if (type == MessageType.TEXT) {
+            throw new IllegalArgumentException("시스템 메시지 종류가 아닙니다. type=" + type);
+        }
+        return new ChatMessage(roomId, type, actorId, clientMessageId, content, createdAt);
+    }
+
     public void assignSeq(long seq) {
         this.seq = seq;
     }
