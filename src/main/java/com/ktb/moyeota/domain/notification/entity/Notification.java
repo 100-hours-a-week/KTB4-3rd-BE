@@ -81,10 +81,21 @@ public class Notification {
         if (type.targetsPost()) {
             throw new IllegalArgumentException(type + " 알림은 게시글로 이동해야 합니다");
         }
+        if (type.hasNoTarget()) {
+            throw new IllegalArgumentException(type + " 알림은 이동 대상이 없습니다");
+        }
         if (targetChatRoom == null) {
             throw new IllegalArgumentException("채팅방 이동 알림에는 targetChatRoom이 필요합니다");
         }
         return new Notification(recipient, type, eventId, targetChatRoom, null, content);
+    }
+
+    public static Notification createWithoutTarget(User recipient, NotificationType type, Long eventId,
+                                                   String content) {
+        if (!type.hasNoTarget()) {
+            throw new IllegalArgumentException(type + " 알림은 이동 대상이 필요합니다");
+        }
+        return new Notification(recipient, type, eventId, null, null, content);
     }
 
     public static Notification createForComment(User recipient, Long commentId,
