@@ -69,6 +69,16 @@ public class MongoSystemMessageWriter implements SystemMessageWriter {
                 SystemMessageText.TRANSFER_UNVERIFIED.getText(), messageKey, null);
     }
 
+    public void requestRideStart(ChatRoom chatRoom) {
+        appendOnce(chatRoom, MessageType.SYSTEM_RIDE_START_REQUESTED, null, null, SystemMessageKeys.forCompanion(
+                chatRoom.getCompanion().getId(), MessageType.SYSTEM_RIDE_START_REQUESTED), null);
+    }
+
+    public void requestRideEnd(ChatRoom chatRoom) {
+        appendOnce(chatRoom, MessageType.SYSTEM_RIDE_END_REQUESTED, null, null, SystemMessageKeys.forCompanion(
+                chatRoom.getCompanion().getId(), MessageType.SYSTEM_RIDE_END_REQUESTED), null);
+    }
+
     private void appendOnce(ChatRoom chatRoom, MessageType type, User actor, String content, String messageKey,
             Settlement settlement) {
         if (chatMessageRepository.findByClientMessageId(chatRoom.getId(), messageKey).isPresent()) {
