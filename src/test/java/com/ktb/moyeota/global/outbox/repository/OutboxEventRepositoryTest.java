@@ -34,9 +34,21 @@ class OutboxEventRepositoryTest {
         Long second = persist(pending()).getId();
         persist(pending());
 
-        List<OutboxEvent> found = outboxEventRepository.findPending(2);
+        List<OutboxEvent> found = outboxEventRepository.findPending(0L, 2);
 
         assertThat(found).extracting(OutboxEvent::getId).containsExactly(first, second);
+    }
+
+    @Test
+    @DisplayName("발행 대기 이벤트를 주어진 id 다음부터 이어서 가져온다")
+    void findsPendingAfterId() {
+        Long first = persist(pending()).getId();
+        Long second = persist(pending()).getId();
+        Long third = persist(pending()).getId();
+
+        List<OutboxEvent> found = outboxEventRepository.findPending(first, 10);
+
+        assertThat(found).extracting(OutboxEvent::getId).containsExactly(second, third);
     }
 
     @Test

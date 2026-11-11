@@ -13,10 +13,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
 
-    List<OutboxEvent> findByStatusOrderByIdAsc(OutboxStatus status, Limit limit);
+    List<OutboxEvent> findByStatusAndIdGreaterThanOrderByIdAsc(OutboxStatus status, Long id, Limit limit);
 
-    default List<OutboxEvent> findPending(int batchSize) {
-        return findByStatusOrderByIdAsc(OutboxStatus.PENDING, Limit.of(batchSize));
+    default List<OutboxEvent> findPending(long afterId, int limit) {
+        return findByStatusAndIdGreaterThanOrderByIdAsc(OutboxStatus.PENDING, afterId, Limit.of(limit));
     }
 
     default int markPublished(Collection<Long> ids, LocalDateTime now) {
