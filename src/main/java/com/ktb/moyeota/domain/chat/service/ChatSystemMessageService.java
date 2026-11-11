@@ -10,6 +10,7 @@ import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -24,6 +25,7 @@ public class ChatSystemMessageService {
     private final ChatRoomRepository chatRoomRepository;
     private final MessageRepository messageRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ObjectProvider<MongoSystemMessageWriter> mongoSystemMessageWriter;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void enter(ChatRoom chatRoom, User joiner) {
@@ -37,11 +39,21 @@ public class ChatSystemMessageService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void requestRideStart(ChatRoom chatRoom) {
+        MongoSystemMessageWriter mongoWriter = mongoSystemMessageWriter.getIfAvailable();
+        if (mongoWriter != null) {
+            mongoWriter.requestRideStart(chatRoom);
+            return;
+        }
         publish(chatRoom, rideStartRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void requestRideEnd(ChatRoom chatRoom) {
+        MongoSystemMessageWriter mongoWriter = mongoSystemMessageWriter.getIfAvailable();
+        if (mongoWriter != null) {
+            mongoWriter.requestRideEnd(chatRoom);
+            return;
+        }
         publish(chatRoom, Message.rideEndRequestedSystemMessage(chatRoom, newSystemMessageKey(), null));
     }
 
