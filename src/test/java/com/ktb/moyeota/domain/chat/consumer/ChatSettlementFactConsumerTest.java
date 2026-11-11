@@ -15,6 +15,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
@@ -24,14 +25,13 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 
 @SpringBootTest(
         classes = {KafkaConfig.class, ChatSettlementFactConsumer.class, KafkaTestContainerConfig.class,
                 ChatSettlementFactConsumerTest.ListenerConfig.class},
-        properties = {
-                "spring.kafka.consumer.auto-offset-reset=earliest",
-                "moyeota.chat.system-message.mode=kafka"})
+        properties = "moyeota.chat.system-message.mode=kafka")
 @ImportAutoConfiguration({
         JacksonAutoConfiguration.class,
         KafkaAutoConfiguration.class,
@@ -48,6 +48,12 @@ class ChatSettlementFactConsumerTest {
 
     @Autowired
     private BlockingQueue<ConsumerRecord<String, String>> deadLetters;
+
+    @Test
+    @DisplayName("소비자 그룹이 처음 붙기 전에 토픽에 들어온 사실도 처음부터 읽어 처리한다")
+    void writesFactPublishedBeforeGroupJoined() throws Exception {
+        assertThat(awaitWritten(EarlyFact.EVENT_ID).eventType()).isEqualTo(SettlementChangedMessages.COMPLETED);
+    }
 
     @Test
     @DisplayName("채팅이 처리하는 정산 바뀜은 이벤트 ID · 종류 · 데이터를 그대로 넘긴다")
@@ -176,6 +182,11 @@ class ChatSettlementFactConsumerTest {
         }
 
         @Bean
+        EarlyFact earlyFact(KafkaAdmin kafkaAdmin, KafkaTemplate<String, String> kafkaTemplate) {
+            return new EarlyFact(kafkaAdmin, kafkaTemplate);
+        }
+
+        @Bean
         BlockingQueue<ConsumerRecord<String, String>> deadLetters() {
             return new LinkedBlockingQueue<>();
         }
@@ -183,6 +194,34 @@ class ChatSettlementFactConsumerTest {
         @Bean
         DeadLetterListener deadLetterListener(BlockingQueue<ConsumerRecord<String, String>> deadLetters) {
             return new DeadLetterListener(deadLetters);
+        }
+    }
+
+    static class EarlyFact implements SmartInitializingSingleton {
+
+        static final String EVENT_ID = UUID.randomUUID().toString();
+
+        private final KafkaAdmin kafkaAdmin;
+        private final KafkaTemplate<String, String> kafkaTemplate;
+
+        EarlyFact(KafkaAdmin kafkaAdmin, KafkaTemplate<String, String> kafkaTemplate) {
+            this.kafkaAdmin = kafkaAdmin;
+            this.kafkaTemplate = kafkaTemplate;
+        }
+
+        @Override
+        public void afterSingletonsInstantiated() {
+            kafkaAdmin.initialize();
+            String value = """
+                    {"event_id":"%s","event_type":"%s","schema_version":1,
+                     "occurred_at":"2026-11-11T09:00:00.000+09:00","data":{"settlement_id":10,"companion_id":400}}
+                    """.formatted(EVENT_ID, SettlementChangedMessages.COMPLETED);
+            try {
+                kafkaTemplate.send(SettlementChangedMessages.TOPIC, SettlementChangedMessages.key(400L), value)
+                        .get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
         }
     }
 
@@ -194,7 +233,7 @@ class ChatSettlementFactConsumerTest {
             this.deadLetters = deadLetters;
         }
 
-        @KafkaListener(topics = DLT, groupId = "settlement-changed-dlt-test")
+        @KafkaListener(topics = DLT, groupId = "settlement-changed-dlt-test", properties = "auto.offset.reset=earliest")
         void listen(ConsumerRecord<String, String> record) {
             deadLetters.add(record);
         }

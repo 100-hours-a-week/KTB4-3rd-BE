@@ -32,7 +32,8 @@ public class ChatCompanionFactConsumer {
 
     private final ChatCompanionFactWriter writer;
 
-    @KafkaListener(topics = CompanionChangedMessages.TOPIC, groupId = GROUP_ID)
+    @KafkaListener(topics = CompanionChangedMessages.TOPIC, groupId = GROUP_ID,
+            properties = "auto.offset.reset=earliest")
     public void consume(@Payload EventEnvelope<CompanionChangedData> envelope) {
         if (!SUPPORTED_EVENTS.contains(envelope.eventType())) {
             log.debug("[CHAT_COMPANION_FACT_SKIPPED] eventId={}, eventType={}",

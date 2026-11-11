@@ -28,7 +28,8 @@ public class ChatSettlementFactConsumer {
 
     private final ChatSettlementFactWriter writer;
 
-    @KafkaListener(topics = SettlementChangedMessages.TOPIC, groupId = ChatCompanionFactConsumer.GROUP_ID)
+    @KafkaListener(topics = SettlementChangedMessages.TOPIC, groupId = ChatCompanionFactConsumer.GROUP_ID,
+            properties = "auto.offset.reset=earliest")
     public void consume(@Payload EventEnvelope<SettlementChangedData> envelope) {
         if (!SUPPORTED_EVENTS.contains(envelope.eventType())) {
             log.debug("[CHAT_SETTLEMENT_FACT_SKIPPED] eventId={}, eventType={}",
