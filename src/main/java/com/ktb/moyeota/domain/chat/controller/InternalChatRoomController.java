@@ -1,10 +1,10 @@
 package com.ktb.moyeota.domain.chat.controller;
 
 import com.ktb.moyeota.domain.chat.dto.InternalChatMessageSendRequest;
-import com.ktb.moyeota.domain.chat.dto.MessageItem;
+import com.ktb.moyeota.domain.chat.dto.ChatMessageView;
 import com.ktb.moyeota.domain.chat.dto.ParticipantCheckResponse;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
-import com.ktb.moyeota.domain.chat.service.ChatMessageSendService;
+import com.ktb.moyeota.domain.chat.service.ChatMessageWriter;
 import com.ktb.moyeota.domain.chat.service.ChatRoomService;
 import com.ktb.moyeota.domain.chat.success.ChatSuccessCode;
 import com.ktb.moyeota.global.common.ApiResponse;
@@ -28,7 +28,7 @@ public class InternalChatRoomController {
     private static final String ROOM_DESTINATION_PREFIX = "/sub/chat/";
 
     private final ChatRoomService chatRoomService;
-    private final ChatMessageSendService chatMessageSendService;
+    private final ChatMessageWriter chatMessageWriter;
     private final WsRelayPublisher wsRelayPublisher;
 
     @GetMapping("/participants/{user_id}")
@@ -41,11 +41,11 @@ public class InternalChatRoomController {
     }
 
     @PostMapping("/messages")
-    public ResponseEntity<ApiResponse<MessageItem>> sendMessage(
+    public ResponseEntity<ApiResponse<ChatMessageView>> sendMessage(
             @PathVariable("room_id") Long roomId,
             @Valid @RequestBody InternalChatMessageSendRequest request
     ) {
-        MessageItem item = chatMessageSendService.send(request.userId(), roomId, request.toSendRequest())
+        ChatMessageView item = chatMessageWriter.send(request.userId(), roomId, request.toSendRequest())
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
         wsRelayPublisher.toRoom(roomId, ROOM_DESTINATION_PREFIX + roomId, item);
         return ResponseEntity.ok(ApiResponse.of(ChatSuccessCode.MESSAGE_SENT, item));

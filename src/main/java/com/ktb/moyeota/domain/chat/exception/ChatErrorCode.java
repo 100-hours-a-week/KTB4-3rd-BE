@@ -23,7 +23,9 @@ public enum ChatErrorCode implements ErrorCode {
 
     COMPANION_CHATROOM_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "동행에 대한 채팅방을 찾을 수 없습니다."),
 
-    COMPANION_NEXT_HOST_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "다음 방장을 찾을 수 없습니다.");
+    COMPANION_NEXT_HOST_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "다음 방장을 찾을 수 없습니다."),
+
+    MESSAGE_SEQ_CONFLICT(HttpStatus.CONFLICT, "메시지를 저장하지 못했습니다. 다시 보내주세요.");
 
     private final HttpStatus status;
     private final String message;
