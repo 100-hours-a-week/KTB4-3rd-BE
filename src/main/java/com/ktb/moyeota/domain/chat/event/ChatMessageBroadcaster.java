@@ -17,4 +17,9 @@ public class ChatMessageBroadcaster {
     public void broadcast(ChatMessageCreatedEvent event) {
         wsRelayPublisher.toRoom(event.roomId(), BROKER_DESTINATION_PREFIX + event.roomId(), event.message());
     }
+
+    @TransactionalEventListener
+    public void broadcast(ChatMessageAppendedEvent event) {
+        wsRelayPublisher.toRoom(event.roomId(), BROKER_DESTINATION_PREFIX + event.roomId(), event.message());
+    }
 }

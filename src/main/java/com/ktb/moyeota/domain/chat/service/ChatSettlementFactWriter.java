@@ -19,7 +19,7 @@ public class ChatSettlementFactWriter {
 
     private final ChatRoomRepository chatRoomRepository;
     private final SettlementSummaryReader settlementSummaryReader;
-    private final ChatSystemMessageService chatSystemMessageService;
+    private final SystemMessageWriter systemMessageWriter;
 
     @Transactional
     public boolean write(String eventId, String eventType, SettlementChangedData data) {
@@ -30,11 +30,11 @@ public class ChatSettlementFactWriter {
         }
         ChatRoom chatRoom = openChatRoom.get();
         switch (eventType) {
-            case SettlementChangedMessages.TRANSFER_REQUESTED -> chatSystemMessageService.requestTransfer(
+            case SettlementChangedMessages.TRANSFER_REQUESTED -> systemMessageWriter.requestTransfer(
                     chatRoom, summary(data), SystemMessageKeys.of(eventId, MessageType.SYSTEM_TRANSFER_REQUESTED));
-            case SettlementChangedMessages.TRANSFER_EXHAUSTED -> chatSystemMessageService.notifyTransferUnverified(
+            case SettlementChangedMessages.TRANSFER_EXHAUSTED -> systemMessageWriter.notifyTransferUnverified(
                     chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_TRANSFER_UNVERIFIED));
-            case SettlementChangedMessages.COMPLETED -> chatSystemMessageService.completeSettlement(
+            case SettlementChangedMessages.COMPLETED -> systemMessageWriter.completeSettlement(
                     chatRoom, SystemMessageKeys.of(eventId, MessageType.SYSTEM_SETTLEMENT_COMPLETED));
             default -> throw new InvalidEventException("채팅이 처리하지 않는 정산 바뀜 종류입니다. event_id="
                     + eventId + " event_type=" + eventType);

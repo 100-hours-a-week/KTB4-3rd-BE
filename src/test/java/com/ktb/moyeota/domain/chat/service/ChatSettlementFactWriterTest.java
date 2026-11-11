@@ -37,7 +37,7 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 
 @DataJpaTest
 @RecordApplicationEvents
-@Import({ChatSettlementFactWriter.class, ChatSystemMessageService.class, SettlementSummaryReader.class,
+@Import({ChatSettlementFactWriter.class, ChatSystemMessageService.class, MysqlSystemMessageWriter.class, SettlementSummaryReader.class,
         AccountNoCipher.class})
 @EnableConfigurationProperties(CryptoProperties.class)
 class ChatSettlementFactWriterTest {
