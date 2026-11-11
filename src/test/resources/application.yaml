@@ -12,6 +12,9 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: create-drop
+  mongodb:
+    representation:
+      uuid: standard
   data:
     redis:
       timeout: 200ms

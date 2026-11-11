@@ -10,6 +10,8 @@ spring:
     open-in-view: false
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017/moyeota}
+    representation:
+      uuid: standard
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -73,6 +75,7 @@ moyeota:
     auto-cancel-sweep-delay: 10m
   chat:
     close-sweep-delay: 10m
+    message-store: mysql
     system-message:
       mode: direct
   settlement:
