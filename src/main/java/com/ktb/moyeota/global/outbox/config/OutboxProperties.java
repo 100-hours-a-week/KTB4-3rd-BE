@@ -8,6 +8,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record OutboxProperties(
         @DefaultValue("1s") Duration publishDelay,
         @DefaultValue("100") int batchSize,
+        @DefaultValue("1000") int scanLimit,
+        @DefaultValue("10") int stuckAttempts,
         @DefaultValue("30s") Duration ackTimeout,
         @DefaultValue("2m") Duration lockAtMostFor
 ) {
@@ -15,6 +17,12 @@ public record OutboxProperties(
     public OutboxProperties {
         if (batchSize < 1) {
             throw new IllegalArgumentException("batch-size는 1 이상이어야 합니다");
+        }
+        if (scanLimit < batchSize) {
+            throw new IllegalArgumentException("scan-limit은 batch-size 이상이어야 합니다");
+        }
+        if (stuckAttempts < 1) {
+            throw new IllegalArgumentException("stuck-attempts는 1 이상이어야 합니다");
         }
         if (lockAtMostFor.compareTo(ackTimeout) <= 0) {
             throw new IllegalArgumentException("lock-at-most-for는 ack-timeout보다 길어야 합니다");

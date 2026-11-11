@@ -6,6 +6,7 @@ import com.ktb.moyeota.global.outbox.config.OutboxProperties;
 import com.ktb.moyeota.global.outbox.entity.OutboxEvent;
 import com.ktb.moyeota.global.outbox.repository.OutboxEventRepository;
 import com.ktb.moyeota.global.trace.TraceId;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class OutboxPublisher {
 
     static final String ACK_TIMEOUT_ERROR = "ack 대기 시간 초과";
+    static final String STUCK_METRIC = "outbox.publish.stuck";
 
     private static final ZoneId OCCURRED_ZONE = ZoneId.of("Asia/Seoul");
     private static final int LAST_ERROR_MAX_LENGTH = 255;
@@ -45,10 +47,11 @@ public class OutboxPublisher {
     private final JsonMapper jsonMapper;
     private final OutboxProperties properties;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public PublishResult publishPending() {
-        List<OutboxEvent> events = sendable(outboxEventRepository.findPending(properties.batchSize()));
+        List<OutboxEvent> events = sendable();
         if (events.isEmpty()) {
             return PublishResult.EMPTY;
         }
@@ -56,14 +59,22 @@ public class OutboxPublisher {
         long deadline = System.nanoTime() + properties.ackTimeout().toNanos();
         Map<Long, CompletableFuture<SendResult<String, String>>> sends = new LinkedHashMap<>();
         Map<Long, String> failures = new LinkedHashMap<>();
+        Set<String> failedKeys = new HashSet<>();
         for (OutboxEvent event : events) {
             if (System.nanoTime() >= deadline) {
                 break;
+            }
+            String heldKey = heldKey(event);
+            if (heldKey != null && failedKeys.contains(heldKey)) {
+                continue;
             }
             try {
                 sends.put(event.getId(), kafkaTemplate.send(toRecord(event)));
             } catch (RuntimeException e) {
                 failures.put(event.getId(), describe(e));
+                if (heldKey != null) {
+                    failedKeys.add(heldKey);
+                }
             }
         }
 
@@ -86,28 +97,65 @@ public class OutboxPublisher {
             outboxEventRepository.markPublished(published, LocalDateTime.now(clock));
         }
         recordFailures(failures);
+        alertStuck(events, failures);
         return new PublishResult(published.size(), failures.size());
     }
 
-    private List<OutboxEvent> sendable(List<OutboxEvent> pending) {
+    private List<OutboxEvent> sendable() {
         Set<String> heldKeys = new HashSet<>();
         List<OutboxEvent> sendable = new ArrayList<>();
-        for (OutboxEvent event : pending) {
-            String key = event.getMessageKey();
-            if (key == null) {
-                sendable.add(event);
-                continue;
+        long afterId = 0L;
+        int scanned = 0;
+        while (sendable.size() < properties.batchSize() && scanned < properties.scanLimit()) {
+            int limit = Math.min(properties.batchSize(), properties.scanLimit() - scanned);
+            List<OutboxEvent> page = outboxEventRepository.findPending(afterId, limit);
+            for (OutboxEvent event : page) {
+                if (sendable.size() == properties.batchSize()) {
+                    break;
+                }
+                if (isSendable(event, heldKeys)) {
+                    sendable.add(event);
+                }
             }
-            String heldKey = event.getTopic() + "|" + key;
-            if (heldKeys.contains(heldKey)) {
-                continue;
+            if (page.size() < limit) {
+                break;
             }
-            sendable.add(event);
-            if (event.getAttempts() > 0) {
-                heldKeys.add(heldKey);
-            }
+            afterId = page.getLast().getId();
+            scanned += page.size();
         }
         return sendable;
+    }
+
+    private static String heldKey(OutboxEvent event) {
+        if (event.getMessageKey() == null) {
+            return null;
+        }
+        return event.getTopic() + "|" + event.getMessageKey();
+    }
+
+    private static boolean isSendable(OutboxEvent event, Set<String> heldKeys) {
+        String heldKey = heldKey(event);
+        if (heldKey == null) {
+            return true;
+        }
+        if (heldKeys.contains(heldKey)) {
+            return false;
+        }
+        if (event.getAttempts() > 0) {
+            heldKeys.add(heldKey);
+        }
+        return true;
+    }
+
+    private void alertStuck(List<OutboxEvent> events, Map<Long, String> failures) {
+        for (OutboxEvent event : events) {
+            String error = failures.get(event.getId());
+            if (error != null && event.getAttempts() + 1 == properties.stuckAttempts()) {
+                meterRegistry.counter(STUCK_METRIC, "topic", event.getTopic()).increment();
+                log.error("[OUTBOX_PUBLISH_STUCK] id={} topic={} key={} attempts={} error={}",
+                        event.getId(), event.getTopic(), event.getMessageKey(), properties.stuckAttempts(), error);
+            }
+        }
     }
 
     private ProducerRecord<String, String> toRecord(OutboxEvent event) {
