@@ -12,9 +12,13 @@ import com.ktb.moyeota.global.outbox.publisher.OutboxPublisher.PublishResult;
 import com.ktb.moyeota.global.outbox.repository.OutboxEventRepository;
 import com.ktb.moyeota.global.event.EventHeaders;
 import com.ktb.moyeota.global.trace.TraceId;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,7 +45,8 @@ import tools.jackson.databind.json.JsonMapper;
 @DataJpaTest(properties = {
         "spring.kafka.consumer.auto-offset-reset=earliest",
         "spring.kafka.producer.properties.max.block.ms=5000",
-        "moyeota.outbox.ack-timeout=10s"})
+        "moyeota.outbox.ack-timeout=10s",
+        "moyeota.outbox.stuck-attempts=3"})
 @ImportAutoConfiguration({
         JacksonAutoConfiguration.class,
         KafkaAutoConfiguration.class,
@@ -53,6 +58,7 @@ class OutboxPublisherTest {
     private static final String TOPIC = "outbox-publisher-test";
     private static final String INVALID_TOPIC = "outbox invalid topic";
     private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 10, 29, 18, 0, 0, 512_000_000);
+    private static final int STUCK_ATTEMPTS = 3;
 
     @Autowired
     private OutboxPublisher outboxPublisher;
@@ -68,6 +74,9 @@ class OutboxPublisherTest {
 
     @Autowired
     private BlockingQueue<ConsumerRecord<String, String>> received;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @Test
     @DisplayName("발행 대기 이벤트를 봉투로 조립해 토픽 · 키 · 이벤트 종류 · 추적 ID 헤더와 함께 보내고 발행 완료로 바꾼다")
@@ -140,6 +149,67 @@ class OutboxPublisherTest {
     }
 
     @Test
+    @DisplayName("같은 배치에서 앞 이벤트를 보내지 못하면 같은 키의 뒤 이벤트는 보내지 않고 대기로 둔다. 다른 키는 그대로 보낸다")
+    void holdsLaterEventsWhenEarlierSendFailsInSameBatch() throws Exception {
+        OutboxEvent oversized = persist(oversizedEvent("8004"));
+        OutboxEvent sameKey = persist(event(TOPIC, "8004", null));
+        OutboxEvent otherKey = persist(event(TOPIC, "8005", null));
+
+        PublishResult result = outboxPublisher.publishPending();
+
+        assertThat(result).isEqualTo(new PublishResult(1, 1));
+        awaitRecord(otherKey.getEventId());
+        assertThat(outboxEventRepository.findById(oversized.getId()).orElseThrow().getAttempts()).isEqualTo(1);
+        OutboxEvent held = outboxEventRepository.findById(sameKey.getId()).orElseThrow();
+        assertThat(held.getStatus()).isEqualTo(OutboxStatus.PENDING);
+        assertThat(held.getAttempts()).isZero();
+    }
+
+    @Test
+    @DisplayName("막힌 키의 행이 한 번에 읽는 개수보다 많이 쌓여도 그 뒤 다른 키의 이벤트는 발행한다")
+    void publishesOtherKeysBehindHeldRows() throws Exception {
+        OutboxEvent stuck = event(INVALID_TOPIC, "8001", null);
+        stuck.recordFailure("RecordTooLargeException");
+        persist(stuck);
+        List<OutboxEvent> held = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            held.add(entityManager.persist(event(INVALID_TOPIC, "8001", null)));
+        }
+        OutboxEvent other = persist(event(TOPIC, "8002", null));
+
+        PublishResult result = outboxPublisher.publishPending();
+
+        assertThat(result).isEqualTo(new PublishResult(1, 1));
+        awaitRecord(other.getEventId());
+        assertThat(outboxEventRepository.findById(other.getId()).orElseThrow().getStatus())
+                .isEqualTo(OutboxStatus.PUBLISHED);
+        assertThat(outboxEventRepository.findById(stuck.getId()).orElseThrow().getAttempts()).isEqualTo(2);
+        assertThat(outboxEventRepository.findAllById(held.stream().map(OutboxEvent::getId).toList()))
+                .allSatisfy(each -> {
+                    assertThat(each.getStatus()).isEqualTo(OutboxStatus.PENDING);
+                    assertThat(each.getAttempts()).isZero();
+                });
+    }
+
+    @Test
+    @DisplayName("같은 이벤트가 정한 횟수만큼 실패하면 막힘 지표를 한 번만 올린다")
+    void countsStuckOnceWhenAttemptsReachLimit() {
+        OutboxEvent failing = event(INVALID_TOPIC, "8003", null);
+        for (int i = 1; i < STUCK_ATTEMPTS; i++) {
+            failing.recordFailure("RecordTooLargeException");
+        }
+        persist(failing);
+
+        outboxPublisher.publishPending();
+        outboxPublisher.publishPending();
+
+        assertThat(outboxEventRepository.findById(failing.getId()).orElseThrow().getAttempts())
+                .isEqualTo(STUCK_ATTEMPTS + 1);
+        assertThat(meterRegistry.counter(OutboxPublisher.STUCK_METRIC, "topic", INVALID_TOPIC).count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
     @DisplayName("발행 대기 이벤트가 없으면 아무것도 보내지 않는다")
     void doesNothingWhenEmpty() {
         assertThat(outboxPublisher.publishPending()).isEqualTo(new PublishResult(0, 0));
@@ -159,6 +229,19 @@ class OutboxPublisherTest {
                 OCCURRED_AT,
                 "{\"settlement_id\":101,\"user_id\":7}",
                 traceId,
+                OCCURRED_AT);
+    }
+
+    private OutboxEvent oversizedEvent(String key) {
+        return OutboxEvent.create(
+                TOPIC,
+                key,
+                UUID.randomUUID().toString(),
+                "settlement.transfer-analysis.requested",
+                1,
+                OCCURRED_AT,
+                "{\"settlement_id\":101,\"pad\":\"" + "x".repeat(1_100_000) + "\"}",
+                null,
                 OCCURRED_AT);
     }
 
@@ -185,6 +268,11 @@ class OutboxPublisherTest {
         @Bean
         BlockingQueue<ConsumerRecord<String, String>> received() {
             return new LinkedBlockingQueue<>();
+        }
+
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
         }
 
         @Bean
