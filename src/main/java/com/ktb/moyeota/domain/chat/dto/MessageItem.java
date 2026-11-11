@@ -17,7 +17,7 @@ public record MessageItem(
         String content,
         LocalDateTime createdAt,
         Settlement settlement
-) {
+) implements ChatMessageView {
 
     public MessageItem(Long id, MessageType type, Sender sender, SystemActor joiner, SystemActor leaver,
                        String content, LocalDateTime createdAt) {
@@ -72,8 +72,11 @@ public record MessageItem(
     }
 
     private static Sender sender(Message message, String profileImageUrl) {
-        User sender = message.getSender();
-        if (usesRealName(message.getChatRoom().getCompanion().getKind())) {
+        return senderOf(message.getSender(), message.getChatRoom().getCompanion().getKind(), profileImageUrl);
+    }
+
+    public static Sender senderOf(User sender, CompanionKind kind, String profileImageUrl) {
+        if (usesRealName(kind)) {
             return new Sender(sender.getId(), sender.getName(), null, profileImageUrl);
         }
         return new Sender(sender.getId(), null, sender.getNickname(), profileImageUrl);

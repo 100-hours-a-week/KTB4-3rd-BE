@@ -16,13 +16,15 @@ import com.ktb.moyeota.global.exception.BusinessException;
 import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
-public class ChatMessageSendService {
+@ConditionalOnProperty(prefix = "moyeota.chat", name = "message-store", havingValue = "mysql", matchIfMissing = true)
+public class ChatMessageSendService implements ChatMessageWriter {
 
     private final ChatRoomRepository chatRoomRepository;
     private final CompanionParticipantRepository companionParticipantRepository;
@@ -31,6 +33,7 @@ public class ChatMessageSendService {
     private final ImageUrlResolver imageUrlResolver;
     private final TransactionTemplate transactionTemplate;
 
+    @Override
     public Optional<MessageItem> send(Long userId, Long roomId, ChatMessageSendRequest request) {
         try {
             return transactionTemplate.execute(status -> save(userId, roomId, request));
