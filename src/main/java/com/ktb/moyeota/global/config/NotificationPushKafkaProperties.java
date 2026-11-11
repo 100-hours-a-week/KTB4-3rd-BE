@@ -7,6 +7,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "moyeota.notification.push.kafka")
 public record NotificationPushKafkaProperties(
         @DefaultValue("2m") Duration republishAfter,
+        @DefaultValue("10m") Duration republishPublishedAfter,
+        @DefaultValue("5") int republishMaxAttempts,
         @DefaultValue("100") int republishBatchSize,
         @DefaultValue("10s") Duration bulkRetryInitialInterval,
         @DefaultValue("6") int bulkConcurrency
@@ -15,6 +17,12 @@ public record NotificationPushKafkaProperties(
     public NotificationPushKafkaProperties {
         if (!republishAfter.isPositive()) {
             throw new IllegalArgumentException("republish-after는 0보다 커야 합니다");
+        }
+        if (republishPublishedAfter.compareTo(republishAfter) <= 0) {
+            throw new IllegalArgumentException("republish-published-after는 republish-after보다 길어야 합니다");
+        }
+        if (republishMaxAttempts < 1) {
+            throw new IllegalArgumentException("republish-max-attempts는 1 이상이어야 합니다");
         }
         if (republishBatchSize < 1) {
             throw new IllegalArgumentException("republish-batch-size는 1 이상이어야 합니다");

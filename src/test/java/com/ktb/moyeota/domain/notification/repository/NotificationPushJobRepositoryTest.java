@@ -323,6 +323,46 @@ class NotificationPushJobRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("failExhausted (스윕의 시도 상한 실패 처리)")
+    class FailExhausted {
+
+        private static final int MAX_ATTEMPTS = 5;
+
+        @Test
+        @DisplayName("시도 횟수가 상한에 닿은 작업만 FAILED 로 바꾸고 사유를 남긴다")
+        void failsOnlyExhaustedJobs() {
+            NotificationPushJob exhausted = persistJob(PushJobStatus.SENDING, NOW);
+            ReflectionTestUtils.setField(exhausted, "attempts", MAX_ATTEMPTS);
+            persist(exhausted);
+            NotificationPushJob belowLimit = persistJob(PushJobStatus.SENDING, NOW);
+            ReflectionTestUtils.setField(belowLimit, "attempts", MAX_ATTEMPTS - 1);
+            persist(belowLimit);
+
+            int failed = jobRepository.failExhausted(
+                    List.of(exhausted.getId(), belowLimit.getId()), MAX_ATTEMPTS, NOW, "SWEEP_ATTEMPTS_EXHAUSTED");
+
+            assertThat(failed).isEqualTo(1);
+            NotificationPushJob found = reload(exhausted);
+            assertThat(found.getStatus()).isEqualTo(PushJobStatus.FAILED);
+            assertThat(found.getLastError()).isEqualTo("SWEEP_ATTEMPTS_EXHAUSTED");
+            assertThat(reload(belowLimit).getStatus()).isEqualTo(PushJobStatus.SENDING);
+        }
+
+        @Test
+        @DisplayName("이미 끝난 작업은 시도 횟수가 넘어도 바꾸지 않는다")
+        void keepsFinishedJobs() {
+            NotificationPushJob sent = persistJob(PushJobStatus.SENT, NOW);
+            ReflectionTestUtils.setField(sent, "attempts", MAX_ATTEMPTS);
+            persist(sent);
+
+            int failed = jobRepository.failExhausted(List.of(sent.getId()), MAX_ATTEMPTS, NOW, "SWEEP_ATTEMPTS_EXHAUSTED");
+
+            assertThat(failed).isZero();
+            assertThat(reload(sent).getStatus()).isEqualTo(PushJobStatus.SENT);
+        }
+    }
+
     private NotificationPushJob persistJob(PushJobStatus status, LocalDateTime nextAttemptAt) {
         NotificationPushJob job = NotificationPushJob.create(persist(notification()), NOW);
         ReflectionTestUtils.setField(job, "status", status);

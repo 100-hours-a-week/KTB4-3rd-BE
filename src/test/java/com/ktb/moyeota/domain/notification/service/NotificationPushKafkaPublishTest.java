@@ -61,6 +61,7 @@ import tools.jackson.databind.json.JsonMapper;
 @DataJpaTest(properties = {
         "moyeota.notification.push.mode=kafka",
         "moyeota.notification.push.kafka.republish-after=1m",
+        "moyeota.notification.push.kafka.republish-published-after=30m",
         "spring.kafka.consumer.auto-offset-reset=earliest"})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @ImportAutoConfiguration({

@@ -106,6 +106,25 @@ public interface NotificationPushJobRepository extends JpaRepository<Notificatio
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE NotificationPushJob j
+            SET j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.FAILED,
+                j.lastError = :error,
+                j.updatedAt = :now
+            WHERE j.id IN :ids
+              AND j.attempts >= :maxAttempts
+              AND j.status IN (
+                  com.ktb.moyeota.domain.notification.entity.PushJobStatus.PENDING,
+                  com.ktb.moyeota.domain.notification.entity.PushJobStatus.PUBLISHED,
+                  com.ktb.moyeota.domain.notification.entity.PushJobStatus.SENDING)
+            """)
+    int failExhausted(
+            @Param("ids") Collection<Long> ids,
+            @Param("maxAttempts") int maxAttempts,
+            @Param("now") LocalDateTime now,
+            @Param("error") String error);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE NotificationPushJob j
             SET j.status = com.ktb.moyeota.domain.notification.entity.PushJobStatus.PENDING,
                 j.nextAttemptAt = :now,
                 j.updatedAt = :now
