@@ -34,6 +34,11 @@ public class NotificationCommandService {
     }
 
     @Transactional
+    public Notification createWithoutTarget(User recipient, NotificationType type, Long eventId, String content) {
+        return saveWithPushJob(Notification.createWithoutTarget(recipient, type, eventId, content));
+    }
+
+    @Transactional
     public Notification createForComment(User recipient, Long commentId, CommunityPost targetPost, String content) {
         return saveWithPushJob(Notification.createForComment(recipient, commentId, targetPost, content));
     }

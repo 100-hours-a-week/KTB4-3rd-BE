@@ -66,6 +66,7 @@ moyeota:
     ride-start-sweep-delay: 10s
     ride-end-sweep-delay: 10s
     auto-cancel-sweep-delay: 10m
+    request-expire-sweep-delay: 5m
   chat:
     close-sweep-delay: 10m
   settlement:
