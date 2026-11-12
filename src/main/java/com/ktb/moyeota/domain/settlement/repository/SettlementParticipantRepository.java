@@ -19,4 +19,11 @@ public interface SettlementParticipantRepository extends JpaRepository<Settlemen
              order by p.id
             """)
     List<SettlementParticipant> findAllWithUserBySettlementId(Long settlementId);
+
+    @Query("""
+            select new com.ktb.moyeota.domain.settlement.repository.TransferAmount(p.user.id, p.amount)
+              from SettlementParticipant p
+             where p.settlement.companion.id = :companionId
+            """)
+    List<TransferAmount> findTransferAmountsByCompanionId(Long companionId);
 }
