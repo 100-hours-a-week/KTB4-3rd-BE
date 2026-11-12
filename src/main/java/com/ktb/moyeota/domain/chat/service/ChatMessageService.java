@@ -18,13 +18,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class ChatMessageService {
+@ConditionalOnProperty(prefix = "moyeota.chat", name = "message-store", havingValue = "mysql", matchIfMissing = true)
+public class ChatMessageService implements ChatMessageReader {
 
     private static final int PAGE_SIZE = 20;
     private static final int ANCHOR_SIDE_SIZE = 10;
@@ -39,8 +41,9 @@ public class ChatMessageService {
     private static final String DIRECTION_AFTER = "after";
 
 
+    @Override
     @Transactional(readOnly = true)
-    public MessageListResponse findMessages(
+    public MessageListResponse<MessageItem> findMessages(
             Long userId, Long roomId, String direction, String before, String after) {
         CompanionParticipant participant = companionParticipantRepository
                 .findActiveByChatRoomIdAndUserId(roomId, userId)
@@ -69,36 +72,36 @@ public class ChatMessageService {
         throw new BusinessException(ChatErrorCode.INVALID_DIRECTION);
     }
 
-    private MessageListResponse findOlder(Long roomId, Long beforeId, String keptAfterCursor) {
+    private MessageListResponse<MessageItem> findOlder(Long roomId, Long beforeId, String keptAfterCursor) {
         Chunk older = olderThan(roomId, beforeId, PAGE_SIZE);
-        return new MessageListResponse(
+        return new MessageListResponse<>(
                 toItems(older.messages()),
                 older.hasMore() ? cursorOf(last(older.messages())) : null,
                 keptAfterCursor);
     }
 
-    private MessageListResponse findNewer(Long roomId, Long afterId, String keptBeforeCursor) {
+    private MessageListResponse<MessageItem> findNewer(Long roomId, Long afterId, String keptBeforeCursor) {
         Chunk newer = newerThan(roomId, afterId, PAGE_SIZE);
-        return new MessageListResponse(
+        return new MessageListResponse<>(
                 toItems(newer.messages()),
                 keptBeforeCursor,
                 newer.hasMore() ? cursorOf(newer.messages().get(0)) : null);
     }
 
-    private MessageListResponse findFirstEntry(Long roomId, Message lastRead) {
+    private MessageListResponse<MessageItem> findFirstEntry(Long roomId, Message lastRead) {
         if (lastRead != null) {
             Chunk unread = newerThan(roomId, lastRead.getId(), ANCHOR_SIDE_SIZE);
             if (!unread.messages().isEmpty()) {
                 Chunk read = olderThan(roomId, lastRead.getId() + 1, ANCHOR_SIDE_SIZE);
                 List<Message> merged = new ArrayList<>(unread.messages());
                 merged.addAll(read.messages());
-                return new MessageListResponse(toItems(merged),
+                return new MessageListResponse<>(toItems(merged),
                         read.hasMore() && !read.messages().isEmpty() ? cursorOf(last(read.messages())) : null,
                         unread.hasMore() ? cursorOf(unread.messages().get(0)) : null);
             }
         }
         Chunk latest = olderThan(roomId, null, PAGE_SIZE);
-        return new MessageListResponse(
+        return new MessageListResponse<>(
                 toItems(latest.messages()), latest.hasMore() ? cursorOf(last(latest.messages())) : null, null);
     }
 

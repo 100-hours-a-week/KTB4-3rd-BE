@@ -1,7 +1,7 @@
 package com.ktb.moyeota.domain.chat.controller;
 
 import com.ktb.moyeota.domain.chat.dto.MessageListResponse;
-import com.ktb.moyeota.domain.chat.service.ChatMessageService;
+import com.ktb.moyeota.domain.chat.service.ChatMessageReader;
 import com.ktb.moyeota.global.common.ApiResponse;
 import com.ktb.moyeota.global.security.resolver.AuthUser;
 import lombok.RequiredArgsConstructor;
@@ -17,17 +17,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ChatMessageController {
 
-    private final ChatMessageService chatMessageService;
+    private final ChatMessageReader chatMessageReader;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<MessageListResponse>> list(
+    public ResponseEntity<ApiResponse<MessageListResponse<?>>> list(
             @AuthUser Long userId,
             @PathVariable("room_id") Long roomId,
             @RequestParam(value = "direction", required = false) String direction,
             @RequestParam(value = "before", required = false) String before,
             @RequestParam(value = "after", required = false) String after
     ) {
-        MessageListResponse response = chatMessageService.findMessages(userId, roomId, direction, before, after);
+        MessageListResponse<?> response = chatMessageReader.findMessages(userId, roomId, direction, before, after);
         return ResponseEntity.ok(ApiResponse.success("조회에 성공했습니다", response));
     }
 }
