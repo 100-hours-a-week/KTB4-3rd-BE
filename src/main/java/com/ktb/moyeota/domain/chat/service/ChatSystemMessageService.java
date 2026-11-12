@@ -94,6 +94,16 @@ public class ChatSystemMessageService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public void transferDone(ChatRoom chatRoom, User transferrer, int amount) {
+        transferDone(chatRoom, transferrer, amount, newSystemMessageKey());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestSettlementConfirm(ChatRoom chatRoom) {
+        requestSettlementConfirm(chatRoom, newSystemMessageKey());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void enter(ChatRoom chatRoom, User joiner, String messageKey) {
         publishOnce(chatRoom, Message.joinSystemMessage(chatRoom, joiner, messageKey, null));
     }
@@ -137,16 +147,32 @@ public class ChatSystemMessageService {
                 SystemMessageText.TRANSFER_UNVERIFIED.getText()));
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void transferDone(ChatRoom chatRoom, User transferrer, int amount, String messageKey) {
+        publishOnce(chatRoom, Message.transferDoneSystemMessage(chatRoom, transferrer, messageKey), null, amount);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requestSettlementConfirm(ChatRoom chatRoom, String messageKey) {
+        publishOnce(chatRoom, Message.settlementConfirmRequestedSystemMessage(chatRoom, messageKey,
+                SystemMessageText.SETTLEMENT_CONFIRM_REQUESTED.getText()));
+    }
+
     private void publishOnce(ChatRoom chatRoom, Message message) {
         publishOnce(chatRoom, message, null);
     }
 
     private void publishOnce(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
+        publishOnce(chatRoom, message, settlement, null);
+    }
+
+    private void publishOnce(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement,
+                             Integer transferAmount) {
         chatRoomRepository.findByIdForUpdate(chatRoom.getId());
         if (messageRepository.existsByChatRoomIdAndClientMessageId(chatRoom.getId(), message.getClientMessageId())) {
             return;
         }
-        save(chatRoom, message, settlement);
+        save(chatRoom, message, settlement, transferAmount);
     }
 
     private void publish(ChatRoom chatRoom, Message message) {
@@ -155,14 +181,14 @@ public class ChatSystemMessageService {
 
     private void publish(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
         chatRoomRepository.findByIdForUpdate(chatRoom.getId());
-        save(chatRoom, message, settlement);
+        save(chatRoom, message, settlement, null);
     }
 
-    private void save(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement) {
+    private void save(ChatRoom chatRoom, Message message, MessageItem.Settlement settlement, Integer transferAmount) {
         Message saved = messageRepository.save(message);
         chatRoom.updateLastMessageId(saved.getId());
-        eventPublisher.publishEvent(
-                new ChatMessageCreatedEvent(chatRoom.getId(), MessageItem.from(saved, null, settlement)));
+        eventPublisher.publishEvent(new ChatMessageCreatedEvent(chatRoom.getId(),
+                MessageItem.from(saved, null, settlement, transferAmount)));
     }
 
     private static String newSystemMessageKey() {

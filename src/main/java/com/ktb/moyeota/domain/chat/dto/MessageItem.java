@@ -16,12 +16,19 @@ public record MessageItem(
         SystemActor leaver,
         String content,
         LocalDateTime createdAt,
-        Settlement settlement
+        Settlement settlement,
+        SystemActor transferrer,
+        Integer amount
 ) implements ChatMessageView {
 
     public MessageItem(Long id, MessageType type, Sender sender, SystemActor joiner, SystemActor leaver,
                        String content, LocalDateTime createdAt) {
         this(id, type, sender, joiner, leaver, content, createdAt, null);
+    }
+
+    public MessageItem(Long id, MessageType type, Sender sender, SystemActor joiner, SystemActor leaver,
+                       String content, LocalDateTime createdAt, Settlement settlement) {
+        this(id, type, sender, joiner, leaver, content, createdAt, settlement, null, null);
     }
 
     public record Sender(
@@ -45,6 +52,11 @@ public record MessageItem(
     }
 
     public static MessageItem from(Message message, String senderProfileImageUrl, Settlement settlement) {
+        return from(message, senderProfileImageUrl, settlement, null);
+    }
+
+    public static MessageItem from(Message message, String senderProfileImageUrl, Settlement settlement,
+                                   Integer transferAmount) {
         return switch (message.getMessageType()) {
             case TEXT -> text(message, senderProfileImageUrl);
             case SYSTEM_JOIN -> join(message);
@@ -54,7 +66,8 @@ public record MessageItem(
             case SYSTEM_RIDE_STARTED -> rideStarted(message);
             case SYSTEM_RIDE_ENDED -> rideEnded(message);
             case SYSTEM_TRANSFER_REQUESTED -> transferRequested(message, settlement);
-            case SYSTEM_METER_REQUESTED, SYSTEM_TRANSFER_DONE, SYSTEM_TRANSFER_UNVERIFIED,
+            case SYSTEM_TRANSFER_DONE -> transferDone(message, transferAmount);
+            case SYSTEM_METER_REQUESTED, SYSTEM_TRANSFER_UNVERIFIED,
                  SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, SYSTEM_SETTLEMENT_COMPLETED -> systemNotice(message);
         };
     }
@@ -182,6 +195,22 @@ public record MessageItem(
                 message.getContent(),
                 message.getCreatedAt(),
                 settlement
+        );
+    }
+
+    private static MessageItem transferDone(Message message, Integer amount) {
+        User transferrer = message.getSender();
+        return new MessageItem(
+                message.getId(),
+                message.getMessageType(),
+                null,
+                null,
+                null,
+                null,
+                message.getCreatedAt(),
+                null,
+                new SystemActor(transferrer.getId(), transferrer.getName()),
+                amount
         );
     }
 }

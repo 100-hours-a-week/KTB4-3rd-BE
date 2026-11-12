@@ -21,4 +21,8 @@ public interface SystemMessageWriter {
     void completeSettlement(ChatRoom chatRoom, String messageKey);
 
     void notifyTransferUnverified(ChatRoom chatRoom, String messageKey);
+
+    void transferDone(ChatRoom chatRoom, User transferrer, int amount, String messageKey);
+
+    void requestSettlementConfirm(ChatRoom chatRoom, String messageKey);
 }
