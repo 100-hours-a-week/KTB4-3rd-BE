@@ -24,6 +24,8 @@ public class ChatSettlementFactConsumer {
     private static final Set<String> SUPPORTED_EVENTS = Set.of(
             SettlementChangedMessages.TRANSFER_REQUESTED,
             SettlementChangedMessages.TRANSFER_EXHAUSTED,
+            SettlementChangedMessages.TRANSFER_DONE,
+            SettlementChangedMessages.CONFIRM_REQUESTED,
             SettlementChangedMessages.COMPLETED);
 
     private final ChatSettlementFactWriter writer;
