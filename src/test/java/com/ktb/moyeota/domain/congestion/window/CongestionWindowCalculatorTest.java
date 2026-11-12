@@ -13,7 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 class CongestionWindowCalculatorTest {
 
     private final CongestionWindowCalculator calculator =
-            new CongestionWindowCalculator(new CongestionWindowProperties(7, 10, 17, 20));
+            new CongestionWindowCalculator(new CongestionWindowProperties(7, 10, 17, 20, 10, 60));
 
     @ParameterizedTest(name = "평일 {0} 은 {1} ~ {2} 구간이다")
     @CsvSource({
@@ -59,6 +59,22 @@ class CongestionWindowCalculatorTest {
 
         assertThat(window.start()).isEqualTo(OffsetDateTime.parse("2026-11-03T07:00+09:00"));
         assertThat(window.end()).isEqualTo(OffsetDateTime.parse("2026-11-03T07:10+09:00"));
+    }
+
+    @ParameterizedTest(name = "평시 구간을 10분으로 두면 {0} 은 {1} ~ {2} 구간이다")
+    @CsvSource({
+            "2026-11-02T14:35:00+09:00, 2026-11-02T14:30+09:00, 2026-11-02T14:40+09:00",
+            "2026-11-07T07:05:00+09:00, 2026-11-07T07:00+09:00, 2026-11-07T07:10+09:00",
+            "2026-11-02T23:55:00+09:00, 2026-11-02T23:50+09:00, 2026-11-03T00:00+09:00"
+    })
+    void configuredDefaultMinutes(String time, String start, String end) {
+        CongestionWindowCalculator tenMinutes =
+                new CongestionWindowCalculator(new CongestionWindowProperties(7, 10, 17, 20, 10, 10));
+
+        CongestionWindow window = tenMinutes.windowContaining(at(time));
+
+        assertThat(window.start()).isEqualTo(OffsetDateTime.parse(start));
+        assertThat(window.end()).isEqualTo(OffsetDateTime.parse(end));
     }
 
     private static Instant at(String time) {

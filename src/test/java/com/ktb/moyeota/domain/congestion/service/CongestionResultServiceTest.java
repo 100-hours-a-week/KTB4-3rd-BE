@@ -272,7 +272,7 @@ class CongestionResultServiceTest {
 
         @Bean
         CongestionWindowProperties congestionWindowProperties() {
-            return new CongestionWindowProperties(7, 10, 17, 20);
+            return new CongestionWindowProperties(7, 10, 17, 20, 10, 60);
         }
     }
 }

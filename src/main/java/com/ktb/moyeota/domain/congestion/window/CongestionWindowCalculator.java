@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 public class CongestionWindowCalculator {
 
     private static final ZoneId WINDOW_ZONE = ZoneId.of("Asia/Seoul");
-    private static final int COMMUTE_WINDOW_MINUTES = 10;
-    private static final int DEFAULT_WINDOW_MINUTES = 60;
 
     private final CongestionWindowProperties properties;
 
@@ -30,9 +28,9 @@ public class CongestionWindowCalculator {
 
     private int windowMinutes(ZonedDateTime time) {
         if (isWorkday(time.toLocalDate()) && properties.isCommuteHour(time.getHour())) {
-            return COMMUTE_WINDOW_MINUTES;
+            return properties.commuteMinutes();
         }
-        return DEFAULT_WINDOW_MINUTES;
+        return properties.defaultMinutes();
     }
 
     private static boolean isWorkday(LocalDate date) {

@@ -30,7 +30,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 class CongestionWindowCloserTest {
 
     private final CongestionWindowCalculator calculator =
-            new CongestionWindowCalculator(new CongestionWindowProperties(7, 10, 17, 20));
+            new CongestionWindowCalculator(new CongestionWindowProperties(7, 10, 17, 20, 10, 60));
     private final RecordingRequester requester = new RecordingRequester();
 
     @Autowired
