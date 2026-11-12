@@ -13,6 +13,7 @@ import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.kafka.config.StreamsBuilderFactoryBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class MatchingStreamsConfigTest {
 
@@ -46,5 +47,13 @@ class MatchingStreamsConfigTest {
                 .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
         runner.withPropertyValues("APP_ROLE=matching")
                 .run(context -> assertThat(context).doesNotHaveBean(StreamsBuilderFactoryBean.class));
+    }
+
+    @Test
+    @DisplayName("Streams 가 닫힐 때 컨슈머 그룹에서 나가도록 설정한다")
+    void leavesGroupOnClose() {
+        runner.withPropertyValues("APP_ROLE=matching", "moyeota.taxi-pot.matching.mode=kafka")
+                .run(context -> assertThat(ReflectionTestUtils.getField(
+                        context.getBean(StreamsBuilderFactoryBean.class), "leaveGroupOnClose")).isEqualTo(true));
     }
 }
