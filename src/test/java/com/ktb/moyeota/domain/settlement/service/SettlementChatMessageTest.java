@@ -20,6 +20,8 @@ import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageUrlResolver;
 import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.event.SettlementConfirmRequestedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferDoneEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
@@ -205,6 +207,47 @@ class SettlementChatMessageTest {
                 settlement.getId(), settlement.getCompanion().getId()));
 
         assertThat(messagesInRoom()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("송금이 확인되면 송금 완료 메시지가, 전원 확인되면 방장 확인 요청 메시지가 남고 목록에 송금한 사람 id · 이름 · 청구 금액이 실린다")
+    void leavesTransferDoneAndConfirmRequestedMessages() {
+        settlementService.requestManually(host.getId(), settlement.getId(), 26000);
+        Long companionId = settlement.getCompanion().getId();
+
+        eventPublisher.publishEvent(new SettlementTransferDoneEvent(settlement.getId(), companionId, rider.getId()));
+        eventPublisher.publishEvent(new SettlementConfirmRequestedEvent(settlement.getId(), companionId));
+
+        assertThat(messagesInRoom()).extracting(Message::getMessageType).containsExactly(
+                MessageType.SYSTEM_TRANSFER_REQUESTED, MessageType.SYSTEM_TRANSFER_DONE,
+                MessageType.SYSTEM_SETTLEMENT_CONFIRM_REQUESTED);
+        List<MessageItem> items = chatMessageService.findMessages(host.getId(), chatRoom.getId(), null, null, null)
+                .items();
+        assertThat(items).filteredOn(item -> item.type() == MessageType.SYSTEM_TRANSFER_DONE).singleElement()
+                .satisfies(item -> {
+                    assertThat(item.content()).isNull();
+                    assertThat(item.transferrer()).isEqualTo(new MessageItem.SystemActor(rider.getId(), rider.getName()));
+                    assertThat(item.amount()).isEqualTo(8666);
+                    assertThat(item.sender()).isNull();
+                });
+        assertThat(items).filteredOn(item -> item.type() == MessageType.SYSTEM_SETTLEMENT_CONFIRM_REQUESTED)
+                .extracting(MessageItem::content).containsExactly("모두의 송금이 정상적으로 도착했나요?");
+    }
+
+    @Test
+    @DisplayName("송금 완료 메시지의 이름은 저장하지 않아 이름이 바뀌면 목록에 바뀐 이름이 실린다")
+    void transferDoneShowsCurrentName() {
+        settlementService.requestManually(host.getId(), settlement.getId(), 26000);
+        eventPublisher.publishEvent(new SettlementTransferDoneEvent(
+                settlement.getId(), settlement.getCompanion().getId(), rider.getId()));
+        ReflectionTestUtils.setField(entityManager.find(User.class, rider.getId()), "name", "바뀐이름");
+        flushAndClear();
+
+        List<MessageItem> items = chatMessageService.findMessages(host.getId(), chatRoom.getId(), null, null, null)
+                .items();
+
+        assertThat(items).filteredOn(item -> item.type() == MessageType.SYSTEM_TRANSFER_DONE)
+                .extracting(item -> item.transferrer().name()).containsExactly("바뀐이름");
     }
 
     private MessageItem.Settlement expectedSummary() {

@@ -16,12 +16,14 @@ import com.ktb.moyeota.domain.chat.event.ChatMessageCreatedEvent;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.message.SettlementChangedData;
 import com.ktb.moyeota.domain.settlement.message.SettlementChangedMessages;
 import com.ktb.moyeota.domain.settlement.service.SettlementSummaryReader;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
 import com.ktb.moyeota.global.crypto.CryptoProperties;
+import com.ktb.moyeota.global.event.InvalidEventException;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,13 +57,14 @@ class ChatSettlementFactWriterTest {
     private TestEntityManager entityManager;
 
     private User host;
+    private User rider;
     private ChatRoom chatRoom;
     private Settlement settlement;
 
     @BeforeEach
     void setUp() {
         host = entityManager.persist(bankAccountHolder("방장", accountNoCipher.encrypt("11012345678")));
-        User rider = entityManager.persist(bankAccountHolder("동승자"));
+        rider = entityManager.persist(bankAccountHolder("동승자"));
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 2));
         chatRoom = entityManager.persist(ChatRoom.create(pot));
         entityManager.persist(participant(pot, host, PENDING));
@@ -99,6 +102,56 @@ class ChatSettlementFactWriterTest {
                 tuple(MessageType.SYSTEM_TRANSFER_UNVERIFIED,
                         "송금 확인이 어려워요. 대면으로 송금 내역을 확인한 뒤 방장이 정산을 완료해주세요"),
                 tuple(MessageType.SYSTEM_SETTLEMENT_COMPLETED, "정산이 완료됐어요"));
+    }
+
+    @Test
+    @DisplayName("송금 완료 사실은 송금한 사람만 남기고, 전달하는 메시지에 송금한 사람 id · 이름 · 청구 금액을 싣는다")
+    void writesTransferDone() {
+        settlement.requestManually(26000);
+        entityManager.persist(SettlementParticipant.charge(settlement, rider, 13000));
+        entityManager.flush();
+
+        writer.write(eventId(), SettlementChangedMessages.TRANSFER_DONE,
+                new SettlementChangedData(settlement.getId(), chatRoom.getCompanion().getId(), rider.getId()));
+
+        assertThat(messagesInRoom()).singleElement().satisfies(message -> {
+            assertThat(message.getMessageType()).isEqualTo(MessageType.SYSTEM_TRANSFER_DONE);
+            assertThat(message.getContent()).isNull();
+            assertThat(message.getSender().getId()).isEqualTo(rider.getId());
+        });
+        assertThat(events.stream(ChatMessageCreatedEvent.class)).singleElement()
+                .extracting(ChatMessageCreatedEvent::message)
+                .extracting(MessageItem::transferrer, MessageItem::amount, MessageItem::content)
+                .containsExactly(new MessageItem.SystemActor(rider.getId(), rider.getName()), 13000, null);
+    }
+
+    @Test
+    @DisplayName("송금한 사람의 청구가 없으면 남기지 않고 실패한다")
+    void failsTransferDoneWithoutCharge() {
+        assertThatThrownBy(() -> writer.write(eventId(), SettlementChangedMessages.TRANSFER_DONE,
+                new SettlementChangedData(settlement.getId(), chatRoom.getCompanion().getId(), rider.getId())))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(messagesInRoom()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("방장 확인 요청 사실은 송금 도착 확인 안내 메시지를 남긴다")
+    void writesConfirmRequested() {
+        writer.write(eventId(), SettlementChangedMessages.CONFIRM_REQUESTED, data());
+
+        assertThat(messagesInRoom()).extracting(Message::getMessageType, Message::getContent).containsExactly(
+                tuple(MessageType.SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, "모두의 송금이 정상적으로 도착했나요?"));
+    }
+
+    @Test
+    @DisplayName("송금한 사람이 없는 송금 완료 사실은 남기지 않고 실패한다")
+    void failsTransferDoneWithoutUser() {
+        settlement.requestManually(26000);
+        entityManager.flush();
+
+        assertThatThrownBy(() -> writer.write(eventId(), SettlementChangedMessages.TRANSFER_DONE, data()))
+                .isInstanceOf(InvalidEventException.class);
+        assertThat(messagesInRoom()).isEmpty();
     }
 
     @Test

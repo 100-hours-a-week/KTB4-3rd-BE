@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.ktb.moyeota.domain.settlement.event.SettlementCompletedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementConfirmRequestedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferDoneEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import com.ktb.moyeota.domain.settlement.message.SettlementChangedMessages;
@@ -59,5 +61,22 @@ class SettlementOutboxListenerTest {
         JsonNode data = jsonMapper.readTree(recorded.get(0).getPayload());
         assertThat(data.get("settlement_id").asLong()).isEqualTo(11L);
         assertThat(data.get("companion_id").asLong()).isEqualTo(101L);
+    }
+
+    @Test
+    @DisplayName("송금 완료는 송금한 사람과 함께, 방장 확인 요청은 정산 · 동행만 남긴다")
+    void recordsTransferDoneAndConfirmRequested() {
+        eventPublisher.publishEvent(new SettlementTransferDoneEvent(11L, 101L, 7L));
+        eventPublisher.publishEvent(new SettlementConfirmRequestedEvent(11L, 101L));
+
+        List<OutboxEvent> recorded = outboxEventRepository.findAll().stream()
+                .sorted(Comparator.comparing(OutboxEvent::getId))
+                .toList();
+        assertThat(recorded).extracting(OutboxEvent::getTopic, OutboxEvent::getMessageKey, OutboxEvent::getEventType)
+                .containsExactly(
+                        tuple(SettlementChangedMessages.TOPIC, "101", SettlementChangedMessages.TRANSFER_DONE),
+                        tuple(SettlementChangedMessages.TOPIC, "101", SettlementChangedMessages.CONFIRM_REQUESTED));
+        assertThat(jsonMapper.readTree(recorded.get(0).getPayload()).get("user_id").asLong()).isEqualTo(7L);
+        assertThat(jsonMapper.readTree(recorded.get(1).getPayload()).get("user_id").isNull()).isTrue();
     }
 }
