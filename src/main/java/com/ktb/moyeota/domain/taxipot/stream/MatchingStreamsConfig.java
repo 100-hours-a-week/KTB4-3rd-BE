@@ -41,6 +41,9 @@ public class MatchingStreamsConfig {
 
     @Bean
     public StreamsBuilderFactoryBeanConfigurer matchingStreamsAvailability(ApplicationEventPublisher publisher) {
-        return factoryBean -> factoryBean.setStateListener(new MatchingStreamsAvailability(publisher));
+        return factoryBean -> {
+            factoryBean.setStateListener(new MatchingStreamsAvailability(publisher));
+            factoryBean.setLeaveGroupOnClose(true);
+        };
     }
 }
