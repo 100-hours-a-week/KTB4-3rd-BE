@@ -21,6 +21,8 @@ import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
+import com.ktb.moyeota.domain.settlement.event.SettlementConfirmRequestedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferDoneEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.TransferAnalysisRequestedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -120,6 +122,38 @@ class TransferAnalysisServiceTest {
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "PASSED", true, 1), sentTo(host, "PASSED", true, 1));
         assertThat(exhaustedEventCount()).isZero();
+        assertThat(events.stream(SettlementTransferDoneEvent.class)).containsExactly(
+                new SettlementTransferDoneEvent(settlement.getId(), settlement.getCompanion().getId(), rider.getId()));
+        assertThat(events.stream(SettlementConfirmRequestedEvent.class)).containsExactly(
+                new SettlementConfirmRequestedEvent(settlement.getId(), settlement.getCompanion().getId()));
+    }
+
+    @Test
+    @DisplayName("송금을 확인하지 않은 동승자가 남아 있으면 송금 완료만 알리고 방장 확인은 요청하지 않는다")
+    void otherRiderPending() {
+        givenOtherRiderCharge();
+        given(aiAnalysisClient.readTransfer(any())).willReturn(new AnalysisOutcome.Read<>(6000));
+
+        transferAnalysisService.analyze(request(1));
+
+        assertThat(events.stream(SettlementTransferDoneEvent.class)).containsExactly(
+                new SettlementTransferDoneEvent(settlement.getId(), settlement.getCompanion().getId(), rider.getId()));
+        assertThat(events.stream(SettlementConfirmRequestedEvent.class)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("방장이 먼저 정산을 완료했으면 늦게 온 분석 결과로 송금 완료 · 방장 확인을 알리지 않는다")
+    void settlementAlreadyCompleted() {
+        Settlement managed = entityManager.find(Settlement.class, settlement.getId());
+        ReflectionTestUtils.setField(managed, "status", SettlementStatus.COMPLETED);
+        flushAndClear();
+        given(aiAnalysisClient.readTransfer(any())).willReturn(new AnalysisOutcome.Read<>(6000));
+
+        transferAnalysisService.analyze(request(1));
+
+        assertThat(reloadCharge().isTransferCompleted()).isTrue();
+        assertThat(events.stream(SettlementTransferDoneEvent.class)).isEmpty();
+        assertThat(events.stream(SettlementConfirmRequestedEvent.class)).isEmpty();
     }
 
     @Test
@@ -135,6 +169,8 @@ class TransferAnalysisServiceTest {
         assertThat(saved.getTransferImageAnalysisTrialCount()).isEqualTo(1);
         assertThat(userEventSender.sent()).containsExactly(
                 sentTo(rider, "PASSED", false, 1), sentTo(host, "PASSED", false, 1));
+        assertThat(events.stream(SettlementTransferDoneEvent.class)).isEmpty();
+        assertThat(events.stream(SettlementConfirmRequestedEvent.class)).isEmpty();
     }
 
     @Test
@@ -236,6 +272,14 @@ class TransferAnalysisServiceTest {
 
     private TransferAnalysisRequestedEvent request(int attempt) {
         return new TransferAnalysisRequestedEvent(settlement.getId(), rider.getId(), TRANSFER_KEY, attempt, REQUESTED_AT);
+    }
+
+    private void givenOtherRiderCharge() {
+        User otherRider = entityManager.persist(bankAccountHolder("동승자2"));
+        Settlement managed = entityManager.find(Settlement.class, settlement.getId());
+        entityManager.persist(participant(managed.getCompanion(), otherRider, COMPLETED));
+        entityManager.persist(SettlementParticipant.charge(managed, otherRider, 6000));
+        flushAndClear();
     }
 
     private void givenAnalyzing(int trialCount) {

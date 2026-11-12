@@ -147,7 +147,7 @@ class ChatSettlementFactConsumerTest {
         private final BlockingQueue<Written> written;
 
         RecordingWriter(BlockingQueue<Written> written) {
-            super(null, null, null);
+            super(null, null, null, null);
             this.written = written;
         }
 

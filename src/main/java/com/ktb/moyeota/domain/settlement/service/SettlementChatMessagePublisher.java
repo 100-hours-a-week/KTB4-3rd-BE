@@ -3,7 +3,10 @@ package com.ktb.moyeota.domain.settlement.service;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
+import com.ktb.moyeota.domain.user.repository.UserRepository;
 import com.ktb.moyeota.domain.settlement.event.SettlementCompletedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementConfirmRequestedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferDoneEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import java.util.Optional;
@@ -21,6 +24,7 @@ public class SettlementChatMessagePublisher {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatSystemMessageService chatSystemMessageService;
     private final SettlementSummaryReader settlementSummaryReader;
+    private final UserRepository userRepository;
 
     @EventListener
     public void onTransferRequested(SettlementTransferRequestedEvent event) {
@@ -36,6 +40,18 @@ public class SettlementChatMessagePublisher {
     @EventListener
     public void onTransferExhausted(SettlementTransferExhaustedEvent event) {
         openChatRoom(event.companionId()).ifPresent(chatSystemMessageService::notifyTransferUnverified);
+    }
+
+    @EventListener
+    public void onTransferDone(SettlementTransferDoneEvent event) {
+        openChatRoom(event.companionId()).ifPresent(chatRoom -> chatSystemMessageService.transferDone(
+                chatRoom, userRepository.findById(event.userId()).orElseThrow(),
+                settlementSummaryReader.findTransferAmounts(event.companionId()).get(event.userId())));
+    }
+
+    @EventListener
+    public void onConfirmRequested(SettlementConfirmRequestedEvent event) {
+        openChatRoom(event.companionId()).ifPresent(chatSystemMessageService::requestSettlementConfirm);
     }
 
     private Optional<ChatRoom> openChatRoom(Long companionId) {

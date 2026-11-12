@@ -69,6 +69,17 @@ public class MongoSystemMessageWriter implements SystemMessageWriter {
                 SystemMessageText.TRANSFER_UNVERIFIED.getText(), messageKey, null);
     }
 
+    @Override
+    public void transferDone(ChatRoom chatRoom, User transferrer, int amount, String messageKey) {
+        appendOnce(chatRoom, MessageType.SYSTEM_TRANSFER_DONE, transferrer, null, messageKey, null, amount);
+    }
+
+    @Override
+    public void requestSettlementConfirm(ChatRoom chatRoom, String messageKey) {
+        appendOnce(chatRoom, MessageType.SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, null,
+                SystemMessageText.SETTLEMENT_CONFIRM_REQUESTED.getText(), messageKey, null);
+    }
+
     public void requestRideStart(ChatRoom chatRoom) {
         appendOnce(chatRoom, MessageType.SYSTEM_RIDE_START_REQUESTED, null, null, SystemMessageKeys.forCompanion(
                 chatRoom.getCompanion().getId(), MessageType.SYSTEM_RIDE_START_REQUESTED), null);
@@ -81,6 +92,11 @@ public class MongoSystemMessageWriter implements SystemMessageWriter {
 
     private void appendOnce(ChatRoom chatRoom, MessageType type, User actor, String content, String messageKey,
             Settlement settlement) {
+        appendOnce(chatRoom, type, actor, content, messageKey, settlement, null);
+    }
+
+    private void appendOnce(ChatRoom chatRoom, MessageType type, User actor, String content, String messageKey,
+            Settlement settlement, Integer transferAmount) {
         if (chatMessageRepository.findByClientMessageId(chatRoom.getId(), messageKey).isPresent()) {
             return;
         }
@@ -88,6 +104,6 @@ public class MongoSystemMessageWriter implements SystemMessageWriter {
                 actor == null ? null : actor.getId(), messageKey, content, clock.instant()));
         SystemActor systemActor = actor == null ? null : new SystemActor(actor.getId(), actor.getName());
         eventPublisher.publishEvent(new ChatMessageAppendedEvent(chatRoom.getId(),
-                ChatMessageItem.system(saved, systemActor, settlement, clock.getZone())));
+                ChatMessageItem.system(saved, systemActor, settlement, transferAmount, clock.getZone())));
     }
 }

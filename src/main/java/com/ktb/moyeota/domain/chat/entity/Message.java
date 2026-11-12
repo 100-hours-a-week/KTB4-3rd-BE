@@ -94,6 +94,15 @@ public class Message {
         return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_TRANSFER_UNVERIFIED, content);
     }
 
+    public static Message transferDoneSystemMessage(ChatRoom chatRoom, User transferrer, String clientMessageId) {
+        return new Message(chatRoom, transferrer, clientMessageId, MessageType.SYSTEM_TRANSFER_DONE, null);
+    }
+
+    public static Message settlementConfirmRequestedSystemMessage(ChatRoom chatRoom, String clientMessageId,
+                                                                  String content) {
+        return new Message(chatRoom, null, clientMessageId, MessageType.SYSTEM_SETTLEMENT_CONFIRM_REQUESTED, content);
+    }
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();

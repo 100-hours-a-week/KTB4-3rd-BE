@@ -17,6 +17,7 @@ import com.ktb.moyeota.global.exception.CommonErrorCode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -149,9 +150,27 @@ public class ChatMessageService {
 
     private List<MessageItem> toItems(List<Message> messages) {
         MessageItem.Settlement settlement = settlementOf(messages);
+        Map<Long, Integer> transferAmounts = transferAmountsOf(messages);
         return messages.stream()
-                .map(message -> MessageItem.from(message, senderProfileImageUrl(message), settlement))
+                .map(message -> MessageItem.from(message, senderProfileImageUrl(message), settlement,
+                        transferAmountOf(message, transferAmounts)))
                 .toList();
+    }
+
+    private Map<Long, Integer> transferAmountsOf(List<Message> messages) {
+        return messages.stream()
+                .filter(message -> message.getMessageType() == MessageType.SYSTEM_TRANSFER_DONE)
+                .findFirst()
+                .map(message -> settlementSummaryReader.findTransferAmounts(
+                        message.getChatRoom().getCompanion().getId()))
+                .orElse(Map.of());
+    }
+
+    private static Integer transferAmountOf(Message message, Map<Long, Integer> transferAmounts) {
+        if (message.getMessageType() != MessageType.SYSTEM_TRANSFER_DONE) {
+            return null;
+        }
+        return transferAmounts.get(message.getSender().getId());
     }
 
     private MessageItem.Settlement settlementOf(List<Message> messages) {

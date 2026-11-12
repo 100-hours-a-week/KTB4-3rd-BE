@@ -1,6 +1,8 @@
 package com.ktb.moyeota.domain.settlement.service;
 
 import com.ktb.moyeota.domain.settlement.event.SettlementCompletedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementConfirmRequestedEvent;
+import com.ktb.moyeota.domain.settlement.event.SettlementTransferDoneEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferExhaustedEvent;
 import com.ktb.moyeota.domain.settlement.event.SettlementTransferRequestedEvent;
 import com.ktb.moyeota.domain.settlement.message.SettlementChangedData;
@@ -29,12 +31,27 @@ public class SettlementOutboxListener {
     }
 
     @EventListener
+    public void onTransferDone(SettlementTransferDoneEvent event) {
+        record(SettlementChangedMessages.TRANSFER_DONE,
+                new SettlementChangedData(event.settlementId(), event.companionId(), event.userId()));
+    }
+
+    @EventListener
+    public void onConfirmRequested(SettlementConfirmRequestedEvent event) {
+        record(event.settlementId(), event.companionId(), SettlementChangedMessages.CONFIRM_REQUESTED);
+    }
+
+    @EventListener
     public void onCompleted(SettlementCompletedEvent event) {
         record(event.settlementId(), event.companionId(), SettlementChangedMessages.COMPLETED);
     }
 
     private void record(Long settlementId, Long companionId, String eventType) {
-        outboxRecorder.record(SettlementChangedMessages.TOPIC, SettlementChangedMessages.key(companionId), eventType,
-                SettlementChangedMessages.SCHEMA_VERSION, new SettlementChangedData(settlementId, companionId));
+        record(eventType, new SettlementChangedData(settlementId, companionId));
+    }
+
+    private void record(String eventType, SettlementChangedData data) {
+        outboxRecorder.record(SettlementChangedMessages.TOPIC, SettlementChangedMessages.key(data.companionId()),
+                eventType, SettlementChangedMessages.SCHEMA_VERSION, data);
     }
 }

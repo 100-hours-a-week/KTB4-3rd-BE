@@ -2,9 +2,13 @@ package com.ktb.moyeota.domain.settlement.service;
 
 import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.repository.SettlementParticipantRepository;
 import com.ktb.moyeota.domain.settlement.repository.SettlementRepository;
+import com.ktb.moyeota.domain.settlement.repository.TransferAmount;
 import com.ktb.moyeota.global.crypto.AccountNoCipher;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +17,18 @@ import org.springframework.stereotype.Component;
 public class SettlementSummaryReader {
 
     private final SettlementRepository settlementRepository;
+    private final SettlementParticipantRepository settlementParticipantRepository;
     private final AccountNoCipher accountNoCipher;
 
     public Optional<MessageItem.Settlement> findByCompanionId(Long companionId) {
         return settlementRepository.findWithPayeeByCompanionId(companionId)
                 .filter(settlement -> settlement.getTotalAmount() != null)
                 .map(this::summarize);
+    }
+
+    public Map<Long, Integer> findTransferAmounts(Long companionId) {
+        return settlementParticipantRepository.findTransferAmountsByCompanionId(companionId).stream()
+                .collect(Collectors.toMap(TransferAmount::userId, TransferAmount::amount));
     }
 
     public MessageItem.Settlement summarize(Settlement settlement) {

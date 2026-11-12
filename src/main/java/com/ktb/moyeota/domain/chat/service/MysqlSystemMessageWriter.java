@@ -53,4 +53,14 @@ public class MysqlSystemMessageWriter implements SystemMessageWriter {
     public void notifyTransferUnverified(ChatRoom chatRoom, String messageKey) {
         chatSystemMessageService.notifyTransferUnverified(chatRoom, messageKey);
     }
+
+    @Override
+    public void transferDone(ChatRoom chatRoom, User transferrer, int amount, String messageKey) {
+        chatSystemMessageService.transferDone(chatRoom, transferrer, amount, messageKey);
+    }
+
+    @Override
+    public void requestSettlementConfirm(ChatRoom chatRoom, String messageKey) {
+        chatSystemMessageService.requestSettlementConfirm(chatRoom, messageKey);
+    }
 }
