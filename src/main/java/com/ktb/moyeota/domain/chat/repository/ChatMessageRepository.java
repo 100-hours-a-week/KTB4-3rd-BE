@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.chat.repository;
 import com.ktb.moyeota.domain.chat.document.ChatMessage;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -44,6 +45,28 @@ public class ChatMessageRepository {
     public Optional<ChatMessage> findByClientMessageId(Long roomId, String clientMessageId) {
         Query query = new Query(Criteria.where("room_id").is(roomId).and("client_message_id").is(clientMessageId));
         return Optional.ofNullable(mongoTemplate.findOne(query, ChatMessage.class));
+    }
+
+    /**
+     * {@code beforeSeq} 보다 작은 번호를 큰 것부터 {@code limit} 개 읽는다. {@code beforeSeq} 가 없으면 가장 최근부터 읽는다.
+     */
+    public List<ChatMessage> findOlder(Long roomId, Long beforeSeq, int limit) {
+        Criteria criteria = Criteria.where("room_id").is(roomId);
+        if (beforeSeq != null) {
+            criteria = criteria.and("seq").lt(beforeSeq);
+        }
+        Query query = new Query(criteria).with(Sort.by(Sort.Direction.DESC, "seq")).limit(limit);
+        return mongoTemplate.find(query, ChatMessage.class);
+    }
+
+    /**
+     * {@code afterSeq} 보다 큰 번호를 작은 것부터 {@code limit} 개 읽는다. 커서에 가까운 것부터 잘라야 해서 오름차순으로 읽는다.
+     */
+    public List<ChatMessage> findNewer(Long roomId, long afterSeq, int limit) {
+        Query query = new Query(Criteria.where("room_id").is(roomId).and("seq").gt(afterSeq))
+                .with(Sort.by(Sort.Direction.ASC, "seq"))
+                .limit(limit);
+        return mongoTemplate.find(query, ChatMessage.class);
     }
 
     private long lastSeq(Long roomId) {

@@ -104,7 +104,7 @@ class ChatMessageServiceTest {
             givenParticipant(null);
             givenRoomMessages(List.of());
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(response.items()).isEmpty();
             assertThat(response.beforeCursor()).isNull();
@@ -117,7 +117,7 @@ class ChatMessageServiceTest {
             givenParticipant(null);
             givenRoomMessages(range(1, 15));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 15));
             assertThat(response.beforeCursor()).isNull();
@@ -130,7 +130,7 @@ class ChatMessageServiceTest {
             givenParticipant(60L);
             givenRoomMessages(range(1, 60));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(41, 60));
             assertThat(cursorId(response.beforeCursor())).isEqualTo(41L);
@@ -143,7 +143,7 @@ class ChatMessageServiceTest {
             givenParticipant(5L);
             givenRoomMessages(range(1, 12));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 12));
             assertThat(response.beforeCursor()).isNull();
@@ -156,7 +156,7 @@ class ChatMessageServiceTest {
             givenParticipant(5L);
             givenRoomMessages(range(1, 30));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 15));
             assertThat(response.beforeCursor()).isNull();
@@ -169,7 +169,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 35));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(21, 35));
             assertThat(cursorId(response.beforeCursor())).isEqualTo(21L);
@@ -182,7 +182,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 60));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(21, 40));
             assertThat(cursorId(response.beforeCursor())).isEqualTo(21L);
@@ -195,7 +195,7 @@ class ChatMessageServiceTest {
             givenParticipant(100L);
             givenRoomMessages(List.of(98L, 99L, 100L, 101L));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactly(101L, 100L, 99L, 98L);
         }
@@ -206,7 +206,7 @@ class ChatMessageServiceTest {
             givenParticipant(100L);
             givenRoomMessages(List.of(90L, 100L, 107L, 115L));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(ids(response)).containsExactly(115L, 107L, 100L, 90L);
         }
@@ -222,7 +222,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 60));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(21L), null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(21L), null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 20));
             assertThat(response.beforeCursor()).isNull();
@@ -235,7 +235,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 60));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(41L), null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(41L), null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(21, 40));
             assertThat(cursorId(response.beforeCursor())).isEqualTo(21L);
@@ -248,7 +248,7 @@ class ChatMessageServiceTest {
             givenParticipant(999L);
             givenRoomMessages(range(1, 60));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(11L), null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(11L), null);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 10));
         }
@@ -265,7 +265,7 @@ class ChatMessageServiceTest {
             givenRoomMessages(range(1, 60));
             String after = cursor(40L);
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(21L), after);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "before", cursor(21L), after);
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(1, 20));
             assertThat(response.beforeCursor()).isNull();
@@ -279,7 +279,7 @@ class ChatMessageServiceTest {
             givenRoomMessages(range(1, 52));
             String before = cursor(21L);
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "after", before, cursor(40L));
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "after", before, cursor(40L));
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(41, 52));
             assertThat(response.beforeCursor()).isEqualTo(before);
@@ -297,7 +297,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 52));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "after", null, cursor(40L));
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "after", null, cursor(40L));
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(41, 52));
             assertThat(response.beforeCursor()).isNull();
@@ -310,7 +310,7 @@ class ChatMessageServiceTest {
             givenParticipant(30L);
             givenRoomMessages(range(1, 100));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, "after", null, cursor(40L));
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, "after", null, cursor(40L));
 
             assertThat(ids(response)).containsExactlyElementsOf(desc(41, 60));
             assertThat(response.beforeCursor()).isNull();
@@ -399,7 +399,7 @@ class ChatMessageServiceTest {
             given(messageRepository.findByChatRoomIdWithSender(eq(ROOM_ID), any(), any(Pageable.class)))
                     .willReturn(List.of(message(1L)));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(response.items().get(0).sender().profileImageUrl())
                     .isEqualTo("https://cdn.moyeota.test/profile/a.png");
@@ -415,7 +415,7 @@ class ChatMessageServiceTest {
             given(messageRepository.findByChatRoomIdWithSender(eq(ROOM_ID), any(), any(Pageable.class)))
                     .willReturn(List.of(rideStarted, message(1L)));
 
-            MessageListResponse response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
+            MessageListResponse<MessageItem> response = service.findMessages(USER_ID, ROOM_ID, null, null, null);
 
             assertThat(response.items()).hasSize(2);
             assertThat(response.items().get(0).sender()).isNull();
@@ -465,7 +465,7 @@ class ChatMessageServiceTest {
         return new MessageCursorCodec().decode(cursor).id();
     }
 
-    private static List<Long> ids(MessageListResponse response) {
+    private static List<Long> ids(MessageListResponse<MessageItem> response) {
         return response.items().stream().map(MessageItem::id).toList();
     }
 
