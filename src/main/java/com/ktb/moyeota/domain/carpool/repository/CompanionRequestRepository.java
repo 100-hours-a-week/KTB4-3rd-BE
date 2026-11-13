@@ -23,6 +23,11 @@ public interface CompanionRequestRepository extends JpaRepository<CompanionReque
     long countByCompanionIdAndRequesterIdAndRejectReason(
             Long companionId, Long requesterId, RejectReason rejectReason);
 
+    /**
+     * 남은 PENDING 요청을 최신 커밋 값으로 읽어 잠근다 (SELECT ... FOR UPDATE).
+     * 일반 SELECT 는 트랜잭션의 첫 조회 시점 스냅샷을 읽어, 그 사이 방장이 거절한 요청을 다시 거절할 수 있다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select r from CompanionRequest r
               join fetch r.requester
