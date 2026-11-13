@@ -52,7 +52,7 @@ public class CarpoolRequestService {
     @Transactional
     public SentJoinRequest send(Long userId, Long carpoolId, String content) {
         User requester = findActiveUser(userId);
-        Companion carpool = carpoolRepository.findCarpool(carpoolId)
+        Companion carpool = carpoolRepository.findCarpoolForUpdate(carpoolId)
                 .orElseThrow(() -> new BusinessException(CarpoolErrorCode.CARPOOL_NOT_FOUND));
         validateRequestable(carpool, userId);
 
