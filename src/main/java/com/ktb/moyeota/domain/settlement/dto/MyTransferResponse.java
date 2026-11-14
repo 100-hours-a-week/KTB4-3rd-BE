@@ -9,6 +9,8 @@ public record MyTransferResponse(
         int participantCount,
         String groupSettlementStatus,
         @JsonInclude(NON_NULL) String memberAnalysisStatus,
+        @JsonInclude(NON_NULL) Boolean transferCompleted,
+        @JsonInclude(NON_NULL) Integer remainingTransferAttempts,
         @JsonInclude(NON_NULL) Integer amount,
         @JsonInclude(NON_NULL) LocalDateTime transferredAt,
         @JsonInclude(NON_NULL) Payee payee) {

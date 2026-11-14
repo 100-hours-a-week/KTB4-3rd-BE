@@ -53,6 +53,8 @@ public class SettlementOverviewService {
                 imageUrlResolver.toUrl(payer.getProfileImageUrl()),
                 charge.getAmount(),
                 charge.getAnalysisStatus(),
+                charge.isTransferCompleted(),
+                charge.remainingTransferAttempts(),
                 charge.getTransferredAt(),
                 charge.getTransferImageUrl() != null);
     }

@@ -22,6 +22,8 @@ public record SettlementOverview(
             String profileImageUrl,
             int amount,
             TransferAnalysisStatus analysisStatus,
+            boolean transferCompleted,
+            int remainingTransferAttempts,
             LocalDateTime transferredAt,
             boolean hasTransferProof) {
     }
