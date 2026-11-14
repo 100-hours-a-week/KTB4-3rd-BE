@@ -10,6 +10,8 @@ public record MyTransfer(int participantCount, SettlementStatus status, Optional
     public record Charge(
             int amount,
             TransferAnalysisStatus analysisStatus,
+            boolean transferCompleted,
+            int remainingTransferAttempts,
             LocalDateTime transferredAt,
             Payee payee) {
     }

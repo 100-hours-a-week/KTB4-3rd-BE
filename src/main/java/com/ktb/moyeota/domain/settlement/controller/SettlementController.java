@@ -145,12 +145,14 @@ public class SettlementController {
                         transfer.participantCount(),
                         transfer.status().name(),
                         charge.analysisStatus().name(),
+                        charge.transferCompleted(),
+                        charge.remainingTransferAttempts(),
                         charge.amount(),
                         charge.transferredAt(),
                         new MyTransferResponse.Payee(charge.payee().id(),
                                 charge.payee().name(), charge.payee().bankName(), charge.payee().accountNo())))
                 .orElseGet(() -> new MyTransferResponse(
-                        transfer.participantCount(), transfer.status().name(), null, null, null, null));
+                        transfer.participantCount(), transfer.status().name(), null, null, null, null, null, null));
     }
 
     private static TransferSubmissionResponse toResponse(TransferSubmission submission) {
@@ -177,6 +179,8 @@ public class SettlementController {
                                 payer.profileImageUrl(),
                                 payer.amount(),
                                 payer.analysisStatus().name(),
+                                payer.transferCompleted(),
+                                payer.remainingTransferAttempts(),
                                 payer.transferredAt(),
                                 payer.hasTransferProof()))
                         .toList());

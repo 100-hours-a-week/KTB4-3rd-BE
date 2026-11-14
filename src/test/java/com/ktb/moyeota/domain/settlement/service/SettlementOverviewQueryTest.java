@@ -109,6 +109,8 @@ class SettlementOverviewQueryTest {
         assertThat(overview.payers()).allSatisfy(payer -> {
             assertThat(payer.amount()).isEqualTo(3333);
             assertThat(payer.analysisStatus()).isEqualTo(TransferAnalysisStatus.PENDING);
+            assertThat(payer.transferCompleted()).isFalse();
+            assertThat(payer.remainingTransferAttempts()).isEqualTo(2);
             assertThat(payer.transferredAt()).isNull();
             assertThat(payer.hasTransferProof()).isFalse();
         });
@@ -143,6 +145,46 @@ class SettlementOverviewQueryTest {
             assertThat(payer.analysisStatus()).isEqualTo(TransferAnalysisStatus.PENDING);
             assertThat(payer.hasTransferProof()).isFalse();
         });
+    }
+
+    @Test
+    @DisplayName("송금 인증 기회를 다 쓴 동승자는 남은 횟수 0 · 송금 미확인이고 다른 동승자는 그대로다")
+    void reflectsExhaustedAttempts() {
+        requestPayment();
+        SettlementParticipant charge = chargeOf(rider);
+        charge.submitTransfer("transfer/first.jpg");
+        charge.failTransfer();
+        charge.submitTransfer("transfer/second.jpg");
+        charge.failTransfer();
+        flushAndClear();
+
+        SettlementOverview overview = settlementOverviewService.find(host.getId(), settlement.getId());
+
+        assertThat(overview.payers().get(0)).satisfies(payer -> {
+            assertThat(payer.analysisStatus()).isEqualTo(TransferAnalysisStatus.FAILED);
+            assertThat(payer.transferCompleted()).isFalse();
+            assertThat(payer.remainingTransferAttempts()).isZero();
+        });
+        assertThat(overview.payers().get(1)).satisfies(payer -> {
+            assertThat(payer.transferCompleted()).isFalse();
+            assertThat(payer.remainingTransferAttempts()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    @DisplayName("송금 금액이 맞은 동승자는 송금 확인으로 돌려준다")
+    void reflectsConfirmedTransfer() {
+        requestPayment();
+        SettlementParticipant charge = chargeOf(rider);
+        charge.submitTransfer("transfer/first.jpg");
+        charge.recordTransferAmount(3333);
+        flushAndClear();
+
+        SettlementOverview.Payer payer = settlementOverviewService.find(host.getId(), settlement.getId())
+                .payers().get(0);
+
+        assertThat(payer.transferCompleted()).isTrue();
+        assertThat(payer.remainingTransferAttempts()).isEqualTo(1);
     }
 
     @Test
@@ -187,16 +229,20 @@ class SettlementOverviewQueryTest {
     }
 
     private void submitProof(User payer) {
-        SettlementParticipant charge = entityManager.getEntityManager()
+        SettlementParticipant charge = chargeOf(payer);
+        ReflectionTestUtils.setField(charge, "transferImageUrl", "transfer/rider.jpg");
+        ReflectionTestUtils.setField(charge, "analysisStatus", TransferAnalysisStatus.PASSED);
+        ReflectionTestUtils.setField(charge, "transferredAt", TRANSFERRED_AT);
+        flushAndClear();
+    }
+
+    private SettlementParticipant chargeOf(User payer) {
+        return entityManager.getEntityManager()
                 .createQuery("SELECT p FROM SettlementParticipant p WHERE p.settlement.id = :sid AND p.user.id = :uid",
                         SettlementParticipant.class)
                 .setParameter("sid", settlement.getId())
                 .setParameter("uid", payer.getId())
                 .getSingleResult();
-        ReflectionTestUtils.setField(charge, "transferImageUrl", "transfer/rider.jpg");
-        ReflectionTestUtils.setField(charge, "analysisStatus", TransferAnalysisStatus.PASSED);
-        ReflectionTestUtils.setField(charge, "transferredAt", TRANSFERRED_AT);
-        flushAndClear();
     }
 
     private void flushAndClear() {

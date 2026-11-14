@@ -22,6 +22,8 @@ public record SettlementOverviewResponse(
             String profileImageUrl,
             int amount,
             String memberAnalysisStatus,
+            boolean transferCompleted,
+            int remainingTransferAttempts,
             @JsonInclude(NON_NULL) LocalDateTime transferredAt,
             boolean hasTransferProof) {
     }
