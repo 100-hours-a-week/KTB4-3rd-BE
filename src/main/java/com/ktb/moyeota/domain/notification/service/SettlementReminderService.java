@@ -17,7 +17,10 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -54,25 +57,38 @@ public class SettlementReminderService {
         ChatRoom chatRoom = reminderRepository.findChatRoom(taxiPot.getId())
                 .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
         Long hostId = chatRoom.getCompanion().getHost().getId();
+        List<CompanionParticipant> participants = reminderRepository.findPendingParticipants(taxiPot.getId());
+        if (participants.isEmpty()) {
+            return;
+        }
+        Map<Long, ExistingReminder> existing = existingReminders(participants, settlement.getId());
         LocalDateTime now = now();
         List<Long> jobIds = new ArrayList<>();
-        for (CompanionParticipant participant : reminderRepository.findPendingParticipants(taxiPot.getId())) {
+        for (CompanionParticipant participant : participants) {
             User recipient = participant.getUser();
             String content = recipient.getId().equals(hostId) ? HOST_CONTENT : RIDER_CONTENT;
-            remindRecipient(recipient, settlement.getId(), chatRoom, content, round, now).ifPresent(jobIds::add);
+            remindRecipient(recipient, settlement.getId(), chatRoom, content, existing.get(recipient.getId()), round,
+                    now).ifPresent(jobIds::add);
         }
         if (!jobIds.isEmpty()) {
             eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds));
         }
     }
 
+    private Map<Long, ExistingReminder> existingReminders(List<CompanionParticipant> participants,
+                                                         Long settlementId) {
+        List<Long> recipientIds = participants.stream().map(participant -> participant.getUser().getId()).toList();
+        return reminderRepository.findReminders(recipientIds, settlementId).stream()
+                .collect(Collectors.toMap(reminder -> reminder.notification().getRecipient().getId(),
+                        Function.identity()));
+    }
+
     private Optional<Long> remindRecipient(User recipient, Long settlementId, ChatRoom chatRoom, String content,
-                                           LocalDateTime round, LocalDateTime now) {
-        Optional<ExistingReminder> existing = reminderRepository.findReminder(recipient.getId(), settlementId);
-        if (existing.isEmpty()) {
+                                           ExistingReminder existing, LocalDateTime round, LocalDateTime now) {
+        if (existing == null) {
             return Optional.of(create(recipient, settlementId, chatRoom, content, now));
         }
-        return resend(existing.get(), content, round, now);
+        return resend(existing, content, round, now);
     }
 
     private Long create(User recipient, Long settlementId, ChatRoom chatRoom, String content, LocalDateTime now) {

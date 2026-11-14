@@ -17,6 +17,7 @@ import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -114,8 +115,8 @@ class SettlementReminderRepositoryTest {
     }
 
     @Nested
-    @DisplayName("findReminder")
-    class FindReminder {
+    @DisplayName("findReminders")
+    class FindReminders {
 
         private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 28, 9, 0);
 
@@ -137,8 +138,9 @@ class SettlementReminderRepositoryTest {
             entityManager.flush();
             entityManager.clear();
 
-            assertThat(reminderRepository.findReminder(host.getId(), settlement.getId()))
-                    .hasValueSatisfying(found -> {
+            assertThat(reminderRepository.findReminders(List.of(host.getId()), settlement.getId()))
+                    .singleElement()
+                    .satisfies(found -> {
                         assertThat(found.notification().getId()).isEqualTo(notification.getId());
                         assertThat(found.job().getId()).isEqualTo(job.getId());
                     });
@@ -151,23 +153,29 @@ class SettlementReminderRepositoryTest {
             entityManager.flush();
             entityManager.clear();
 
-            assertThat(reminderRepository.findReminder(host.getId(), settlement.getId()))
-                    .hasValueSatisfying(found -> {
+            assertThat(reminderRepository.findReminders(List.of(host.getId()), settlement.getId()))
+                    .singleElement()
+                    .satisfies(found -> {
                         assertThat(found.notification().getId()).isEqualTo(notification.getId());
                         assertThat(found.job()).isNull();
                     });
         }
 
         @Test
-        @DisplayName("다른 사람이나 다른 정산의 알림은 돌려주지 않는다")
+        @DisplayName("받을 사람 여럿의 알림을 한 번에 돌려주고, 목록에 없는 사람과 다른 정산의 알림은 뺀다")
         void onlyMatching() {
             User rider = entityManager.persist(bankAccountHolder("동승자"));
-            reminder(rider, settlement.getId());
+            User other = entityManager.persist(bankAccountHolder("다른사람"));
+            Notification hostReminder = reminder(host, settlement.getId());
+            Notification riderReminder = reminder(rider, settlement.getId());
+            reminder(other, settlement.getId());
             reminder(host, settlement.getId() + 1);
             entityManager.flush();
             entityManager.clear();
 
-            assertThat(reminderRepository.findReminder(host.getId(), settlement.getId())).isEmpty();
+            assertThat(reminderRepository.findReminders(List.of(host.getId(), rider.getId()), settlement.getId()))
+                    .extracting(found -> found.notification().getId())
+                    .containsExactlyInAnyOrder(hostReminder.getId(), riderReminder.getId());
         }
 
         private Notification reminder(User recipient, Long settlementId) {

@@ -4,6 +4,7 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.Lock;
@@ -54,10 +55,10 @@ public interface SettlementReminderRepository extends Repository<Settlement, Lon
             SELECT new com.ktb.moyeota.domain.notification.repository.ExistingReminder(n, j)
             FROM Notification n
             LEFT JOIN NotificationPushJob j ON j.notification = n
-            WHERE n.recipient.id = :recipientId
+            WHERE n.recipient.id IN :recipientIds
               AND n.type = com.ktb.moyeota.domain.notification.entity.NotificationType.SETTLEMENT_COMPLETION_REMINDER
               AND n.eventId = :settlementId
             """)
-    Optional<ExistingReminder> findReminder(@Param("recipientId") Long recipientId,
-                                            @Param("settlementId") Long settlementId);
+    List<ExistingReminder> findReminders(@Param("recipientIds") Collection<Long> recipientIds,
+                                         @Param("settlementId") Long settlementId);
 }
