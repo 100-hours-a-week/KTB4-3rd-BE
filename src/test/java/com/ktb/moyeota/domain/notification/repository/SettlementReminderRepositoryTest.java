@@ -62,17 +62,18 @@ class SettlementReminderRepositoryTest {
     }
 
     @Nested
-    @DisplayName("findRequestedForUpdate")
-    class FindRequestedForUpdate {
+    @DisplayName("findRequestedCompanionIdForUpdate")
+    class FindRequestedCompanionIdForUpdate {
 
         @Test
-        @DisplayName("REQUESTED인 정산은 조회된다")
+        @DisplayName("REQUESTED인 정산은 택시팟 id를 돌려준다")
         void requested() {
             Settlement settlement = SettlementReminderRepositoryTest.this.requested(
                     taxiPot(host, CompanionStatus.COMPLETED, 3));
             entityManager.flush();
 
-            assertThat(reminderRepository.findRequestedForUpdate(settlement.getId())).isPresent();
+            assertThat(reminderRepository.findRequestedCompanionIdForUpdate(settlement.getId()))
+                    .contains(settlement.getCompanion().getId());
         }
 
         @Test
@@ -83,12 +84,12 @@ class SettlementReminderRepositoryTest {
             settlement.complete();
             entityManager.flush();
 
-            assertThat(reminderRepository.findRequestedForUpdate(settlement.getId())).isEmpty();
+            assertThat(reminderRepository.findRequestedCompanionIdForUpdate(settlement.getId())).isEmpty();
         }
     }
 
     @Test
-    @DisplayName("findPendingParticipants: 나가거나 완주한 참여자는 제외한다")
+    @DisplayName("findPendingRecipientIds: 나가거나 완주한 참여자는 제외한다")
     void pendingParticipants() {
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
         User rider = entityManager.persist(bankAccountHolder("동승자"));
@@ -100,19 +101,19 @@ class SettlementReminderRepositoryTest {
         entityManager.persist(participant(pot, finisher, COMPLETED));
         entityManager.flush();
 
-        assertThat(reminderRepository.findPendingParticipants(pot.getId()))
-                .extracting(participant -> participant.getUser().getId())
+        assertThat(reminderRepository.findPendingRecipientIds(pot.getId()))
                 .containsExactly(host.getId(), rider.getId());
     }
 
     @Test
-    @DisplayName("findChatRoom: 택시팟의 채팅방을 조회한다")
+    @DisplayName("findReminderRoom: 택시팟의 채팅방 id와 방장 id를 돌려준다")
     void chatRoom() {
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
         ChatRoom chatRoom = entityManager.persist(ChatRoom.create(pot));
         entityManager.flush();
 
-        assertThat(reminderRepository.findChatRoom(pot.getId())).contains(chatRoom);
+        assertThat(reminderRepository.findReminderRoom(pot.getId()))
+                .contains(new ReminderRoom(chatRoom.getId(), host.getId()));
     }
 
     @Nested

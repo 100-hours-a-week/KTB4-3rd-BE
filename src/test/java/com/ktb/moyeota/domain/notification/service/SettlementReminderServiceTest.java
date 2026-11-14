@@ -292,14 +292,15 @@ class SettlementReminderServiceTest {
     }
 
     @Test
-    @DisplayName("방장을 알아낼 때 택시팟을 따로 불러오지 않는다")
-    void doesNotLazyLoadTaxiPot() {
+    @DisplayName("정산 · 채팅방 · 참여자를 값으로만 읽어 엔티티를 하나도 불러오지 않는다")
+    void loadsNoEntity() {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
         statistics.clear();
         try {
             reminderService.remind(settlement.getId(), ROUND);
 
+            assertThat(statistics.getEntityLoadCount()).isZero();
             assertThat(statistics.getEntityFetchCount()).isZero();
         } finally {
             statistics.setStatisticsEnabled(false);

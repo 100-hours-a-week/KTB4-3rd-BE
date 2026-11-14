@@ -1,17 +1,14 @@
 package com.ktb.moyeota.domain.notification.service;
 
-import com.ktb.moyeota.domain.chat.entity.ChatRoom;
-import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
-import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.notification.entity.SettlementReminderText;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
+import com.ktb.moyeota.domain.notification.repository.ReminderRoom;
 import com.ktb.moyeota.domain.notification.repository.ReminderState;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.NewReminder;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.OpenedJob;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.RemindedNotification;
-import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -51,28 +48,25 @@ public class SettlementReminderService {
     public void remindAll(List<Long> settlementIds, LocalDateTime round) {
         Writes writes = new Writes(now());
         for (Long settlementId : settlementIds) {
-            reminderRepository.findRequestedForUpdate(settlementId)
-                    .ifPresent(settlement -> collect(settlement, round, writes));
+            reminderRepository.findRequestedCompanionIdForUpdate(settlementId)
+                    .ifPresent(taxiPotId -> collect(settlementId, taxiPotId, round, writes));
         }
         writes.apply(reminderWriter).forEach((settlementId, jobIds) ->
                 eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds)));
     }
 
-    private void collect(Settlement settlement, LocalDateTime round, Writes writes) {
-        Companion taxiPot = settlement.getCompanion();
-        ChatRoom chatRoom = reminderRepository.findChatRoom(taxiPot.getId())
-                .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
-        Long hostId = chatRoom.getCompanion().getHost().getId();
-        List<CompanionParticipant> participants = reminderRepository.findPendingParticipants(taxiPot.getId());
-        if (participants.isEmpty()) {
+    private void collect(Long settlementId, Long taxiPotId, LocalDateTime round, Writes writes) {
+        ReminderRoom room = reminderRepository.findReminderRoom(taxiPotId)
+                .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPotId));
+        List<Long> recipientIds = reminderRepository.findPendingRecipientIds(taxiPotId);
+        if (recipientIds.isEmpty()) {
             return;
         }
-        List<Long> recipientIds = participants.stream().map(participant -> participant.getUser().getId()).toList();
-        Map<Long, ReminderState> states = reminderRepository.findReminders(recipientIds, settlement.getId()).stream()
+        Map<Long, ReminderState> states = reminderRepository.findReminders(recipientIds, settlementId).stream()
                 .collect(Collectors.toMap(ReminderState::recipientId, Function.identity()));
         for (Long recipientId : recipientIds) {
-            String content = SettlementReminderText.of(recipientId.equals(hostId)).getText();
-            writes.add(recipientId, settlement.getId(), chatRoom.getId(), content, states.get(recipientId), round);
+            String content = SettlementReminderText.of(recipientId.equals(room.hostId())).getText();
+            writes.add(recipientId, settlementId, room.chatRoomId(), content, states.get(recipientId), round);
         }
     }
 

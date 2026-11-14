@@ -1,7 +1,5 @@
 package com.ktb.moyeota.domain.notification.repository;
 
-import com.ktb.moyeota.domain.chat.entity.ChatRoom;
-import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
@@ -26,30 +24,29 @@ public interface SettlementReminderRepository extends Repository<Settlement, Lon
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT s
+            SELECT s.companion.id
             FROM Settlement s
             WHERE s.id = :id
               AND s.status = com.ktb.moyeota.domain.settlement.entity.SettlementStatus.REQUESTED
             """)
-    Optional<Settlement> findRequestedForUpdate(@Param("id") Long id);
+    Optional<Long> findRequestedCompanionIdForUpdate(@Param("id") Long id);
 
     @Query("""
-            SELECT p
+            SELECT p.user.id
             FROM CompanionParticipant p
-            JOIN FETCH p.user
             WHERE p.companion.id = :companionId
               AND p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
             ORDER BY p.id
             """)
-    List<CompanionParticipant> findPendingParticipants(@Param("companionId") Long companionId);
+    List<Long> findPendingRecipientIds(@Param("companionId") Long companionId);
 
     @Query("""
-            SELECT r
+            SELECT new com.ktb.moyeota.domain.notification.repository.ReminderRoom(r.id, c.host.id)
             FROM ChatRoom r
-            JOIN FETCH r.companion
-            WHERE r.companion.id = :companionId
+            JOIN r.companion c
+            WHERE c.id = :companionId
             """)
-    Optional<ChatRoom> findChatRoom(@Param("companionId") Long companionId);
+    Optional<ReminderRoom> findReminderRoom(@Param("companionId") Long companionId);
 
     @Query("""
             SELECT new com.ktb.moyeota.domain.notification.repository.ReminderState(
