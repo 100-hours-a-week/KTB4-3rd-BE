@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
+import com.ktb.moyeota.domain.notification.entity.SettlementReminderText;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
@@ -102,8 +103,8 @@ class SettlementReminderServiceTest {
         Notification hostNotification = reminderOf(host);
         Notification riderNotification = reminderOf(rider);
         assertThat(notificationRepository.findAll()).hasSize(2);
-        assertThat(hostNotification.getContent()).isEqualTo(SettlementReminderService.HOST_CONTENT);
-        assertThat(riderNotification.getContent()).isEqualTo(SettlementReminderService.RIDER_CONTENT);
+        assertThat(hostNotification.getContent()).isEqualTo(SettlementReminderText.HOST.getText());
+        assertThat(riderNotification.getContent()).isEqualTo(SettlementReminderText.RIDER.getText());
         assertThat(hostNotification.getTargetChatRoom().getId()).isEqualTo(chatRoom.getId());
         assertThat(hostNotification.getCreatedAt()).isEqualTo(NOW);
         assertThat(jobOf(hostNotification).getStatus()).isEqualTo(PushJobStatus.PENDING);
@@ -136,7 +137,7 @@ class SettlementReminderServiceTest {
     void createsMissingJob() {
         Notification previous = entityManager.persist(Notification.createSettlementReminder(
                 entityManager.find(User.class, host.getId()), settlement.getId(),
-                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderService.HOST_CONTENT,
+                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderText.HOST.getText(),
                 PREVIOUS_ROUND));
         entityManager.flush();
         entityManager.clear();
@@ -314,7 +315,7 @@ class SettlementReminderServiceTest {
     private Notification previousReminder(User recipient, PushJobStatus status) {
         Notification notification = entityManager.persist(Notification.createSettlementReminder(
                 entityManager.find(User.class, recipient.getId()), settlement.getId(),
-                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderService.HOST_CONTENT,
+                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderText.HOST.getText(),
                 PREVIOUS_ROUND));
         ReflectionTestUtils.setField(notification, "readAt", PREVIOUS_ROUND.plusMinutes(5));
         NotificationPushJob job = NotificationPushJob.create(notification, PREVIOUS_ROUND);

@@ -3,6 +3,7 @@ package com.ktb.moyeota.domain.notification.service;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.notification.entity.SettlementReminderText;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.ReminderState;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
@@ -30,11 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class SettlementReminderService {
-
-    static final String HOST_CONTENT =
-            "운행 종료를 안했습니다. 운행을 종료해주세요. 운행 종료를 해야 다른 택시팟 매칭에 참여가 가능합니다.";
-    static final String RIDER_CONTENT =
-            "방장에게 운행 종료 요청을 해주세요. 운행 종료를 해야 다른 택시팟 매칭에 참여가 가능합니다.";
 
     private final SettlementReminderRepository reminderRepository;
     private final SettlementReminderWriter reminderWriter;
@@ -75,7 +71,7 @@ public class SettlementReminderService {
         Map<Long, ReminderState> states = reminderRepository.findReminders(recipientIds, settlement.getId()).stream()
                 .collect(Collectors.toMap(ReminderState::recipientId, Function.identity()));
         for (Long recipientId : recipientIds) {
-            String content = recipientId.equals(hostId) ? HOST_CONTENT : RIDER_CONTENT;
+            String content = SettlementReminderText.of(recipientId.equals(hostId)).getText();
             writes.add(recipientId, settlement.getId(), chatRoom.getId(), content, states.get(recipientId), round);
         }
     }
