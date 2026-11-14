@@ -48,6 +48,15 @@ public class SettlementReminderService {
 
     @Transactional
     public void remind(Long settlementId, LocalDateTime round) {
+        remindIfRequested(settlementId, round);
+    }
+
+    @Transactional
+    public void remindAll(List<Long> settlementIds, LocalDateTime round) {
+        settlementIds.forEach(settlementId -> remindIfRequested(settlementId, round));
+    }
+
+    private void remindIfRequested(Long settlementId, LocalDateTime round) {
         reminderRepository.findRequestedForUpdate(settlementId)
                 .ifPresent(settlement -> remindParticipants(settlement, round));
     }

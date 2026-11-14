@@ -260,6 +260,36 @@ class SettlementReminderServiceTest {
     }
 
     @Test
+    @DisplayName("여러 정산을 한 번에 보내면 각 정산의 참여자에게 알림을 만들고, 완료된 정산은 건너뛴다")
+    void remindsAllInOneCall() {
+        User otherHost = entityManager.persist(bankAccountHolder("다른방장"));
+        Companion otherPot = entityManager.persist(taxiPot(otherHost, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(otherPot));
+        entityManager.persist(participant(otherPot, otherHost, PENDING));
+        Settlement other = entityManager.persist(Settlement.open(otherPot));
+        other.requestManually(9000);
+        User doneHost = entityManager.persist(bankAccountHolder("끝난방장"));
+        Companion donePot = entityManager.persist(taxiPot(doneHost, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(donePot));
+        entityManager.persist(participant(donePot, doneHost, PENDING));
+        Settlement done = entityManager.persist(Settlement.open(donePot));
+        done.requestManually(9000);
+        done.complete();
+        entityManager.flush();
+        entityManager.clear();
+
+        reminderService.remindAll(List.of(settlement.getId(), other.getId(), done.getId()), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(notificationRepository.findAll())
+                .extracting(notification -> notification.getRecipient().getId())
+                .containsExactlyInAnyOrder(host.getId(), rider.getId(), otherHost.getId());
+        assertThat(jobRepository.findAll()).hasSize(3);
+        assertThat(bulkPushRequests()).hasSize(2);
+    }
+
+    @Test
     @DisplayName("방장을 알아낼 때 택시팟을 따로 불러오지 않는다")
     void doesNotLazyLoadTaxiPot() {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
