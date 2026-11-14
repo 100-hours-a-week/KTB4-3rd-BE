@@ -26,6 +26,9 @@ spring:
       application-id: moyeota-matching
       properties:
         processing.guarantee: exactly_once_v2
+        deserialization.exception.handler: org.apache.kafka.streams.errors.LogAndContinueExceptionHandler
+        processing.exception.handler: org.apache.kafka.streams.errors.LogAndContinueProcessingExceptionHandler
+        errors.dead.letter.queue.topic.name: matching.request-dlt
   task:
     execution:
       mode: force
