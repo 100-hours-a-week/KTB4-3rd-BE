@@ -13,6 +13,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.image.service.ImageReadUrlIssuer;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
+import com.ktb.moyeota.domain.settlement.entity.SettlementParticipant;
 import com.ktb.moyeota.domain.settlement.entity.SettlementStatus;
 import com.ktb.moyeota.domain.settlement.entity.TransferAnalysisStatus;
 import com.ktb.moyeota.domain.settlement.error.SettlementErrorCode;
@@ -96,8 +97,47 @@ class TransferProofMyTransferTest {
         assertThat(transfer.charge()).hasValueSatisfying(charge -> {
             assertThat(charge.amount()).isEqualTo(6000);
             assertThat(charge.analysisStatus()).isEqualTo(TransferAnalysisStatus.PENDING);
+            assertThat(charge.transferCompleted()).isFalse();
+            assertThat(charge.remainingTransferAttempts()).isEqualTo(2);
             assertThat(charge.transferredAt()).isNull();
             assertThat(charge.payee()).isEqualTo(new MyTransfer.Payee(host.getId(), "홍길동", "kb", "11012345678"));
+        });
+    }
+
+    @Test
+    @DisplayName("송금 인증이 두 번 모두 확인되지 않으면 남은 횟수 0 · 송금 미확인을 돌려준다")
+    void afterAttemptsExhausted() {
+        settlementService.requestManually(host.getId(), settlement.getId(), 18000);
+        SettlementParticipant charge = chargeOf(rider);
+        charge.submitTransfer("transfer/first.jpg");
+        charge.failTransfer();
+        charge.submitTransfer("transfer/second.jpg");
+        charge.recordTransferAmount(1000);
+        flushAndClear();
+
+        MyTransfer transfer = transferProofService.findMine(rider.getId(), settlement.getId());
+
+        assertThat(transfer.charge()).hasValueSatisfying(mine -> {
+            assertThat(mine.analysisStatus()).isEqualTo(TransferAnalysisStatus.PASSED);
+            assertThat(mine.transferCompleted()).isFalse();
+            assertThat(mine.remainingTransferAttempts()).isZero();
+        });
+    }
+
+    @Test
+    @DisplayName("송금 금액이 맞으면 송금 확인 · 남은 횟수를 돌려준다")
+    void afterTransferConfirmed() {
+        settlementService.requestManually(host.getId(), settlement.getId(), 18000);
+        SettlementParticipant charge = chargeOf(rider);
+        charge.submitTransfer("transfer/first.jpg");
+        charge.recordTransferAmount(6000);
+        flushAndClear();
+
+        MyTransfer transfer = transferProofService.findMine(rider.getId(), settlement.getId());
+
+        assertThat(transfer.charge()).hasValueSatisfying(mine -> {
+            assertThat(mine.transferCompleted()).isTrue();
+            assertThat(mine.remainingTransferAttempts()).isEqualTo(1);
         });
     }
 
@@ -134,6 +174,16 @@ class TransferProofMyTransferTest {
                 SettlementErrorCode.SETTLEMENT_NOT_FOUND);
         assertErrorCode(() -> transferProofService.findMine(rider.getId(), 999L),
                 SettlementErrorCode.SETTLEMENT_NOT_FOUND);
+    }
+
+    private SettlementParticipant chargeOf(User payer) {
+        entityManager.flush();
+        return entityManager.getEntityManager()
+                .createQuery("SELECT p FROM SettlementParticipant p WHERE p.settlement.id = :sid AND p.user.id = :uid",
+                        SettlementParticipant.class)
+                .setParameter("sid", settlement.getId())
+                .setParameter("uid", payer.getId())
+                .getSingleResult();
     }
 
     private void flushAndClear() {

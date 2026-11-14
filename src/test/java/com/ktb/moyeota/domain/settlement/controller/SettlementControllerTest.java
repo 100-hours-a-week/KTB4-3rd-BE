@@ -322,7 +322,7 @@ class SettlementControllerTest {
     @DisplayName("청구를 받은 동승자에게 200과 보낼 금액 · 송금 상태 · 방장 계좌를 내린다")
     void myTransferCharged() throws Exception {
         given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
-                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PENDING, null,
+                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PENDING, false, 2, null,
                         new MyTransfer.Payee(7L, "김방장", "kb", "11012345678")))));
 
         mockMvc.perform(get(MY_TRANSFER).with(member()))
@@ -331,6 +331,8 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.participant_count").value(3))
                 .andExpect(jsonPath("$.data.group_settlement_status").value("REQUESTED"))
                 .andExpect(jsonPath("$.data.member_analysis_status").value("PENDING"))
+                .andExpect(jsonPath("$.data.transfer_completed").value(false))
+                .andExpect(jsonPath("$.data.remaining_transfer_attempts").value(2))
                 .andExpect(jsonPath("$.data.amount").value(6000))
                 .andExpect(jsonPath("$.data.payee.id").value(7))
                 .andExpect(jsonPath("$.data.payee.name").value("김방장"))
@@ -344,11 +346,13 @@ class SettlementControllerTest {
     @DisplayName("송금이 확인되면 송금 시각을 내린다")
     void myTransferDone() throws Exception {
         given(transferProofService.findMine(42L, 77L)).willReturn(new MyTransfer(3, SettlementStatus.REQUESTED,
-                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PASSED,
+                Optional.of(new MyTransfer.Charge(6000, TransferAnalysisStatus.PASSED, true, 1,
                         LocalDateTime.of(2026, 9, 7, 9, 1), new MyTransfer.Payee(7L, "김방장", "kb", "11012345678")))));
 
         mockMvc.perform(get(MY_TRANSFER).with(member()))
                 .andExpect(jsonPath("$.data.member_analysis_status").value("PASSED"))
+                .andExpect(jsonPath("$.data.transfer_completed").value(true))
+                .andExpect(jsonPath("$.data.remaining_transfer_attempts").value(1))
                 .andExpect(jsonPath("$.data.transferred_at").value("2026-09-07T09:01:00"));
     }
 
@@ -363,6 +367,8 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.participant_count").value(3))
                 .andExpect(jsonPath("$.data.group_settlement_status").value("PENDING"))
                 .andExpect(jsonPath("$.data", not(hasKey("member_analysis_status"))))
+                .andExpect(jsonPath("$.data", not(hasKey("transfer_completed"))))
+                .andExpect(jsonPath("$.data", not(hasKey("remaining_transfer_attempts"))))
                 .andExpect(jsonPath("$.data", not(hasKey("amount"))))
                 .andExpect(jsonPath("$.data", not(hasKey("payee"))));
     }
@@ -463,9 +469,9 @@ class SettlementControllerTest {
         given(settlementOverviewService.find(42L, 77L)).willReturn(new SettlementOverview(77L,
                 SettlementStatus.REQUESTED, MeterAnalysisStatus.MANUAL, 10000, 3333, 3, null, List.of(
                         new SettlementOverview.Payer(43L, "이다라", "https://img/profile/a.png", 3333,
-                                TransferAnalysisStatus.PASSED, LocalDateTime.of(2026, 9, 7, 9, 1), true),
+                                TransferAnalysisStatus.PASSED, true, 1, LocalDateTime.of(2026, 9, 7, 9, 1), true),
                         new SettlementOverview.Payer(44L, "박마바", null, 3333,
-                                TransferAnalysisStatus.PENDING, null, false))));
+                                TransferAnalysisStatus.PENDING, false, 2, null, false))));
 
         mockMvc.perform(get(SETTLEMENT).with(member()))
                 .andExpect(status().isOk())
@@ -482,9 +488,13 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.data.participants[0].profile_image_url").value("https://img/profile/a.png"))
                 .andExpect(jsonPath("$.data.participants[0].amount").value(3333))
                 .andExpect(jsonPath("$.data.participants[0].member_analysis_status").value("PASSED"))
+                .andExpect(jsonPath("$.data.participants[0].transfer_completed").value(true))
+                .andExpect(jsonPath("$.data.participants[0].remaining_transfer_attempts").value(1))
                 .andExpect(jsonPath("$.data.participants[0].transferred_at").value("2026-09-07T09:01:00"))
                 .andExpect(jsonPath("$.data.participants[0].has_transfer_proof").value(true))
                 .andExpect(jsonPath("$.data.participants[1].member_analysis_status").value("PENDING"))
+                .andExpect(jsonPath("$.data.participants[1].transfer_completed").value(false))
+                .andExpect(jsonPath("$.data.participants[1].remaining_transfer_attempts").value(2))
                 .andExpect(jsonPath("$.data.participants[1].has_transfer_proof").value(false))
                 .andExpect(jsonPath("$.data.participants[1]", not(hasKey("transferred_at"))));
     }
