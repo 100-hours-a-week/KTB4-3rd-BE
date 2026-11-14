@@ -130,6 +130,28 @@ class SettlementReminderServiceTest {
         assertThat(jobRepository.findAll()).hasSize(2);
     }
 
+    @Test
+    @DisplayName("이전 회차 알림에 발송 작업이 없으면 다시 쓰면서 발송 작업을 새로 만든다")
+    void createsMissingJob() {
+        Notification previous = entityManager.persist(Notification.createSettlementReminder(
+                entityManager.find(User.class, host.getId()), settlement.getId(),
+                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderService.HOST_CONTENT,
+                PREVIOUS_ROUND));
+        entityManager.flush();
+        entityManager.clear();
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        Notification reminded = reminderOf(host);
+        assertThat(reminded.getId()).isEqualTo(previous.getId());
+        assertThat(reminded.getCreatedAt()).isEqualTo(NOW);
+        assertThat(jobOf(reminded).getStatus()).isEqualTo(PushJobStatus.PENDING);
+        assertThat(bulkPushRequests()).singleElement()
+                .satisfies(event -> assertThat(event.jobIds()).contains(jobOf(reminded).getId()));
+    }
+
     @ParameterizedTest
     @EnumSource(value = PushJobStatus.class, names = {"PENDING", "PUBLISHED", "SENDING"})
     @DisplayName("이전 회차 발송 작업이 아직 대기 중이거나 발행됐거나 보내는 중이면 그대로 둔다")

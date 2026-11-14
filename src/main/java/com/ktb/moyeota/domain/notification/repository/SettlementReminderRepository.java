@@ -49,4 +49,15 @@ public interface SettlementReminderRepository extends Repository<Settlement, Lon
             WHERE r.companion.id = :companionId
             """)
     Optional<ChatRoom> findChatRoom(@Param("companionId") Long companionId);
+
+    @Query("""
+            SELECT new com.ktb.moyeota.domain.notification.repository.ExistingReminder(n, j)
+            FROM Notification n
+            LEFT JOIN NotificationPushJob j ON j.notification = n
+            WHERE n.recipient.id = :recipientId
+              AND n.type = com.ktb.moyeota.domain.notification.entity.NotificationType.SETTLEMENT_COMPLETION_REMINDER
+              AND n.eventId = :settlementId
+            """)
+    Optional<ExistingReminder> findReminder(@Param("recipientId") Long recipientId,
+                                            @Param("settlementId") Long settlementId);
 }

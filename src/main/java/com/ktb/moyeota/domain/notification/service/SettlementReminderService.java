@@ -5,8 +5,8 @@ import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
-import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
+import com.ktb.moyeota.domain.notification.repository.ExistingReminder;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
@@ -68,8 +68,7 @@ public class SettlementReminderService {
 
     private Optional<Long> remindRecipient(User recipient, Long settlementId, ChatRoom chatRoom, String content,
                                            LocalDateTime round, LocalDateTime now) {
-        Optional<Notification> existing = notificationRepository.findByRecipientIdAndTypeAndEventId(
-                recipient.getId(), NotificationType.SETTLEMENT_COMPLETION_REMINDER, settlementId);
+        Optional<ExistingReminder> existing = reminderRepository.findReminder(recipient.getId(), settlementId);
         if (existing.isEmpty()) {
             return Optional.of(create(recipient, settlementId, chatRoom, content, now));
         }
@@ -82,17 +81,17 @@ public class SettlementReminderService {
         return saveJob(notification, now);
     }
 
-    private Optional<Long> resend(Notification notification, String content, LocalDateTime round,
+    private Optional<Long> resend(ExistingReminder existing, String content, LocalDateTime round,
                                   LocalDateTime now) {
+        Notification notification = existing.notification();
         if (notification.isRemindedSince(round)) {
             return Optional.empty();
         }
         notification.remind(content, now);
-        Optional<NotificationPushJob> existing = pushJobRepository.findByNotificationId(notification.getId());
-        if (existing.isEmpty()) {
+        NotificationPushJob job = existing.job();
+        if (job == null) {
             return Optional.of(saveJob(notification, now));
         }
-        NotificationPushJob job = existing.get();
         return job.reopen(now) ? Optional.of(job.getId()) : Optional.empty();
     }
 
