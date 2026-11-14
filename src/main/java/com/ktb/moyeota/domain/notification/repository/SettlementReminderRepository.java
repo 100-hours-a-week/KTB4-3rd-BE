@@ -4,7 +4,6 @@ import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
@@ -24,39 +23,40 @@ public interface SettlementReminderRepository extends Repository<Settlement, Lon
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT s.companion.id
+            SELECT new com.ktb.moyeota.domain.notification.repository.RequestedSettlement(s.id, s.companion.id)
             FROM Settlement s
-            WHERE s.id = :id
+            WHERE s.id IN :ids
               AND s.status = com.ktb.moyeota.domain.settlement.entity.SettlementStatus.REQUESTED
+            ORDER BY s.id
             """)
-    Optional<Long> findRequestedCompanionIdForUpdate(@Param("id") Long id);
+    List<RequestedSettlement> findRequestedForUpdate(@Param("ids") Collection<Long> ids);
 
     @Query("""
-            SELECT p.user.id
+            SELECT new com.ktb.moyeota.domain.notification.repository.PendingRecipient(p.companion.id, p.user.id)
             FROM CompanionParticipant p
-            WHERE p.companion.id = :companionId
+            WHERE p.companion.id IN :taxiPotIds
               AND p.outcomeStatus = com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING
             ORDER BY p.id
             """)
-    List<Long> findPendingRecipientIds(@Param("companionId") Long companionId);
+    List<PendingRecipient> findPendingRecipients(@Param("taxiPotIds") Collection<Long> taxiPotIds);
 
     @Query("""
-            SELECT new com.ktb.moyeota.domain.notification.repository.ReminderRoom(r.id, c.host.id)
+            SELECT new com.ktb.moyeota.domain.notification.repository.ReminderRoom(c.id, r.id, c.host.id)
             FROM ChatRoom r
             JOIN r.companion c
-            WHERE c.id = :companionId
+            WHERE c.id IN :taxiPotIds
             """)
-    Optional<ReminderRoom> findReminderRoom(@Param("companionId") Long companionId);
+    List<ReminderRoom> findReminderRooms(@Param("taxiPotIds") Collection<Long> taxiPotIds);
 
     @Query("""
             SELECT new com.ktb.moyeota.domain.notification.repository.ReminderState(
-                n.id, n.recipient.id, n.createdAt, j.id, j.status)
+                n.id, n.eventId, n.recipient.id, n.createdAt, j.id, j.status)
             FROM Notification n
             LEFT JOIN NotificationPushJob j ON j.notification = n
             WHERE n.recipient.id IN :recipientIds
               AND n.type = com.ktb.moyeota.domain.notification.entity.NotificationType.SETTLEMENT_COMPLETION_REMINDER
-              AND n.eventId = :settlementId
+              AND n.eventId IN :settlementIds
             """)
     List<ReminderState> findReminders(@Param("recipientIds") Collection<Long> recipientIds,
-                                      @Param("settlementId") Long settlementId);
+                                      @Param("settlementIds") Collection<Long> settlementIds);
 }

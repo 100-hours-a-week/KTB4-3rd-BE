@@ -2,8 +2,10 @@ package com.ktb.moyeota.domain.notification.service;
 
 import com.ktb.moyeota.domain.notification.entity.SettlementReminderText;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
+import com.ktb.moyeota.domain.notification.repository.PendingRecipient;
 import com.ktb.moyeota.domain.notification.repository.ReminderRoom;
 import com.ktb.moyeota.domain.notification.repository.ReminderState;
+import com.ktb.moyeota.domain.notification.repository.RequestedSettlement;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.NewReminder;
@@ -46,28 +48,46 @@ public class SettlementReminderService {
 
     @Transactional
     public void remindAll(List<Long> settlementIds, LocalDateTime round) {
+        List<RequestedSettlement> settlements = reminderRepository.findRequestedForUpdate(settlementIds);
+        if (settlements.isEmpty()) {
+            return;
+        }
+        List<Long> taxiPotIds = settlements.stream().map(RequestedSettlement::taxiPotId).toList();
+        Map<Long, ReminderRoom> rooms = reminderRepository.findReminderRooms(taxiPotIds).stream()
+                .collect(Collectors.toMap(ReminderRoom::taxiPotId, Function.identity()));
+        Map<Long, List<Long>> recipients = reminderRepository.findPendingRecipients(taxiPotIds).stream()
+                .collect(Collectors.groupingBy(PendingRecipient::taxiPotId,
+                        Collectors.mapping(PendingRecipient::recipientId, Collectors.toList())));
+        Map<Long, Map<Long, ReminderState>> states = findStates(settlements, recipients);
+
         Writes writes = new Writes(now());
-        for (Long settlementId : settlementIds) {
-            reminderRepository.findRequestedCompanionIdForUpdate(settlementId)
-                    .ifPresent(taxiPotId -> collect(settlementId, taxiPotId, round, writes));
+        for (RequestedSettlement settlement : settlements) {
+            ReminderRoom room = rooms.get(settlement.taxiPotId());
+            if (room == null) {
+                throw new IllegalStateException("택시팟에 채팅방이 없다: " + settlement.taxiPotId());
+            }
+            Map<Long, ReminderState> settlementStates = states.getOrDefault(settlement.settlementId(), Map.of());
+            for (Long recipientId : recipients.getOrDefault(settlement.taxiPotId(), List.of())) {
+                String content = SettlementReminderText.of(recipientId.equals(room.hostId())).getText();
+                writes.add(recipientId, settlement.settlementId(), room.chatRoomId(), content,
+                        settlementStates.get(recipientId), round);
+            }
         }
         writes.apply(reminderWriter).forEach((settlementId, jobIds) ->
                 eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds)));
     }
 
-    private void collect(Long settlementId, Long taxiPotId, LocalDateTime round, Writes writes) {
-        ReminderRoom room = reminderRepository.findReminderRoom(taxiPotId)
-                .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPotId));
-        List<Long> recipientIds = reminderRepository.findPendingRecipientIds(taxiPotId);
+    private Map<Long, Map<Long, ReminderState>> findStates(List<RequestedSettlement> settlements,
+                                                           Map<Long, List<Long>> recipients) {
+        Set<Long> recipientIds = recipients.values().stream().flatMap(List::stream)
+                .collect(Collectors.toSet());
         if (recipientIds.isEmpty()) {
-            return;
+            return Map.of();
         }
-        Map<Long, ReminderState> states = reminderRepository.findReminders(recipientIds, settlementId).stream()
-                .collect(Collectors.toMap(ReminderState::recipientId, Function.identity()));
-        for (Long recipientId : recipientIds) {
-            String content = SettlementReminderText.of(recipientId.equals(room.hostId())).getText();
-            writes.add(recipientId, settlementId, room.chatRoomId(), content, states.get(recipientId), round);
-        }
+        List<Long> ids = settlements.stream().map(RequestedSettlement::settlementId).toList();
+        return reminderRepository.findReminders(recipientIds, ids).stream()
+                .collect(Collectors.groupingBy(ReminderState::settlementId,
+                        Collectors.toMap(ReminderState::recipientId, Function.identity())));
     }
 
     private LocalDateTime now() {
