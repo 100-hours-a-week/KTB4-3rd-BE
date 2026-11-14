@@ -17,6 +17,7 @@ import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
@@ -40,7 +41,7 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({SettlementReminderService.class, TestClockConfig.class})
+@Import({SettlementReminderService.class, SettlementReminderWriter.class, TestClockConfig.class})
 @RecordApplicationEvents
 class SettlementReminderServiceTest {
 

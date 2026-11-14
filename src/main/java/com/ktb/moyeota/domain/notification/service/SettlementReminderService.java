@@ -3,22 +3,23 @@ package com.ktb.moyeota.domain.notification.service;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.companion.entity.Companion;
-import com.ktb.moyeota.domain.notification.entity.Notification;
-import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
-import com.ktb.moyeota.domain.notification.repository.ExistingReminder;
-import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
-import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
+import com.ktb.moyeota.domain.notification.repository.ReminderState;
 import com.ktb.moyeota.domain.notification.repository.SettlementReminderRepository;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.NewReminder;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.OpenedJob;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter.RemindedNotification;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
-import com.ktb.moyeota.domain.user.entity.User;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +37,7 @@ public class SettlementReminderService {
             "방장에게 운행 종료 요청을 해주세요. 운행 종료를 해야 다른 택시팟 매칭에 참여가 가능합니다.";
 
     private final SettlementReminderRepository reminderRepository;
-    private final NotificationRepository notificationRepository;
-    private final NotificationPushJobRepository pushJobRepository;
+    private final SettlementReminderWriter reminderWriter;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -48,20 +48,21 @@ public class SettlementReminderService {
 
     @Transactional
     public void remind(Long settlementId, LocalDateTime round) {
-        remindIfRequested(settlementId, round);
+        remindAll(List.of(settlementId), round);
     }
 
     @Transactional
     public void remindAll(List<Long> settlementIds, LocalDateTime round) {
-        settlementIds.forEach(settlementId -> remindIfRequested(settlementId, round));
+        Writes writes = new Writes(now());
+        for (Long settlementId : settlementIds) {
+            reminderRepository.findRequestedForUpdate(settlementId)
+                    .ifPresent(settlement -> collect(settlement, round, writes));
+        }
+        writes.apply(reminderWriter).forEach((settlementId, jobIds) ->
+                eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds)));
     }
 
-    private void remindIfRequested(Long settlementId, LocalDateTime round) {
-        reminderRepository.findRequestedForUpdate(settlementId)
-                .ifPresent(settlement -> remindParticipants(settlement, round));
-    }
-
-    private void remindParticipants(Settlement settlement, LocalDateTime round) {
+    private void collect(Settlement settlement, LocalDateTime round, Writes writes) {
         Companion taxiPot = settlement.getCompanion();
         ChatRoom chatRoom = reminderRepository.findChatRoom(taxiPot.getId())
                 .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
@@ -70,61 +71,61 @@ public class SettlementReminderService {
         if (participants.isEmpty()) {
             return;
         }
-        Map<Long, ExistingReminder> existing = existingReminders(participants, settlement.getId());
-        LocalDateTime now = now();
-        List<Long> jobIds = new ArrayList<>();
-        for (CompanionParticipant participant : participants) {
-            User recipient = participant.getUser();
-            String content = recipient.getId().equals(hostId) ? HOST_CONTENT : RIDER_CONTENT;
-            remindRecipient(recipient, settlement.getId(), chatRoom, content, existing.get(recipient.getId()), round,
-                    now).ifPresent(jobIds::add);
-        }
-        if (!jobIds.isEmpty()) {
-            eventPublisher.publishEvent(new NotificationBulkPushRequestedEvent(jobIds));
-        }
-    }
-
-    private Map<Long, ExistingReminder> existingReminders(List<CompanionParticipant> participants,
-                                                         Long settlementId) {
         List<Long> recipientIds = participants.stream().map(participant -> participant.getUser().getId()).toList();
-        return reminderRepository.findReminders(recipientIds, settlementId).stream()
-                .collect(Collectors.toMap(reminder -> reminder.notification().getRecipient().getId(),
-                        Function.identity()));
-    }
-
-    private Optional<Long> remindRecipient(User recipient, Long settlementId, ChatRoom chatRoom, String content,
-                                           ExistingReminder existing, LocalDateTime round, LocalDateTime now) {
-        if (existing == null) {
-            return Optional.of(create(recipient, settlementId, chatRoom, content, now));
+        Map<Long, ReminderState> states = reminderRepository.findReminders(recipientIds, settlement.getId()).stream()
+                .collect(Collectors.toMap(ReminderState::recipientId, Function.identity()));
+        for (Long recipientId : recipientIds) {
+            String content = recipientId.equals(hostId) ? HOST_CONTENT : RIDER_CONTENT;
+            writes.add(recipientId, settlement.getId(), chatRoom.getId(), content, states.get(recipientId), round);
         }
-        return resend(existing, content, round, now);
-    }
-
-    private Long create(User recipient, Long settlementId, ChatRoom chatRoom, String content, LocalDateTime now) {
-        Notification notification = notificationRepository.save(
-                Notification.createSettlementReminder(recipient, settlementId, chatRoom, content, now));
-        return saveJob(notification, now);
-    }
-
-    private Optional<Long> resend(ExistingReminder existing, String content, LocalDateTime round,
-                                  LocalDateTime now) {
-        Notification notification = existing.notification();
-        if (notification.isRemindedSince(round)) {
-            return Optional.empty();
-        }
-        notification.remind(content, now);
-        NotificationPushJob job = existing.job();
-        if (job == null) {
-            return Optional.of(saveJob(notification, now));
-        }
-        return job.reopen(now) ? Optional.of(job.getId()) : Optional.empty();
-    }
-
-    private Long saveJob(Notification notification, LocalDateTime now) {
-        return pushJobRepository.save(NotificationPushJob.create(notification, now)).getId();
     }
 
     private LocalDateTime now() {
         return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
+    }
+
+    private static final class Writes {
+
+        private final LocalDateTime now;
+        private final List<NewReminder> created = new ArrayList<>();
+        private final List<RemindedNotification> reminded = new ArrayList<>();
+        private final List<Long> reopenedJobIds = new ArrayList<>();
+        private final Set<Long> recipientIds = new LinkedHashSet<>();
+        private final Set<Long> settlementIds = new LinkedHashSet<>();
+
+        private Writes(LocalDateTime now) {
+            this.now = now;
+        }
+
+        private void add(Long recipientId, Long settlementId, Long chatRoomId, String content, ReminderState state,
+                         LocalDateTime round) {
+            if (state == null) {
+                created.add(new NewReminder(recipientId, settlementId, chatRoomId, content));
+            } else if (state.remindedSince(round)) {
+                return;
+            } else {
+                reminded.add(new RemindedNotification(state.notificationId(), content));
+                if (state.hasJob() && state.jobFinished()) {
+                    reopenedJobIds.add(state.jobId());
+                }
+            }
+            recipientIds.add(recipientId);
+            settlementIds.add(settlementId);
+        }
+
+        private Map<Long, List<Long>> apply(SettlementReminderWriter writer) {
+            if (recipientIds.isEmpty()) {
+                return Map.of();
+            }
+            writer.remindNotifications(reminded, now);
+            writer.insertNotifications(created, now);
+            writer.reopenJobs(reopenedJobIds, now);
+            writer.insertMissingJobs(recipientIds, settlementIds, now);
+            Map<Long, List<Long>> jobIdsBySettlement = new LinkedHashMap<>();
+            for (OpenedJob job : writer.findOpenedJobs(recipientIds, settlementIds, now)) {
+                jobIdsBySettlement.computeIfAbsent(job.settlementId(), id -> new ArrayList<>()).add(job.jobId());
+            }
+            return jobIdsBySettlement;
+        }
     }
 }

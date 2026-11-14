@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
+import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
 import java.time.LocalDateTime;
@@ -141,8 +142,11 @@ class SettlementReminderRepositoryTest {
             assertThat(reminderRepository.findReminders(List.of(host.getId()), settlement.getId()))
                     .singleElement()
                     .satisfies(found -> {
-                        assertThat(found.notification().getId()).isEqualTo(notification.getId());
-                        assertThat(found.job().getId()).isEqualTo(job.getId());
+                        assertThat(found.notificationId()).isEqualTo(notification.getId());
+                        assertThat(found.recipientId()).isEqualTo(host.getId());
+                        assertThat(found.remindedAt()).isEqualTo(NOW);
+                        assertThat(found.jobId()).isEqualTo(job.getId());
+                        assertThat(found.jobStatus()).isEqualTo(PushJobStatus.PENDING);
                     });
         }
 
@@ -156,8 +160,8 @@ class SettlementReminderRepositoryTest {
             assertThat(reminderRepository.findReminders(List.of(host.getId()), settlement.getId()))
                     .singleElement()
                     .satisfies(found -> {
-                        assertThat(found.notification().getId()).isEqualTo(notification.getId());
-                        assertThat(found.job()).isNull();
+                        assertThat(found.notificationId()).isEqualTo(notification.getId());
+                        assertThat(found.hasJob()).isFalse();
                     });
         }
 
@@ -174,7 +178,7 @@ class SettlementReminderRepositoryTest {
             entityManager.clear();
 
             assertThat(reminderRepository.findReminders(List.of(host.getId(), rider.getId()), settlement.getId()))
-                    .extracting(found -> found.notification().getId())
+                    .extracting(ReminderState::notificationId)
                     .containsExactlyInAnyOrder(hostReminder.getId(), riderReminder.getId());
         }
 
