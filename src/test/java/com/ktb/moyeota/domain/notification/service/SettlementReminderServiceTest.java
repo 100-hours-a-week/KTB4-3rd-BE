@@ -21,8 +21,11 @@ import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
 import com.ktb.moyeota.global.config.TestClockConfig;
+import jakarta.persistence.EntityManagerFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,6 +65,9 @@ class SettlementReminderServiceTest {
 
     @Autowired
     private ApplicationEvents events;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     private User host;
     private User rider;
@@ -229,6 +235,21 @@ class SettlementReminderServiceTest {
         assertThat(notificationRepository.findAll()).isEmpty();
         assertThat(jobRepository.findAll()).isEmpty();
         assertThat(bulkPushRequests()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("방장을 알아낼 때 택시팟을 따로 불러오지 않는다")
+    void doesNotLazyLoadTaxiPot() {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+        try {
+            reminderService.remind(settlement.getId(), ROUND);
+
+            assertThat(statistics.getEntityFetchCount()).isZero();
+        } finally {
+            statistics.setStatisticsEnabled(false);
+        }
     }
 
     @Test

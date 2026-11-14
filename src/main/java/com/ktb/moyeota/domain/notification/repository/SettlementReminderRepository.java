@@ -45,6 +45,7 @@ public interface SettlementReminderRepository extends Repository<Settlement, Lon
     @Query("""
             SELECT r
             FROM ChatRoom r
+            JOIN FETCH r.companion
             WHERE r.companion.id = :companionId
             """)
     Optional<ChatRoom> findChatRoom(@Param("companionId") Long companionId);

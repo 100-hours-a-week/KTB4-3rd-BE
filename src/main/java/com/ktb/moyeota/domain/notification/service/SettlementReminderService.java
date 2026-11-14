@@ -53,7 +53,7 @@ public class SettlementReminderService {
         Companion taxiPot = settlement.getCompanion();
         ChatRoom chatRoom = reminderRepository.findChatRoom(taxiPot.getId())
                 .orElseThrow(() -> new IllegalStateException("택시팟에 채팅방이 없다: " + taxiPot.getId()));
-        Long hostId = taxiPot.getHost().getId();
+        Long hostId = chatRoom.getCompanion().getHost().getId();
         LocalDateTime now = now();
         List<Long> jobIds = new ArrayList<>();
         for (CompanionParticipant participant : reminderRepository.findPendingParticipants(taxiPot.getId())) {
