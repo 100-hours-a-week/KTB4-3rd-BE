@@ -32,6 +32,8 @@ import lombok.NoArgsConstructor;
         indexes = {
                 @Index(name = "idx_match_requests_status_region",
                         columnList = "status, region_row, region_col, departure_at"),
+                @Index(name = "idx_match_requests_status_departure",
+                        columnList = "status, departure_at"),
                 @Index(name = "idx_match_requests_user", columnList = "user_id")
         })
 @Getter
