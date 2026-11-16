@@ -14,15 +14,20 @@ import com.ktb.moyeota.domain.notification.entity.Notification;
 import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
+import com.ktb.moyeota.domain.notification.entity.SettlementReminderText;
 import com.ktb.moyeota.domain.notification.event.NotificationBulkPushRequestedEvent;
 import com.ktb.moyeota.domain.notification.repository.NotificationPushJobRepository;
 import com.ktb.moyeota.domain.notification.repository.NotificationRepository;
+import com.ktb.moyeota.domain.notification.repository.SettlementReminderWriter;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
 import com.ktb.moyeota.global.config.TestClockConfig;
+import jakarta.persistence.EntityManagerFactory;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +42,7 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({SettlementReminderService.class, TestClockConfig.class})
+@Import({SettlementReminderService.class, SettlementReminderWriter.class, TestClockConfig.class})
 @RecordApplicationEvents
 class SettlementReminderServiceTest {
 
@@ -62,6 +67,9 @@ class SettlementReminderServiceTest {
 
     @Autowired
     private ApplicationEvents events;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     private User host;
     private User rider;
@@ -95,8 +103,8 @@ class SettlementReminderServiceTest {
         Notification hostNotification = reminderOf(host);
         Notification riderNotification = reminderOf(rider);
         assertThat(notificationRepository.findAll()).hasSize(2);
-        assertThat(hostNotification.getContent()).isEqualTo(SettlementReminderService.HOST_CONTENT);
-        assertThat(riderNotification.getContent()).isEqualTo(SettlementReminderService.RIDER_CONTENT);
+        assertThat(hostNotification.getContent()).isEqualTo(SettlementReminderText.HOST.getText());
+        assertThat(riderNotification.getContent()).isEqualTo(SettlementReminderText.RIDER.getText());
         assertThat(hostNotification.getTargetChatRoom().getId()).isEqualTo(chatRoom.getId());
         assertThat(hostNotification.getCreatedAt()).isEqualTo(NOW);
         assertThat(jobOf(hostNotification).getStatus()).isEqualTo(PushJobStatus.PENDING);
@@ -122,6 +130,28 @@ class SettlementReminderServiceTest {
         assertThat(job.getAttempts()).isZero();
         assertThat(job.getNextAttemptAt()).isEqualTo(NOW);
         assertThat(jobRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("이전 회차 알림에 발송 작업이 없으면 다시 쓰면서 발송 작업을 새로 만든다")
+    void createsMissingJob() {
+        Notification previous = entityManager.persist(Notification.createSettlementReminder(
+                entityManager.find(User.class, host.getId()), settlement.getId(),
+                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderText.HOST.getText(),
+                PREVIOUS_ROUND));
+        entityManager.flush();
+        entityManager.clear();
+
+        reminderService.remind(settlement.getId(), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        Notification reminded = reminderOf(host);
+        assertThat(reminded.getId()).isEqualTo(previous.getId());
+        assertThat(reminded.getCreatedAt()).isEqualTo(NOW);
+        assertThat(jobOf(reminded).getStatus()).isEqualTo(PushJobStatus.PENDING);
+        assertThat(bulkPushRequests()).singleElement()
+                .satisfies(event -> assertThat(event.jobIds()).contains(jobOf(reminded).getId()));
     }
 
     @ParameterizedTest
@@ -232,6 +262,52 @@ class SettlementReminderServiceTest {
     }
 
     @Test
+    @DisplayName("여러 정산을 한 번에 보내면 각 정산의 참여자에게 알림을 만들고, 완료된 정산은 건너뛴다")
+    void remindsAllInOneCall() {
+        User otherHost = entityManager.persist(bankAccountHolder("다른방장"));
+        Companion otherPot = entityManager.persist(taxiPot(otherHost, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(otherPot));
+        entityManager.persist(participant(otherPot, otherHost, PENDING));
+        Settlement other = entityManager.persist(Settlement.open(otherPot));
+        other.requestManually(9000);
+        User doneHost = entityManager.persist(bankAccountHolder("끝난방장"));
+        Companion donePot = entityManager.persist(taxiPot(doneHost, CompanionStatus.COMPLETED, 2));
+        entityManager.persist(ChatRoom.create(donePot));
+        entityManager.persist(participant(donePot, doneHost, PENDING));
+        Settlement done = entityManager.persist(Settlement.open(donePot));
+        done.requestManually(9000);
+        done.complete();
+        entityManager.flush();
+        entityManager.clear();
+
+        reminderService.remindAll(List.of(settlement.getId(), other.getId(), done.getId()), ROUND);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(notificationRepository.findAll())
+                .extracting(notification -> notification.getRecipient().getId())
+                .containsExactlyInAnyOrder(host.getId(), rider.getId(), otherHost.getId());
+        assertThat(jobRepository.findAll()).hasSize(3);
+        assertThat(bulkPushRequests()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("정산 · 채팅방 · 참여자를 값으로만 읽어 엔티티를 하나도 불러오지 않는다")
+    void loadsNoEntity() {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+        try {
+            reminderService.remind(settlement.getId(), ROUND);
+
+            assertThat(statistics.getEntityLoadCount()).isZero();
+            assertThat(statistics.getEntityFetchCount()).isZero();
+        } finally {
+            statistics.setStatisticsEnabled(false);
+        }
+    }
+
+    @Test
     @DisplayName("findSettlementIdsToRemind: REQUESTED로 남은 정산 id를 돌려준다")
     void findSettlementIds() {
         assertThat(reminderService.findSettlementIdsToRemind()).containsExactly(settlement.getId());
@@ -240,7 +316,7 @@ class SettlementReminderServiceTest {
     private Notification previousReminder(User recipient, PushJobStatus status) {
         Notification notification = entityManager.persist(Notification.createSettlementReminder(
                 entityManager.find(User.class, recipient.getId()), settlement.getId(),
-                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderService.HOST_CONTENT,
+                entityManager.find(ChatRoom.class, chatRoom.getId()), SettlementReminderText.HOST.getText(),
                 PREVIOUS_ROUND));
         ReflectionTestUtils.setField(notification, "readAt", PREVIOUS_ROUND.plusMinutes(5));
         NotificationPushJob job = NotificationPushJob.create(notification, PREVIOUS_ROUND);

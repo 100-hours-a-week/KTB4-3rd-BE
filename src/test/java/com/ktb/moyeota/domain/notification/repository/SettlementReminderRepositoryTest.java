@@ -12,8 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.notification.entity.Notification;
+import com.ktb.moyeota.domain.notification.entity.NotificationPushJob;
+import com.ktb.moyeota.domain.notification.entity.PushJobStatus;
 import com.ktb.moyeota.domain.settlement.entity.Settlement;
 import com.ktb.moyeota.domain.user.entity.User;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,13 +66,18 @@ class SettlementReminderRepositoryTest {
     class FindRequestedForUpdate {
 
         @Test
-        @DisplayName("REQUESTED인 정산은 조회된다")
+        @DisplayName("REQUESTED인 정산은 택시팟 id와 함께 정산 id 순서로 돌려준다")
         void requested() {
-            Settlement settlement = SettlementReminderRepositoryTest.this.requested(
+            Settlement first = SettlementReminderRepositoryTest.this.requested(
+                    taxiPot(host, CompanionStatus.COMPLETED, 3));
+            Settlement second = SettlementReminderRepositoryTest.this.requested(
                     taxiPot(host, CompanionStatus.COMPLETED, 3));
             entityManager.flush();
 
-            assertThat(reminderRepository.findRequestedForUpdate(settlement.getId())).isPresent();
+            assertThat(reminderRepository.findRequestedForUpdate(List.of(second.getId(), first.getId())))
+                    .containsExactly(
+                            new RequestedSettlement(first.getId(), first.getCompanion().getId()),
+                            new RequestedSettlement(second.getId(), second.getCompanion().getId()));
         }
 
         @Test
@@ -78,12 +88,12 @@ class SettlementReminderRepositoryTest {
             settlement.complete();
             entityManager.flush();
 
-            assertThat(reminderRepository.findRequestedForUpdate(settlement.getId())).isEmpty();
+            assertThat(reminderRepository.findRequestedForUpdate(List.of(settlement.getId()))).isEmpty();
         }
     }
 
     @Test
-    @DisplayName("findPendingParticipants: 나가거나 완주한 참여자는 제외한다")
+    @DisplayName("findPendingRecipients: 택시팟별 받을 사람을 돌려주고, 나가거나 완주한 참여자는 제외한다")
     void pendingParticipants() {
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
         User rider = entityManager.persist(bankAccountHolder("동승자"));
@@ -93,21 +103,101 @@ class SettlementReminderRepositoryTest {
         entityManager.persist(participant(pot, rider, PENDING));
         entityManager.persist(participant(pot, leaver, INCOMPLETE));
         entityManager.persist(participant(pot, finisher, COMPLETED));
+        Companion otherPot = entityManager.persist(taxiPot(finisher, CompanionStatus.COMPLETED, 3));
+        entityManager.persist(participant(otherPot, finisher, PENDING));
         entityManager.flush();
 
-        assertThat(reminderRepository.findPendingParticipants(pot.getId()))
-                .extracting(participant -> participant.getUser().getId())
-                .containsExactly(host.getId(), rider.getId());
+        assertThat(reminderRepository.findPendingRecipients(List.of(pot.getId(), otherPot.getId())))
+                .containsExactly(
+                        new PendingRecipient(pot.getId(), host.getId()),
+                        new PendingRecipient(pot.getId(), rider.getId()),
+                        new PendingRecipient(otherPot.getId(), finisher.getId()));
     }
 
     @Test
-    @DisplayName("findChatRoom: 택시팟의 채팅방을 조회한다")
+    @DisplayName("findReminderRooms: 택시팟마다 채팅방 id와 방장 id를 돌려준다")
     void chatRoom() {
         Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
         ChatRoom chatRoom = entityManager.persist(ChatRoom.create(pot));
         entityManager.flush();
 
-        assertThat(reminderRepository.findChatRoom(pot.getId())).contains(chatRoom);
+        assertThat(reminderRepository.findReminderRooms(List.of(pot.getId())))
+                .containsExactly(new ReminderRoom(pot.getId(), chatRoom.getId(), host.getId()));
+    }
+
+    @Nested
+    @DisplayName("findReminders")
+    class FindReminders {
+
+        private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 28, 9, 0);
+
+        private ChatRoom chatRoom;
+        private Settlement settlement;
+
+        @BeforeEach
+        void setUp() {
+            Companion pot = entityManager.persist(taxiPot(host, CompanionStatus.COMPLETED, 3));
+            chatRoom = entityManager.persist(ChatRoom.create(pot));
+            settlement = entityManager.persist(Settlement.open(pot));
+        }
+
+        @Test
+        @DisplayName("이 정산의 리마인드 알림과 발송 작업을 함께 돌려준다")
+        void withJob() {
+            Notification notification = reminder(host, settlement.getId());
+            NotificationPushJob job = entityManager.persist(NotificationPushJob.create(notification, NOW));
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(reminderRepository.findReminders(List.of(host.getId()), List.of(settlement.getId())))
+                    .singleElement()
+                    .satisfies(found -> {
+                        assertThat(found.notificationId()).isEqualTo(notification.getId());
+                        assertThat(found.settlementId()).isEqualTo(settlement.getId());
+                        assertThat(found.recipientId()).isEqualTo(host.getId());
+                        assertThat(found.remindedAt()).isEqualTo(NOW);
+                        assertThat(found.jobId()).isEqualTo(job.getId());
+                        assertThat(found.jobStatus()).isEqualTo(PushJobStatus.PENDING);
+                    });
+        }
+
+        @Test
+        @DisplayName("발송 작업이 없으면 알림만 돌려준다")
+        void withoutJob() {
+            Notification notification = reminder(host, settlement.getId());
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(reminderRepository.findReminders(List.of(host.getId()), List.of(settlement.getId())))
+                    .singleElement()
+                    .satisfies(found -> {
+                        assertThat(found.notificationId()).isEqualTo(notification.getId());
+                        assertThat(found.hasJob()).isFalse();
+                    });
+        }
+
+        @Test
+        @DisplayName("받을 사람 여럿의 알림을 한 번에 돌려주고, 목록에 없는 사람과 다른 정산의 알림은 뺀다")
+        void onlyMatching() {
+            User rider = entityManager.persist(bankAccountHolder("동승자"));
+            User other = entityManager.persist(bankAccountHolder("다른사람"));
+            Notification hostReminder = reminder(host, settlement.getId());
+            Notification riderReminder = reminder(rider, settlement.getId());
+            reminder(other, settlement.getId());
+            reminder(host, settlement.getId() + 1);
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(reminderRepository.findReminders(List.of(host.getId(), rider.getId()),
+                    List.of(settlement.getId())))
+                    .extracting(ReminderState::notificationId)
+                    .containsExactlyInAnyOrder(hostReminder.getId(), riderReminder.getId());
+        }
+
+        private Notification reminder(User recipient, Long settlementId) {
+            return entityManager.persist(Notification.createSettlementReminder(
+                    recipient, settlementId, chatRoom, "정산을 마쳐 주세요", NOW));
+        }
     }
 
     private Settlement settlement(Companion companion) {
