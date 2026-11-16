@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
@@ -188,7 +189,11 @@ public class OutboxPublisher {
     }
 
     private static String describe(Throwable e) {
-        String message = e.getClass().getSimpleName() + ": " + e.getMessage();
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(e);
+        String message = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+        if (cause != e) {
+            message += " (" + e.getClass().getSimpleName() + ")";
+        }
         if (message.length() <= LAST_ERROR_MAX_LENGTH) {
             return message;
         }
