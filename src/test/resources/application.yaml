@@ -27,6 +27,7 @@ spring:
 
 moyeota:
   auth:
+    expired-signup-session-sweep-delay: 1h
     jwt:
       secret: test-only-moyeota-access-token-secret-0123456789
       issuer: moyeota
