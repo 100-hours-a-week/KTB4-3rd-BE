@@ -16,6 +16,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -23,6 +24,8 @@ import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnectionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -37,6 +40,7 @@ import org.springframework.kafka.core.KafkaTemplate;
         JacksonAutoConfiguration.class,
         KafkaAutoConfiguration.class,
         ServiceConnectionAutoConfiguration.class})
+@ExtendWith(OutputCaptureExtension.class)
 class ChatCompanionFactConsumerTest {
 
     private static final String DLT = CompanionChangedMessages.TOPIC + "-dlt";
@@ -102,6 +106,21 @@ class ChatCompanionFactConsumerTest {
 
         awaitDeadLetter(eventId);
         assertThat(written).noneMatch(each -> each.eventId().equals(eventId));
+    }
+
+    @Test
+    @DisplayName("DLT 로 보내기 전에 토픽 · 키와 원인 예외를 ERROR 로그로 남긴다")
+    void logsCauseBeforeDeadLetter(CapturedOutput output) throws Exception {
+        String eventId = send(305L, CompanionChangedMessages.RIDE_STARTED, 1, """
+                {"kind":"TAXI_POT","user_id":null}
+                """);
+
+        awaitDeadLetter(eventId);
+
+        assertThat(output.getAll())
+                .contains("[KAFKA_DEAD_LETTER] topic=" + CompanionChangedMessages.TOPIC)
+                .contains("key=305")
+                .contains("InvalidEventException");
     }
 
     private String send(Long companionId, String eventType, int schemaVersion, String data) throws Exception {

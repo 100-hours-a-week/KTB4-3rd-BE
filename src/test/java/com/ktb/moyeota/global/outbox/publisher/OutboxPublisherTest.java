@@ -126,6 +126,27 @@ class OutboxPublisherTest {
     }
 
     @Test
+    @DisplayName("발행이 실패하면 감싼 예외가 아니라 가장 안쪽 원인을 실패 사유로 남긴다")
+    void recordsRootCauseOfFailure() {
+        OutboxEvent tooLarge = persist(OutboxEvent.create(
+                TOPIC,
+                "101:7",
+                UUID.randomUUID().toString(),
+                "settlement.transfer-analysis.requested",
+                1,
+                OCCURRED_AT,
+                "{\"note\":\"" + "a".repeat(1_100_000) + "\"}",
+                null,
+                OCCURRED_AT));
+
+        PublishResult result = outboxPublisher.publishPending();
+
+        assertThat(result).isEqualTo(new PublishResult(0, 1));
+        assertThat(outboxEventRepository.findById(tooLarge.getId()).orElseThrow().getLastError())
+                .startsWith("RecordTooLargeException: ");
+    }
+
+    @Test
     @DisplayName("실패한 적 있는 키는 그 이벤트만 다시 보내고 같은 키의 뒤 이벤트는 보류한다. 다른 키는 그대로 보낸다")
     void holdsLaterEventsOfFailedKey() throws Exception {
         OutboxEvent failedBefore = event(TOPIC, "2079:5606", null);
