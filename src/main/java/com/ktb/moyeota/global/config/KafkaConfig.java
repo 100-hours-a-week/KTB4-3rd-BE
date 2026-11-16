@@ -3,6 +3,7 @@ package com.ktb.moyeota.global.config;
 import com.ktb.moyeota.global.event.InvalidEventException;
 import com.ktb.moyeota.global.trace.TraceIdProducerInterceptor;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryCustomizer;
@@ -16,6 +17,7 @@ import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.kafka.support.converter.StringJacksonJsonMessageConverter;
 import tools.jackson.databind.json.JsonMapper;
 
+@Slf4j
 @Configuration
 public class KafkaConfig {
 
@@ -34,7 +36,11 @@ public class KafkaConfig {
     public DefaultErrorHandler kafkaErrorHandler(KafkaOperations<?, ?> kafkaOperations) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaOperations,
                 (record, exception) -> new TopicPartition(record.topic() + RetryTopicConstants.DEFAULT_DLT_SUFFIX, -1));
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler((record, exception) -> {
+            log.error("[KAFKA_DEAD_LETTER] topic={}, partition={}, offset={}, key={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), exception);
+            recoverer.accept(record, exception);
+        });
         errorHandler.addNotRetryableExceptions(InvalidEventException.class);
         return errorHandler;
     }
