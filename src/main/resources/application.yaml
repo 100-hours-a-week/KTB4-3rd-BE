@@ -42,6 +42,7 @@ sentry:
 moyeota:
   auth:
     session-store: jpa
+    expired-signup-session-sweep-delay: 1h
     jwt:
       issuer: moyeota
       access-token-ttl: 30m

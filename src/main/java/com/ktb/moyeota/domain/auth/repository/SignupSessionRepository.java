@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.auth.repository;
 
 import com.ktb.moyeota.domain.auth.entity.SignupSession;
 import com.ktb.moyeota.domain.auth.model.SignupSessionView;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -20,4 +21,8 @@ public interface SignupSessionRepository extends JpaRepository<SignupSession, St
     @Modifying
     @Query("delete from SignupSession s where s.tokenHash = :tokenHash")
     void deleteByTokenHash(String tokenHash);
+
+    @Modifying
+    @Query("delete from SignupSession s where s.expiresAt <= :now")
+    int deleteExpired(LocalDateTime now);
 }
