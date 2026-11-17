@@ -10,7 +10,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -88,7 +87,6 @@ public class Companion {
     private static final int PUBLIC_TRANSPORT_MAX_CAPACITY = 10;
     private static final int MIN_RIDE_PARTICIPANTS = 2;
     private static final int TAXI_POT_CAPACITY = 4;
-    private static final Duration DEFAULT_RIDE_DURATION = Duration.ofHours(1);
 
     private Companion(User creator, User host, CompanionKind kind, TransportType transportType,
                        String content, String originName, BigDecimal originLat, BigDecimal originLng,
@@ -224,7 +222,7 @@ public class Companion {
             throw new BusinessException(CompanionErrorCode.DEPARTURE_NOT_REACHED);
         }
         this.status = CompanionStatus.IN_PROGRESS;
-        this.etaAt = now.plus(DEFAULT_RIDE_DURATION);
+        this.etaAt = now.plus(StraightLineRideDuration.estimate(originLat, originLng, destLat, destLng));
     }
 
     public void estimateArrival(LocalDateTime etaAt) {
