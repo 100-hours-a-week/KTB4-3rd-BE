@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.congestion.batch;
 
 import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.SchedulingConfig;
 import com.ktb.moyeota.global.config.ServerRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,8 @@ public class CongestionWindowCloseScheduler {
 
     private final CongestionWindowCloser windowCloser;
 
-    @Scheduled(fixedDelayString = "${moyeota.congestion.batch.check-delay:10s}")
+    @Scheduled(fixedDelayString = "${moyeota.congestion.batch.check-delay:10s}",
+            scheduler = SchedulingConfig.KAFKA_JOB_SCHEDULER)
     public void close() {
         try {
             windowCloser.closeEndedWindows();

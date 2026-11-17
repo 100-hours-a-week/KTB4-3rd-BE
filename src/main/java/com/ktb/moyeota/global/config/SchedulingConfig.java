@@ -12,6 +12,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 public class SchedulingConfig {
 
     public static final String OUTBOX_PUBLISH_SCHEDULER = "outboxPublishTaskScheduler";
+    public static final String KAFKA_JOB_SCHEDULER = "kafkaJobTaskScheduler";
 
     @Bean
     public ThreadPoolTaskScheduler taskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
@@ -21,5 +22,10 @@ public class SchedulingConfig {
     @Bean(OUTBOX_PUBLISH_SCHEDULER)
     public ThreadPoolTaskScheduler outboxPublishTaskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
         return builder.poolSize(1).threadNamePrefix("outbox-publish-").build();
+    }
+
+    @Bean(KAFKA_JOB_SCHEDULER)
+    public ThreadPoolTaskScheduler kafkaJobTaskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
+        return builder.poolSize(1).threadNamePrefix("kafka-job-").build();
     }
 }

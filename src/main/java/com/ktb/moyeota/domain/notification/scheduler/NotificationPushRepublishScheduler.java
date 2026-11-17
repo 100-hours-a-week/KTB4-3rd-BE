@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.notification.scheduler;
 
 import com.ktb.moyeota.domain.notification.service.NotificationPushRepublisher;
 import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.SchedulingConfig;
 import com.ktb.moyeota.global.config.ServerRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,8 @@ public class NotificationPushRepublishScheduler {
 
     private final NotificationPushRepublisher republisher;
 
-    @Scheduled(fixedDelayString = "${moyeota.notification.push.sweep-delay:10s}")
+    @Scheduled(fixedDelayString = "${moyeota.notification.push.sweep-delay:10s}",
+            scheduler = SchedulingConfig.KAFKA_JOB_SCHEDULER)
     public void republish() {
         try {
             int republished = republisher.republishDue();
