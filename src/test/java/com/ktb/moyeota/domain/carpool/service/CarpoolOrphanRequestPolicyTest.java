@@ -20,7 +20,6 @@ import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.scheduler.CarpoolRequestExpireScheduler;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
-import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.notification.entity.Notification;
@@ -47,7 +46,7 @@ import org.springframework.context.annotation.Import;
  * 알림은 실제 NotificationCommandService 로 저장해 notifications 행을 직접 확인한다.
  */
 @DataJpaTest
-@Import({CarpoolRequestService.class, ChatSystemMessageService.class, NotificationCommandService.class,
+@Import({CarpoolRequestService.class, NotificationCommandService.class,
         CarpoolRequestExpireScheduler.class, TestClockConfig.class})
 class CarpoolOrphanRequestPolicyTest {
 

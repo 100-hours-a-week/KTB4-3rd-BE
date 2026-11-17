@@ -20,7 +20,6 @@ import com.ktb.moyeota.domain.carpool.error.CarpoolErrorCode;
 import com.ktb.moyeota.domain.carpool.model.SentJoinRequest;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
-import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
@@ -47,7 +46,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({CarpoolRequestService.class, ChatSystemMessageService.class, TestClockConfig.class})
+@Import({CarpoolRequestService.class, TestClockConfig.class})
 class CarpoolRequestServiceTest {
 
     private static final LocalDateTime NOW = DEPARTURE_AT.minusHours(1);

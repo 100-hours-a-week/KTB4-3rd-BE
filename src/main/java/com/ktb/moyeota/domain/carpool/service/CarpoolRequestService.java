@@ -13,9 +13,10 @@ import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.entity.OutcomeStatus;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
-import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.event.CompanionParticipantJoinedEvent;
 import com.ktb.moyeota.domain.notification.entity.NotificationType;
 import com.ktb.moyeota.domain.notification.service.NotificationCommandService;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -26,6 +27,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -45,7 +47,7 @@ public class CarpoolRequestService {
     private final CompanionRequestRepository companionRequestRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
-    private final ChatSystemMessageService chatSystemMessageService;
+    private final ApplicationEventPublisher eventPublisher;
     private final NotificationCommandService notificationCommandService;
     private final Clock clock;
 
@@ -95,7 +97,8 @@ public class CarpoolRequestService {
                 .orElse(null);
         carpoolParticipantRepository.save(carpool.join(requester, previous));
         ChatRoom chatRoom = findChatRoom(carpool);
-        chatSystemMessageService.enter(chatRoom, requester);
+        eventPublisher.publishEvent(
+                new CompanionParticipantJoinedEvent(carpool.getId(), CompanionKind.CARPOOL, requester.getId()));
         notificationCommandService.createForChatRoom(requester, NotificationType.CARPOOL_REQUEST_ACCEPTED,
                 request.getId(), chatRoom, carpool.getHost().getNickname() + "님이 동승 요청을 수락했어요");
         if (carpool.getCurrentCount() == carpool.getCapacity()) {
