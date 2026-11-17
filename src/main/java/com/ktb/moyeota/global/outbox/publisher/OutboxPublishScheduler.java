@@ -1,6 +1,7 @@
 package com.ktb.moyeota.global.outbox.publisher;
 
 import com.ktb.moyeota.global.config.ConditionalOnServerRole;
+import com.ktb.moyeota.global.config.SchedulingConfig;
 import com.ktb.moyeota.global.config.ServerRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,8 @@ public class OutboxPublishScheduler {
 
     private final OutboxPublisher outboxPublisher;
 
-    @Scheduled(fixedDelayString = "${moyeota.outbox.publish-delay:1s}")
+    @Scheduled(fixedDelayString = "${moyeota.outbox.publish-delay:1s}",
+            scheduler = SchedulingConfig.OUTBOX_PUBLISH_SCHEDULER)
     @SchedulerLock(name = "outbox-publisher", lockAtMostFor = "${moyeota.outbox.lock-at-most-for:2m}")
     public void publish() {
         try {

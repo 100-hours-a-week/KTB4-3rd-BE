@@ -11,8 +11,15 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 public class SchedulingConfig {
 
+    public static final String OUTBOX_PUBLISH_SCHEDULER = "outboxPublishTaskScheduler";
+
     @Bean
     public ThreadPoolTaskScheduler taskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
         return builder.build();
+    }
+
+    @Bean(OUTBOX_PUBLISH_SCHEDULER)
+    public ThreadPoolTaskScheduler outboxPublishTaskScheduler(ThreadPoolTaskSchedulerBuilder builder) {
+        return builder.poolSize(1).threadNamePrefix("outbox-publish-").build();
     }
 }
