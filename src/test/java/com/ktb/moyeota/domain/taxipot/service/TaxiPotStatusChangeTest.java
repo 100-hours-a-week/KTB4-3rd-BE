@@ -5,6 +5,10 @@ import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.IN_PROGRES
 import static com.ktb.moyeota.domain.companion.entity.CompanionStatus.RECRUITING;
 import static com.ktb.moyeota.domain.chat.entity.OutcomeStatus.PENDING;
 import static com.ktb.moyeota.fixture.CompanionFixture.DEPARTURE_AT;
+import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LAT;
+import static com.ktb.moyeota.fixture.CompanionFixture.DEST_LNG;
+import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LAT;
+import static com.ktb.moyeota.fixture.CompanionFixture.ORIGIN_LNG;
 import static com.ktb.moyeota.fixture.CompanionFixture.taxiPot;
 import static com.ktb.moyeota.fixture.ParticipantFixture.participant;
 import static com.ktb.moyeota.fixture.UserFixture.bankAccountHolder;
@@ -19,6 +23,7 @@ import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
+import com.ktb.moyeota.domain.companion.entity.StraightLineRideDuration;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
 import com.ktb.moyeota.global.config.TestClockConfig;
@@ -81,13 +86,13 @@ class TaxiPotStatusChangeTest {
     }
 
     @Test
-    @DisplayName("운행을 시작하면 도착 예정 시각이 시작 시각의 1시간 뒤로 저장된다")
+    @DisplayName("운행을 시작하면 도착 예정 시각이 직선거리로 어림한 시간 뒤로 저장된다")
     void savesDefaultEta() {
         Companion pot = persistTaxiPot(RECRUITING);
 
         taxiPotService.changeStatus(pot.getHost().getId(), pot.getId(), IN_PROGRESS);
 
-        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     @Test

@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.service.ChatSystemMessageService;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.StraightLineRideDuration;
 import com.ktb.moyeota.domain.taxipot.event.TaxiPotRideStartedEvent;
 import com.ktb.moyeota.domain.user.entity.User;
 import com.ktb.moyeota.global.config.MutableClock;
@@ -78,7 +79,7 @@ class EtaRefresherTest {
 
         etaRefresher.refresh(rideStarted(pot));
 
-        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     @Test
@@ -91,7 +92,7 @@ class EtaRefresherTest {
 
         etaRefresher.refresh(rideStarted(pot));
 
-        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(reload(pot).getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     private Companion startedTaxiPot() {

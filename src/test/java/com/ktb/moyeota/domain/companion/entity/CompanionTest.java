@@ -282,13 +282,13 @@ class CompanionTest {
         }
 
         @Test
-        @DisplayName("운행을 시작하면 도착 예정 시각은 시작 시각의 1시간 뒤다")
+        @DisplayName("운행을 시작하면 도착 예정 시각은 출발지 · 목적지 직선거리로 어림한 시간 뒤다")
         void setsDefaultEta() {
             Companion pot = taxiPot(user("방장"), RECRUITING, 2);
 
             pot.startRide(DEPARTURE_AT.plusMinutes(5));
 
-            assertThat(pot.getEtaAt()).isEqualTo(DEPARTURE_AT.plusMinutes(5).plusHours(1));
+            assertThat(pot.getEtaAt()).isEqualTo(DEPARTURE_AT.plusMinutes(5).plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
         }
 
         @ParameterizedTest(name = "{0}", quoteTextArguments = false)

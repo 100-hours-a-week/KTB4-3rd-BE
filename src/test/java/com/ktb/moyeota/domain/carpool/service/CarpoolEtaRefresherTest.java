@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mock;
 
 import com.ktb.moyeota.domain.carpool.event.CarpoolRideStartedEvent;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.StraightLineRideDuration;
 import com.ktb.moyeota.global.external.kakao.KakaoNaviClient;
 import java.time.Duration;
 import java.util.Optional;
@@ -45,7 +46,7 @@ class CarpoolEtaRefresherTest extends CarpoolRideTestSupport {
     }
 
     @Test
-    @DisplayName("소요 시간을 못 받으면 기본 도착 예정 시각(시작 1시간 뒤)이 그대로 남는다")
+    @DisplayName("소요 시간을 못 받으면 직선거리로 어림한 기본 도착 예정 시각이 그대로 남는다")
     void keepsDefaultWhenUnavailable() {
         Companion carpool = startedCarpool();
         given(kakaoNaviClient.estimateDuration(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG))
@@ -53,7 +54,7 @@ class CarpoolEtaRefresherTest extends CarpoolRideTestSupport {
 
         carpoolEtaRefresher.refresh(rideStarted(carpool));
 
-        assertThat(reload(carpool).getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(reload(carpool).getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     @Test
@@ -66,7 +67,7 @@ class CarpoolEtaRefresherTest extends CarpoolRideTestSupport {
 
         carpoolEtaRefresher.refresh(rideStarted(carpool));
 
-        assertThat(reload(carpool).getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(reload(carpool).getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     private Companion startedCarpool() {

@@ -14,6 +14,7 @@ import com.ktb.moyeota.domain.carpool.model.CarpoolDetail;
 import com.ktb.moyeota.domain.carpool.model.CarpoolDetail.Member;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.companion.entity.Companion;
+import com.ktb.moyeota.domain.companion.entity.StraightLineRideDuration;
 import com.ktb.moyeota.domain.companion.error.CompanionErrorCode;
 import com.ktb.moyeota.domain.user.entity.OwnedCar;
 import com.ktb.moyeota.domain.user.entity.User;
@@ -23,7 +24,7 @@ import org.junit.jupiter.api.Test;
 class CarpoolRideStartTest extends CarpoolRideTestSupport {
 
     @Test
-    @DisplayName("방장이 운행을 시작하면 운행 중이 되고 도착 예정 시각이 시작 1시간 뒤로 저장된다")
+    @DisplayName("방장이 운행을 시작하면 운행 중이 되고 도착 예정 시각이 직선거리로 어림한 시간 뒤로 저장된다")
     void startsRide() {
         Companion carpool = persistCarpool(RECRUITING, 2);
 
@@ -32,7 +33,7 @@ class CarpoolRideStartTest extends CarpoolRideTestSupport {
         assertThat(detail.status()).isEqualTo(IN_PROGRESS);
         Companion saved = reload(carpool);
         assertThat(saved.getStatus()).isEqualTo(IN_PROGRESS);
-        assertThat(saved.getEtaAt()).isEqualTo(DEPARTURE_AT.plusHours(1));
+        assertThat(saved.getEtaAt()).isEqualTo(DEPARTURE_AT.plus(StraightLineRideDuration.estimate(ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG)));
     }
 
     @Test
