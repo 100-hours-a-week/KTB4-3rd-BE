@@ -97,7 +97,7 @@ import tools.jackson.databind.json.JsonMapper;
 abstract class NotificationPushKafkaIntegrationSupport {
 
     static final Duration WAIT = Duration.ofSeconds(30);
-    static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka:4.2.0"));
+    static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka:4.1.2"));
     private static final AtomicInteger SEQ = new AtomicInteger();
 
     static {
