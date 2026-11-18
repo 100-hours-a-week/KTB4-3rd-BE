@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,6 +47,9 @@ class CongestionSpotListQueryTest {
     private CongestionLatestCache latestCache;
 
     @Mock
+    private CongestionCacheReloader cacheReloader;
+
+    @Mock
     private SpotRepository spotRepository;
 
     @Mock
@@ -57,7 +59,7 @@ class CongestionSpotListQueryTest {
 
     @BeforeEach
     void setUp() {
-        queryService = new CongestionQueryService(latestCache, spotRepository, calculator,
+        queryService = new CongestionQueryService(latestCache, cacheReloader, spotRepository, calculator,
                 Clock.fixed(NOW, ZoneId.of("Asia/Seoul")));
     }
 
@@ -79,16 +81,17 @@ class CongestionSpotListQueryTest {
     }
 
     @Test
-    @DisplayName("위치 키를 다 채운 적이 없으면 MongoDB 에서 모두 읽어 캐시를 다시 채운다")
-    void loadsFromMongoAndReloadsCacheWhenNotIndexed() {
+    @DisplayName("위치 키를 다 채운 적이 없으면 다시 채우기를 요청하고 MongoDB 에서 화면 범위만 읽는다")
+    void loadsFromMongoInBoundsAndRequestsReloadWhenNotIndexed() {
         given(latestCache.findInBounds(any())).willReturn(new SpotsInBounds.NotIndexed());
         Spot pangyo = spot(101L, "판교역", 37.3948, 127.1112, CongestionStatus.CROWDED, NOW.plusSeconds(480));
-        given(spotRepository.findAllLatest()).willReturn(List.of(pangyo));
+        given(spotRepository.findLatestInBounds(any())).willReturn(List.of(pangyo));
 
         List<CongestionSpotItem> spots = queryService.findSpotsInBounds(PANGYO_VIEW).items();
 
         assertThat(spots).extracting(CongestionSpotItem::id).containsExactly(101L);
-        verify(latestCache).reload(argThat(list -> list.size() == 1 && list.getFirst().id().equals(101L)));
+        verify(cacheReloader).requestReload();
+        verify(spotRepository, never()).findAllLatest();
     }
 
     @Test
@@ -103,6 +106,7 @@ class CongestionSpotListQueryTest {
         assertThat(spots).extracting(CongestionSpotItem::id).containsExactly(101L);
         verify(spotRepository, never()).findAllLatest();
         verify(latestCache, never()).reload(anyList());
+        verify(cacheReloader, never()).requestReload();
     }
 
     @Test
