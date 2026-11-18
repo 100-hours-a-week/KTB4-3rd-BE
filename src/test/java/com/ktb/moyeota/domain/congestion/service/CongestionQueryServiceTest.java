@@ -5,18 +5,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
 import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
+import com.ktb.moyeota.domain.congestion.cache.SpotsInBounds;
 import com.ktb.moyeota.domain.congestion.config.CongestionWindowProperties;
 import com.ktb.moyeota.domain.congestion.document.CauseReport;
 import com.ktb.moyeota.domain.congestion.document.SpotType;
+import com.ktb.moyeota.domain.congestion.dto.CongestionSpotItem;
+import com.ktb.moyeota.domain.congestion.dto.CongestionSpotSearchRequest;
+import com.ktb.moyeota.domain.congestion.dto.CongestionSpotSearchResponse;
 import com.ktb.moyeota.domain.congestion.error.CongestionErrorCode;
 import com.ktb.moyeota.domain.congestion.model.CauseCode;
 import com.ktb.moyeota.domain.congestion.model.CongestionLevel;
 import com.ktb.moyeota.domain.congestion.repository.SpotRepository;
 import com.ktb.moyeota.domain.congestion.status.CongestionStatus;
 import com.ktb.moyeota.domain.congestion.window.CongestionWindowCalculator;
+import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.MongoTestContainerConfig;
 import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import com.ktb.moyeota.global.exception.BusinessException;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -45,6 +51,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 class CongestionQueryServiceTest {
 
     private static final Long PANGYO = 101L;
+    private static final CongestionSpotSearchRequest PANGYO_VIEW = new CongestionSpotSearchRequest(
+            new BigDecimal("37.38"), new BigDecimal("127.10"), new BigDecimal("37.41"), new BigDecimal("127.13"));
     private static final List<CauseReport> RUSH_HOUR = List.of(new CauseReport(CauseCode.RUSH_HOUR, 3));
 
     @Autowired
@@ -65,7 +73,7 @@ class CongestionQueryServiceTest {
     @BeforeEach
     void setUp() {
         mongoTemplate.dropCollection("spots");
-        redisTemplate.delete("congestion:spots:latest");
+        redisTemplate.delete(List.of("congestion:spots:latest", "congestion:spots:geo", "congestion:spots:loaded"));
     }
 
     @Test
@@ -164,6 +172,39 @@ class CongestionQueryServiceTest {
         latestCache.put(result(CongestionStatus.CONGESTED, RUSH_HOUR, at("07:20"), at("07:20")));
 
         assertThat(findSpotAt("07:21").analyzing()).isFalse();
+    }
+
+    @Test
+    @DisplayName("결과만 캐시에 있고 위치 키를 다 채운 적이 없으면 MongoDB 에서 다시 채운 뒤 목록을 돌려준다")
+    void reloadsCacheBeforeListingWhenNotIndexed() {
+        insertSpotWithResult(PANGYO, "판교역", 37.3948, 127.1112);
+        insertSpotWithResult(102L, "정자역", 37.3670, 127.1083);
+        latestCache.put(result(CongestionStatus.CONGESTED, RUSH_HOUR, at("07:10"), at("07:10")));
+
+        CongestionSpotSearchResponse response = queryServiceAt("07:15").findSpotsInBounds(PANGYO_VIEW);
+
+        assertThat(response.items()).extracting(CongestionSpotItem::id).containsExactly(PANGYO);
+        assertThat(latestCache.findInBounds(new Viewport(PANGYO_VIEW.swLat(), PANGYO_VIEW.swLng(),
+                PANGYO_VIEW.neLat(), PANGYO_VIEW.neLng()))).isInstanceOfSatisfying(SpotsInBounds.Found.class,
+                found -> assertThat(found.spots()).extracting(CachedSpot::status)
+                        .containsExactly(CongestionStatus.CROWDED));
+    }
+
+    private void insertSpotWithResult(Long id, String name, double lat, double lng) {
+        mongoTemplate.getCollection("spots").insertOne(new Document("_id", id)
+                .append("type", "STATION")
+                .append("name", name)
+                .append("location", new Document("type", "Point").append("coordinates", List.of(lng, lat)))
+                .append("status", "CROWDED")
+                .append("causes", List.of())
+                .append("calculated_at", Date.from(at("07:10")))
+                .append("result_window_end", Date.from(at("07:10")))
+                .append("valid_until", Date.from(at("07:30"))));
+    }
+
+    private CongestionQueryService queryServiceAt(String time) {
+        return new CongestionQueryService(latestCache, spotRepository, calculator,
+                Clock.fixed(at(time), ZoneOffset.UTC));
     }
 
     private CongestionSpotDetail findSpotAt(String time) {
