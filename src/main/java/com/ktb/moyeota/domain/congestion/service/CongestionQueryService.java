@@ -27,6 +27,7 @@ public class CongestionQueryService {
     private static final int PIN_LIMIT = 500;
 
     private final CongestionLatestCache latestCache;
+    private final CongestionCacheReloader cacheReloader;
     private final SpotRepository spotRepository;
     private final CongestionWindowCalculator calculator;
     private final Clock clock;
@@ -81,19 +82,18 @@ public class CongestionQueryService {
     private List<CachedSpot> latestSpotsIn(Viewport viewport) {
         return switch (latestCache.findInBounds(viewport)) {
             case SpotsInBounds.Found found -> found.spots();
-            case SpotsInBounds.NotIndexed _ -> reloadCache();
-            case SpotsInBounds.Unavailable _ -> spotRepository.findLatestInBounds(viewport).stream()
-                    .map(CachedSpot::from)
-                    .toList();
+            case SpotsInBounds.NotIndexed _ -> {
+                cacheReloader.requestReload();
+                yield latestSpotsFromMongo(viewport);
+            }
+            case SpotsInBounds.Unavailable _ -> latestSpotsFromMongo(viewport);
         };
     }
 
-    private List<CachedSpot> reloadCache() {
-        List<CachedSpot> loaded = spotRepository.findAllLatest().stream()
+    private List<CachedSpot> latestSpotsFromMongo(Viewport viewport) {
+        return spotRepository.findLatestInBounds(viewport).stream()
                 .map(CachedSpot::from)
                 .toList();
-        latestCache.reload(loaded);
-        return loaded;
     }
 
     private static boolean contains(Viewport viewport, CachedSpot spot) {

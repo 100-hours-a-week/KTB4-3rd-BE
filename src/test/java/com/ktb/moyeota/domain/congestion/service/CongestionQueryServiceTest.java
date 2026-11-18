@@ -41,6 +41,7 @@ import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -73,7 +74,8 @@ class CongestionQueryServiceTest {
     @BeforeEach
     void setUp() {
         mongoTemplate.dropCollection("spots");
-        redisTemplate.delete(List.of("congestion:spots:latest", "congestion:spots:geo", "congestion:spots:loaded"));
+        redisTemplate.delete(List.of("congestion:spots:latest", "congestion:spots:geo", "congestion:spots:loaded",
+                "congestion:spots:reloading"));
     }
 
     @Test
@@ -175,7 +177,7 @@ class CongestionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("결과만 캐시에 있고 위치 키를 다 채운 적이 없으면 MongoDB 에서 다시 채운 뒤 목록을 돌려준다")
+    @DisplayName("결과만 캐시에 있고 위치 키를 다 채운 적이 없으면 MongoDB 화면 범위로 답하고 캐시를 다시 채운다")
     void reloadsCacheBeforeListingWhenNotIndexed() {
         insertSpotWithResult(PANGYO, "판교역", 37.3948, 127.1112);
         insertSpotWithResult(102L, "정자역", 37.3670, 127.1083);
@@ -204,13 +206,17 @@ class CongestionQueryServiceTest {
     }
 
     private CongestionQueryService queryServiceAt(String time) {
-        return new CongestionQueryService(latestCache, spotRepository, calculator,
+        return new CongestionQueryService(latestCache, reloader(), spotRepository, calculator,
                 Clock.fixed(at(time), ZoneOffset.UTC));
     }
 
     private CongestionSpotDetail findSpotAt(String time) {
         Clock clock = Clock.fixed(at(time), ZoneOffset.UTC);
-        return new CongestionQueryService(latestCache, spotRepository, calculator, clock).findSpot(PANGYO);
+        return new CongestionQueryService(latestCache, reloader(), spotRepository, calculator, clock).findSpot(PANGYO);
+    }
+
+    private CongestionCacheReloader reloader() {
+        return new CongestionCacheReloader(latestCache, spotRepository, new SyncTaskExecutor());
     }
 
     private CachedSpot result(CongestionStatus status, List<CauseReport> causes, Instant windowEnd,
