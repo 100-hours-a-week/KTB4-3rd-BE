@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
 import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
+import com.ktb.moyeota.domain.congestion.cache.SpotsInBounds;
 import com.ktb.moyeota.domain.congestion.document.Spot;
 import com.ktb.moyeota.domain.congestion.document.SpotType;
 import com.ktb.moyeota.domain.congestion.dto.CongestionSpotItem;
@@ -28,7 +29,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,7 +64,7 @@ class CongestionSpotListQueryTest {
     @Test
     @DisplayName("캐시에 있으면 지도 범위 안 · 표시 기한 안 · 상태 있는 스팟만 돌려준다")
     void returnsFilteredSpotsFromCache() {
-        given(latestCache.findAll()).willReturn(Optional.of(List.of(
+        given(latestCache.findInBounds(any())).willReturn(new SpotsInBounds.Found(List.of(
                 cached(102L, "정자역", 37.3670, 127.1083, CongestionStatus.SMOOTH, NOW.plusSeconds(480)),
                 cached(101L, "판교역", 37.3948, 127.1112, CongestionStatus.CROWDED, NOW.plusSeconds(480)),
                 cached(103L, "서현역", 37.3851, 127.1232, null, NOW.plusSeconds(480)),
@@ -79,29 +79,30 @@ class CongestionSpotListQueryTest {
     }
 
     @Test
-    @DisplayName("캐시가 비어 있으면 MongoDB 에서 읽어 캐시에 채운다")
-    void loadsFromMongoAndFillsCacheWhenEmpty() {
-        given(latestCache.findAll()).willReturn(Optional.of(List.of()));
+    @DisplayName("위치 키를 다 채운 적이 없으면 MongoDB 에서 모두 읽어 캐시를 다시 채운다")
+    void loadsFromMongoAndReloadsCacheWhenNotIndexed() {
+        given(latestCache.findInBounds(any())).willReturn(new SpotsInBounds.NotIndexed());
         Spot pangyo = spot(101L, "판교역", 37.3948, 127.1112, CongestionStatus.CROWDED, NOW.plusSeconds(480));
         given(spotRepository.findAllLatest()).willReturn(List.of(pangyo));
 
         List<CongestionSpotItem> spots = queryService.findSpotsInBounds(PANGYO_VIEW).items();
 
         assertThat(spots).extracting(CongestionSpotItem::id).containsExactly(101L);
-        verify(latestCache).putAll(argThat(list -> list.size() == 1 && list.getFirst().id().equals(101L)));
+        verify(latestCache).reload(argThat(list -> list.size() == 1 && list.getFirst().id().equals(101L)));
     }
 
     @Test
-    @DisplayName("Redis 를 읽지 못하면 MongoDB 에서 읽고 캐시에는 쓰지 않는다")
-    void loadsFromMongoWithoutFillingWhenCacheUnavailable() {
-        given(latestCache.findAll()).willReturn(Optional.empty());
+    @DisplayName("Redis 를 읽지 못하면 MongoDB 에서 화면 범위만 읽고 캐시에는 쓰지 않는다")
+    void loadsFromMongoInBoundsWithoutFillingWhenCacheUnavailable() {
+        given(latestCache.findInBounds(any())).willReturn(new SpotsInBounds.Unavailable());
         Spot pangyo = spot(101L, "판교역", 37.3948, 127.1112, CongestionStatus.CROWDED, NOW.plusSeconds(480));
-        given(spotRepository.findAllLatest()).willReturn(List.of(pangyo));
+        given(spotRepository.findLatestInBounds(any())).willReturn(List.of(pangyo));
 
         List<CongestionSpotItem> spots = queryService.findSpotsInBounds(PANGYO_VIEW).items();
 
         assertThat(spots).extracting(CongestionSpotItem::id).containsExactly(101L);
-        verify(latestCache, never()).putAll(anyList());
+        verify(spotRepository, never()).findAllLatest();
+        verify(latestCache, never()).reload(anyList());
     }
 
     @Test
@@ -111,9 +112,10 @@ class CongestionSpotListQueryTest {
                 new BigDecimal("37.41"), new BigDecimal("127.10"), new BigDecimal("37.38"), new BigDecimal("127.13"));
 
         assertThatThrownBy(() -> queryService.findSpotsInBounds(reversed)).isInstanceOf(BusinessException.class);
-        verify(latestCache, never()).findAll();
+        verify(latestCache, never()).findInBounds(any());
+        verify(spotRepository, never()).findLatestInBounds(any());
         verify(spotRepository, never()).findAllLatest();
-        verify(latestCache, never()).putAll(any());
+        verify(latestCache, never()).reload(any());
     }
 
     private static CachedSpot cached(Long id, String name, double lat, double lng, CongestionStatus status,

@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.ktb.moyeota.domain.congestion.document.Spot;
 import com.ktb.moyeota.domain.congestion.document.SpotType;
 import com.ktb.moyeota.domain.congestion.support.CongestionMongoScripts;
+import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.MongoTestContainerConfig;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -116,6 +118,23 @@ class SpotRepositoryTest {
                 spot(102L, "정자역", LAT, LNG)));
 
         assertThat(spotRepository.findAllLatest()).extracting(Spot::getId).containsExactly(101L);
+    }
+
+    @Test
+    @DisplayName("화면 범위 안에서 결과가 있는 스팟만 읽고, 넓은 화면의 남쪽 경계 바로 안쪽 스팟도 빠뜨리지 않는다")
+    void findsLatestSpotsInBounds() {
+        Date calculatedAt = Date.from(Instant.parse("2026-11-03T22:10:00Z"));
+        insertSpots(List.of(
+                spot(101L, "남쪽 경계 가운데 1m 안", 37.00001, 127.5).append("calculated_at", calculatedAt),
+                spot(102L, "남서 모서리", 37.0, 127.0).append("calculated_at", calculatedAt),
+                spot(103L, "북동 모서리", 38.0, 128.0).append("calculated_at", calculatedAt),
+                spot(104L, "결과 없음", 37.5, 127.5),
+                spot(105L, "동쪽 경계 밖", 37.5, 128.01).append("calculated_at", calculatedAt)));
+
+        List<Spot> spots = spotRepository.findLatestInBounds(new Viewport(
+                new BigDecimal("37.0"), new BigDecimal("127.0"), new BigDecimal("38.0"), new BigDecimal("128.0")));
+
+        assertThat(spots).extracting(Spot::getId).containsExactlyInAnyOrder(101L, 102L, 103L);
     }
 
     private void insertSpots(List<Document> spots) {

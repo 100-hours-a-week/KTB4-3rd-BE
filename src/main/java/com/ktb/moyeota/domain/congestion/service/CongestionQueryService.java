@@ -2,6 +2,7 @@ package com.ktb.moyeota.domain.congestion.service;
 
 import com.ktb.moyeota.domain.congestion.cache.CachedSpot;
 import com.ktb.moyeota.domain.congestion.cache.CongestionLatestCache;
+import com.ktb.moyeota.domain.congestion.cache.SpotsInBounds;
 import com.ktb.moyeota.domain.congestion.dto.CongestionSpotItem;
 import com.ktb.moyeota.domain.congestion.dto.CongestionSpotSearchRequest;
 import com.ktb.moyeota.domain.congestion.dto.CongestionSpotSearchResponse;
@@ -16,7 +17,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -68,7 +68,7 @@ public class CongestionQueryService {
     public CongestionSpotSearchResponse findSpotsInBounds(CongestionSpotSearchRequest request) {
         Viewport viewport = new Viewport(request.swLat(), request.swLng(), request.neLat(), request.neLng());
         Instant now = clock.instant();
-        List<CongestionSpotItem> items = latestSpots().stream()
+        List<CongestionSpotItem> items = latestSpotsIn(viewport).stream()
                 .filter(spot -> spot.status() != null)
                 .filter(spot -> spot.validUntil() != null && spot.validUntil().isAfter(now))
                 .filter(spot -> contains(viewport, spot))
@@ -78,17 +78,21 @@ public class CongestionQueryService {
         return new CongestionSpotSearchResponse(items, PIN_LIMIT, false);
     }
 
-    private List<CachedSpot> latestSpots() {
-        Optional<List<CachedSpot>> cached = latestCache.findAll();
-        if (cached.isPresent() && !cached.get().isEmpty()) {
-            return cached.get();
-        }
+    private List<CachedSpot> latestSpotsIn(Viewport viewport) {
+        return switch (latestCache.findInBounds(viewport)) {
+            case SpotsInBounds.Found found -> found.spots();
+            case SpotsInBounds.NotIndexed _ -> reloadCache();
+            case SpotsInBounds.Unavailable _ -> spotRepository.findLatestInBounds(viewport).stream()
+                    .map(CachedSpot::from)
+                    .toList();
+        };
+    }
+
+    private List<CachedSpot> reloadCache() {
         List<CachedSpot> loaded = spotRepository.findAllLatest().stream()
                 .map(CachedSpot::from)
                 .toList();
-        if (cached.isPresent()) {
-            latestCache.putAll(loaded);
-        }
+        latestCache.reload(loaded);
         return loaded;
     }
 
