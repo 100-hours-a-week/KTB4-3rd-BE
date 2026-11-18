@@ -2,15 +2,19 @@ package com.ktb.moyeota.domain.congestion.repository;
 
 import com.ktb.moyeota.domain.congestion.document.CongestionLatest;
 import com.ktb.moyeota.domain.congestion.document.Spot;
+import com.ktb.moyeota.global.common.Viewport;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
+import org.springframework.data.mongodb.core.geo.GeoJsonPolygon;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -19,6 +23,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class SpotRepository {
+
+    private static final double EDGE_MARGIN_DEGREES = 0.0001;
+    private static final double EDGE_STEP_DEGREES = 0.01;
 
     private final MongoTemplate mongoTemplate;
 
@@ -49,6 +56,28 @@ public class SpotRepository {
 
     public List<Spot> findAllLatest() {
         return mongoTemplate.find(new Query(Criteria.where("calculated_at").exists(true)), Spot.class);
+    }
+
+    public List<Spot> findLatestInBounds(Viewport viewport) {
+        return mongoTemplate.find(new Query(Criteria.where("location").within(boundsOf(viewport))
+                .and("calculated_at").exists(true)), Spot.class);
+    }
+
+    private static GeoJsonPolygon boundsOf(Viewport viewport) {
+        double south = viewport.swLat().doubleValue() - EDGE_MARGIN_DEGREES;
+        double north = viewport.neLat().doubleValue() + EDGE_MARGIN_DEGREES;
+        double west = viewport.swLng().doubleValue() - EDGE_MARGIN_DEGREES;
+        double east = viewport.neLng().doubleValue() + EDGE_MARGIN_DEGREES;
+        int steps = (int) Math.ceil((east - west) / EDGE_STEP_DEGREES);
+        List<Point> ring = new ArrayList<>(2 * steps + 3);
+        for (int i = 0; i <= steps; i++) {
+            ring.add(new Point(west + (east - west) * i / steps, south));
+        }
+        for (int i = 0; i <= steps; i++) {
+            ring.add(new Point(east - (east - west) * i / steps, north));
+        }
+        ring.add(new Point(west, south));
+        return new GeoJsonPolygon(ring);
     }
 
     public Optional<Spot> findById(Long spotId) {
