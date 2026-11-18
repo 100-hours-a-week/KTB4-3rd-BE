@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.congestion.cache;
 
 import com.ktb.moyeota.global.common.Viewport;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +28,12 @@ public class CongestionLatestCache {
     static final String KEY = "congestion:spots:latest";
     static final String GEO_KEY = "congestion:spots:geo";
     static final String LOADED_KEY = "congestion:spots:loaded";
+    static final String RELOADING_KEY = "congestion:spots:reloading";
+
+    private static final Duration RELOAD_LOCK_TTL = Duration.ofSeconds(30);
+    private static final int RELOAD_CHUNK_SIZE = 500;
+    private static final List<Duration> RELOAD_RETRY_BACKOFFS = List.of(
+            Duration.ofMillis(100), Duration.ofMillis(200), Duration.ofMillis(400));
 
     private static final double EARTH_RADIUS_METERS = 6_372_797.560856;
     private static final double EDGE_MARGIN_DEGREES = 0.0001;
@@ -74,15 +81,46 @@ public class CongestionLatestCache {
         write(spots);
     }
 
-    public void reload(List<CachedSpot> spots) {
-        if (!write(spots)) {
-            return;
+    public boolean tryStartReload() {
+        try {
+            return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(RELOADING_KEY, "1", RELOAD_LOCK_TTL));
+        } catch (DataAccessException e) {
+            log.warn("[CONGESTION_CACHE_RELOAD_LOCK_FAILED] Redis 에 다시 채우기 잠금을 걸지 못했습니다.", e);
+            return false;
+        }
+    }
+
+    public boolean reload(List<CachedSpot> spots) {
+        for (int from = 0; from < spots.size(); from += RELOAD_CHUNK_SIZE) {
+            if (!writeWithRetry(spots.subList(from, Math.min(from + RELOAD_CHUNK_SIZE, spots.size())))) {
+                return false;
+            }
         }
         try {
             redisTemplate.opsForValue().set(LOADED_KEY, "1");
+            return true;
         } catch (DataAccessException e) {
             log.warn("[CONGESTION_CACHE_WRITE_FAILED] Redis 에 스팟 위치를 다 채웠다는 표시를 남기지 못했습니다.", e);
+            return false;
         }
+    }
+
+    private boolean writeWithRetry(List<CachedSpot> chunk) {
+        if (write(chunk)) {
+            return true;
+        }
+        for (Duration backoff : RELOAD_RETRY_BACKOFFS) {
+            try {
+                Thread.sleep(backoff);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            if (write(chunk)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean write(List<CachedSpot> spots) {

@@ -12,6 +12,8 @@ import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +43,7 @@ class CongestionLatestCacheTest {
     @BeforeEach
     void setUp() {
         redisTemplate.delete(List.of(CongestionLatestCache.KEY, CongestionLatestCache.GEO_KEY,
-                CongestionLatestCache.LOADED_KEY));
+                CongestionLatestCache.LOADED_KEY, CongestionLatestCache.RELOADING_KEY));
     }
 
     @Test
@@ -187,6 +189,39 @@ class CongestionLatestCacheTest {
         redisTemplate.delete(CongestionLatestCache.KEY);
 
         assertThat(latestCache.findInBounds(PANGYO_VIEW)).isInstanceOf(SpotsInBounds.NotIndexed.class);
+    }
+
+    @Test
+    @DisplayName("다시 채우기 잠금은 먼저 잡은 한 곳만 얻고, 30초 뒤 풀린다")
+    void locksReloadForThirtySeconds() {
+        assertThat(latestCache.tryStartReload()).isTrue();
+        assertThat(latestCache.tryStartReload()).isFalse();
+        assertThat(redisTemplate.getExpire(CongestionLatestCache.RELOADING_KEY)).isBetween(1L, 30L);
+    }
+
+    @Test
+    @DisplayName("다시 시도해도 다시 채우기 쓰기가 실패하면 다 채움 표시를 남기지 않는다")
+    void doesNotMarkLoadedWhenReloadWriteFails() {
+        redisTemplate.opsForValue().set(CongestionLatestCache.KEY, "해시가 아닌 값");
+
+        boolean reloaded = latestCache.reload(List.of(spot(101L, "판교역", CongestionStatus.CROWDED)));
+
+        assertThat(reloaded).isFalse();
+        assertThat(redisTemplate.hasKey(CongestionLatestCache.LOADED_KEY)).isFalse();
+    }
+
+    @Test
+    @DisplayName("다시 채우기 쓰기가 잠깐 실패해도 쉬었다 다시 시도해 다 채운다")
+    void retriesReloadWriteAfterBackoff() {
+        redisTemplate.opsForValue().set(CongestionLatestCache.KEY, "해시가 아닌 값");
+        CompletableFuture.runAsync(() -> redisTemplate.delete(CongestionLatestCache.KEY),
+                CompletableFuture.delayedExecutor(150, TimeUnit.MILLISECONDS));
+
+        boolean reloaded = latestCache.reload(List.of(spot(101L, "판교역", CongestionStatus.CROWDED)));
+
+        assertThat(reloaded).isTrue();
+        assertThat(redisTemplate.hasKey(CongestionLatestCache.LOADED_KEY)).isTrue();
+        assertThat(latestCache.get(101L)).isPresent();
     }
 
     private static CachedSpot spot(Long id, String name, double lat, double lng) {
