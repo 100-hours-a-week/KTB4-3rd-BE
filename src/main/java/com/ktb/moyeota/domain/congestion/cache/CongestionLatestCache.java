@@ -46,6 +46,23 @@ public class CongestionLatestCache {
             return result
             """, List.class);
 
+    private static final RedisScript<Long> PUT_IF_NOT_OLDER = RedisScript.of("""
+            for i = 1, #ARGV, 3 do
+                local current = redis.call('HGET', KEYS[1], ARGV[i])
+                local currentVersion = 0
+                if current then
+                    local ok, decoded = pcall(cjson.decode, current)
+                    if ok and type(decoded) == 'table' then
+                        currentVersion = tonumber(decoded.version) or 0
+                    end
+                end
+                if currentVersion <= tonumber(ARGV[i + 2]) then
+                    redis.call('HSET', KEYS[1], ARGV[i], ARGV[i + 1])
+                end
+            end
+            return 0
+            """, Long.class);
+
     private final StringRedisTemplate redisTemplate;
     private final JsonMapper jsonMapper;
 
@@ -69,12 +86,13 @@ public class CongestionLatestCache {
     }
 
     private boolean write(List<CachedSpot> spots) {
-        Map<String, String> values = new LinkedHashMap<>();
+        List<String> args = new ArrayList<>();
         Map<String, Point> locations = new LinkedHashMap<>();
         for (CachedSpot spot : spots) {
             String member = String.valueOf(spot.id());
             try {
-                values.put(member, jsonMapper.writeValueAsString(spot));
+                args.addAll(List.of(member, jsonMapper.writeValueAsString(spot),
+                        String.valueOf(spot.version() == null ? 0 : spot.version())));
             } catch (JacksonException e) {
                 log.error("[CONGESTION_CACHE_WRITE_FAILED] 스팟 최신값을 JSON 으로 바꾸지 못했습니다. spot_id={}",
                         spot.id(), e);
@@ -84,18 +102,18 @@ public class CongestionLatestCache {
                 locations.put(member, new Point(spot.lng(), spot.lat()));
             }
         }
-        if (values.isEmpty()) {
+        if (args.isEmpty()) {
             return spots.isEmpty();
         }
         try {
-            redisTemplate.opsForHash().putAll(KEY, values);
+            redisTemplate.execute(PUT_IF_NOT_OLDER, List.of(KEY), args.toArray());
             if (!locations.isEmpty()) {
                 redisTemplate.opsForGeo().add(GEO_KEY, locations);
             }
             return true;
         } catch (DataAccessException e) {
             log.warn("[CONGESTION_CACHE_WRITE_FAILED] Redis 에 스팟 최신값을 저장하지 못했습니다. spots={}",
-                    values.size(), e);
+                    spots.size(), e);
             return false;
         }
     }

@@ -23,7 +23,8 @@ public record CachedSpot(
         Instant calculatedAt,
         Instant validUntil,
         Instant pendingWindowEnd,
-        Instant resultWindowEnd) {
+        Instant resultWindowEnd,
+        Long version) {
 
     public CachedSpot {
         causes = causes == null ? List.of() : List.copyOf(causes);
@@ -45,6 +46,7 @@ public record CachedSpot(
                 spot.getCalculatedAt(),
                 spot.getValidUntil(),
                 spot.getPendingWindowEnd(),
-                spot.getResultWindowEnd());
+                spot.getResultWindowEnd(),
+                spot.getVersion());
     }
 }

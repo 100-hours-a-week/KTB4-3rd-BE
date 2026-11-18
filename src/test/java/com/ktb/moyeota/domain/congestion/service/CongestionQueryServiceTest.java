@@ -147,7 +147,7 @@ class CongestionQueryServiceTest {
     void usesResultWindowEndAfterFailure() {
         latestCache.put(new CachedSpot(PANGYO, SpotType.STATION, "판교역", 37.3948, 127.1112,
                 CongestionStatus.CONGESTED, CongestionLevel.MEDIUM, RUSH_HOUR, "출근 인파로 혼잡", 3,
-                at("07:20"), at("07:30"), at("07:20"), at("07:10")));
+                at("07:20"), at("07:30"), at("07:20"), at("07:10"), 1L));
 
         assertThat(findSpotAt("07:22").windowEnd()).isEqualTo(at("07:10"));
     }
@@ -199,7 +199,8 @@ class CongestionQueryServiceTest {
                 .append("causes", List.of())
                 .append("calculated_at", Date.from(at("07:10")))
                 .append("result_window_end", Date.from(at("07:10")))
-                .append("valid_until", Date.from(at("07:30"))));
+                .append("valid_until", Date.from(at("07:30")))
+                .append("version", 2L));
     }
 
     private CongestionQueryService queryServiceAt(String time) {
@@ -217,7 +218,7 @@ class CongestionQueryServiceTest {
         Instant validUntil = calculator.windowContaining(calculator.windowContaining(windowEnd).end().toInstant())
                 .end().toInstant();
         return new CachedSpot(PANGYO, SpotType.STATION, "판교역", 37.3948, 127.1112, status, CongestionLevel.MEDIUM,
-                causes, "출근 인파로 혼잡", 3, windowEnd, validUntil, pendingWindowEnd, windowEnd);
+                causes, "출근 인파로 혼잡", 3, windowEnd, validUntil, pendingWindowEnd, windowEnd, 1L);
     }
 
     private static Instant at(String time) {

@@ -78,6 +78,36 @@ class CongestionLatestCacheTest {
     }
 
     @Test
+    @DisplayName("버전이 더 낮은 값은 캐시의 새 값을 덮지 않고, 더 높은 값은 덮는다")
+    void keepsNewerVersion() {
+        latestCache.put(spot(101L, CongestionStatus.ACCIDENT, 5L));
+
+        latestCache.reload(List.of(spot(101L, CongestionStatus.CROWDED, 4L), spot(201L, CongestionStatus.SMOOTH, 1L)));
+
+        assertThat(latestCache.get(101L)).hasValueSatisfying(cached -> {
+            assertThat(cached.status()).isEqualTo(CongestionStatus.ACCIDENT);
+            assertThat(cached.version()).isEqualTo(5L);
+        });
+        assertThat(latestCache.get(201L)).isPresent();
+
+        latestCache.put(spot(101L, CongestionStatus.SMOOTH, 6L));
+
+        assertThat(latestCache.get(101L)).hasValueSatisfying(cached ->
+                assertThat(cached.status()).isEqualTo(CongestionStatus.SMOOTH));
+    }
+
+    @Test
+    @DisplayName("버전이 없는 옛 캐시 값은 0 으로 보고 덮어쓴다")
+    void overwritesValueWithoutVersion() {
+        redisTemplate.opsForHash().put(CongestionLatestCache.KEY, "101", "{\"id\":101,\"status\":\"ACCIDENT\"}");
+
+        latestCache.put(spot(101L, CongestionStatus.CROWDED, null));
+
+        assertThat(latestCache.get(101L)).hasValueSatisfying(cached ->
+                assertThat(cached.status()).isEqualTo(CongestionStatus.CROWDED));
+    }
+
+    @Test
     @DisplayName("스팟 하나를 읽고, 없으면 비어 있다")
     void getsOneSpot() {
         CachedSpot pangyo = spot(101L, "판교역", CongestionStatus.CROWDED);
@@ -161,12 +191,17 @@ class CongestionLatestCacheTest {
 
     private static CachedSpot spot(Long id, String name, double lat, double lng) {
         return new CachedSpot(id, SpotType.STATION, name, lat, lng, CongestionStatus.CROWDED, CongestionLevel.HIGH,
-                List.of(), "요약", 3, WINDOW_END, WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END);
+                List.of(), "요약", 3, WINDOW_END, WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END, 1L);
     }
 
     private static CachedSpot spot(Long id, String name, CongestionStatus status) {
         return new CachedSpot(id, SpotType.STATION, name, 37.3948, 127.1112, status, CongestionLevel.HIGH,
                 List.of(new CauseReport(CauseCode.RUSH_HOUR, 3)), "출근 인파로 붐빔", 3, WINDOW_END,
-                WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END);
+                WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END, 1L);
+    }
+
+    private static CachedSpot spot(Long id, CongestionStatus status, Long version) {
+        return new CachedSpot(id, SpotType.STATION, "판교역", 37.3948, 127.1112, status, CongestionLevel.HIGH,
+                List.of(), "요약", 3, WINDOW_END, WINDOW_END.plusSeconds(600), WINDOW_END, WINDOW_END, version);
     }
 }
