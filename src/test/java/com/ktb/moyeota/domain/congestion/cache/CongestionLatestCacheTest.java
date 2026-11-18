@@ -12,6 +12,7 @@ import com.ktb.moyeota.global.config.RedisTestContainerConfig;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,20 @@ class CongestionLatestCacheTest {
 
         assertThat(found).isInstanceOfSatisfying(SpotsInBounds.Found.class, result -> assertThat(result.spots())
                 .extracting(CachedSpot::id).containsExactlyInAnyOrder(101L, 102L, 103L, 104L));
+    }
+
+    @Test
+    @DisplayName("화면 안 스팟이 천 개를 넘어도 모두 읽는다")
+    void findsMoreThanThousandSpotsInBounds() {
+        List<CachedSpot> spots = IntStream.range(0, 2_500)
+                .mapToObj(i -> spot(1_000L + i, "정류장" + i, 37.381 + (i / 50) * 0.0005, 127.101 + (i % 50) * 0.0005))
+                .toList();
+        latestCache.reload(spots);
+
+        SpotsInBounds found = latestCache.findInBounds(PANGYO_VIEW);
+
+        assertThat(found).isInstanceOfSatisfying(SpotsInBounds.Found.class, result -> assertThat(result.spots())
+                .containsExactlyInAnyOrderElementsOf(spots));
     }
 
     @Test

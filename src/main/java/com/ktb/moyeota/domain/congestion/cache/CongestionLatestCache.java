@@ -11,9 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands.DistanceUnit;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.data.redis.domain.geo.BoundingBox;
 import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.stereotype.Component;
@@ -31,6 +30,21 @@ public class CongestionLatestCache {
 
     private static final double EARTH_RADIUS_METERS = 6_372_797.560856;
     private static final double EDGE_MARGIN_DEGREES = 0.0001;
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static final RedisScript<List<String>> LOADED_AND_VALUES = (RedisScript) RedisScript.of("""
+            local result = {tostring(redis.call('EXISTS', KEYS[2]))}
+            if result[1] == '0' then
+                return result
+            end
+            for i = 1, #ARGV, 1000 do
+                local values = redis.call('HMGET', KEYS[1], unpack(ARGV, i, math.min(i + 999, #ARGV)))
+                for j = 1, #values do
+                    result[#result + 1] = values[j]
+                end
+            end
+            return result
+            """, List.class);
 
     private final StringRedisTemplate redisTemplate;
     private final JsonMapper jsonMapper;
@@ -88,24 +102,20 @@ public class CongestionLatestCache {
 
     public SpotsInBounds findInBounds(Viewport viewport) {
         List<String> ids;
-        List<Object> read;
+        List<String> read;
         try {
             ids = redisTemplate.opsForGeo().search(GEO_KEY, centerOf(viewport), boxOf(viewport)).getContent().stream()
                     .map(result -> result.getContent().getName())
                     .toList();
-            read = redisTemplate.executePipelined(loadedAndValues(ids));
+            read = redisTemplate.execute(LOADED_AND_VALUES, List.of(KEY, LOADED_KEY), ids.toArray());
         } catch (DataAccessException e) {
             log.warn("[CONGESTION_CACHE_READ_FAILED] Redis 에서 화면 안 스팟을 읽지 못했습니다.", e);
             return new SpotsInBounds.Unavailable();
         }
-        if (!Boolean.TRUE.equals(read.get(0))) {
+        if (!"1".equals(read.getFirst())) {
             return new SpotsInBounds.NotIndexed();
         }
-        if (ids.isEmpty()) {
-            return new SpotsInBounds.Found(List.of());
-        }
-        @SuppressWarnings("unchecked")
-        List<String> values = (List<String>) read.get(1);
+        List<String> values = read.subList(1, read.size());
         if (values.contains(null)) {
             return new SpotsInBounds.NotIndexed();
         }
@@ -134,21 +144,6 @@ public class CongestionLatestCache {
         double width = Math.toRadians(lngSpan) * EARTH_RADIUS_METERS * Math.cos(Math.toRadians(widestLat));
         double height = Math.toRadians(north - south) * EARTH_RADIUS_METERS;
         return new BoundingBox(width, height, DistanceUnit.METERS);
-    }
-
-    private static SessionCallback<Object> loadedAndValues(List<String> ids) {
-        return new SessionCallback<>() {
-            @Override
-            @SuppressWarnings("unchecked")
-            public <K, V> Object execute(RedisOperations<K, V> operations) {
-                RedisOperations<String, String> redis = (RedisOperations<String, String>) operations;
-                redis.hasKey(LOADED_KEY);
-                if (!ids.isEmpty()) {
-                    redis.<String, String>opsForHash().multiGet(KEY, ids);
-                }
-                return null;
-            }
-        };
     }
 
     public Optional<List<CachedSpot>> findAll() {
