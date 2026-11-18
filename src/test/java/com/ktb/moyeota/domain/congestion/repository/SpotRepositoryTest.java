@@ -2,8 +2,11 @@ package com.ktb.moyeota.domain.congestion.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.ktb.moyeota.domain.congestion.document.CongestionLatest;
 import com.ktb.moyeota.domain.congestion.document.Spot;
 import com.ktb.moyeota.domain.congestion.document.SpotType;
+import com.ktb.moyeota.domain.congestion.model.CongestionLevel;
+import com.ktb.moyeota.domain.congestion.status.CongestionStatus;
 import com.ktb.moyeota.domain.congestion.support.CongestionMongoScripts;
 import com.ktb.moyeota.global.common.Viewport;
 import com.ktb.moyeota.global.config.MongoTestContainerConfig;
@@ -135,6 +138,36 @@ class SpotRepositoryTest {
                 new BigDecimal("37.0"), new BigDecimal("127.0"), new BigDecimal("38.0"), new BigDecimal("128.0")));
 
         assertThat(spots).extracting(Spot::getId).containsExactlyInAnyOrder(101L, 102L, 103L);
+    }
+
+    @Test
+    @DisplayName("분석 요청 · 결과 반영 · 실패 구간 넘기기마다 버전을 하나씩 올리고, 글 시각과 지난 결과는 올리지 않는다")
+    void raisesVersionOnlyWhenCachedValueChanges() {
+        Instant windowEnd = Instant.parse("2026-11-03T22:10:00Z");
+        insertSpots(List.of(spot(101L, "판교역", LAT, LNG)));
+
+        spotRepository.markAnalyzing(101L, windowEnd);
+        assertThat(version(101L)).isEqualTo(1L);
+
+        spotRepository.applyLatest(101L, latest(windowEnd));
+        assertThat(version(101L)).isEqualTo(2L);
+
+        spotRepository.advanceCalculatedAt(101L, windowEnd.plusSeconds(600));
+        assertThat(version(101L)).isEqualTo(3L);
+
+        spotRepository.raiseLastSignalAt(101L, windowEnd.plusSeconds(700));
+        spotRepository.applyLatest(101L, latest(windowEnd));
+        spotRepository.advanceCalculatedAt(101L, windowEnd);
+        assertThat(version(101L)).isEqualTo(3L);
+    }
+
+    private Long version(Long spotId) {
+        return mongoTemplate.findById(spotId, Spot.class).getVersion();
+    }
+
+    private static CongestionLatest latest(Instant calculatedAt) {
+        return new CongestionLatest(CongestionStatus.CROWDED, CongestionLevel.HIGH, List.of(), "요약", 3,
+                calculatedAt, calculatedAt.plusSeconds(1200));
     }
 
     private void insertSpots(List<Document> spots) {

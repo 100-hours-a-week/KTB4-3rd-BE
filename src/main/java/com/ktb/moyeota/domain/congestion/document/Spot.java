@@ -52,4 +52,6 @@ public class Spot {
 
     @Field("result_window_end")
     private Instant resultWindowEnd;
+
+    private Long version;
 }

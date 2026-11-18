@@ -51,7 +51,7 @@ public class SpotRepository {
 
     public void markAnalyzing(Long spotId, Instant windowEnd) {
         mongoTemplate.updateFirst(new Query(Criteria.where("_id").is(spotId)),
-                new Update().set("pending_window_end", Date.from(windowEnd)), Spot.class);
+                new Update().set("pending_window_end", Date.from(windowEnd)).inc("version", 1L), Spot.class);
     }
 
     public List<Spot> findAllLatest() {
@@ -97,12 +97,13 @@ public class SpotRepository {
                 .set("report_count", latest.reportCount())
                 .set("calculated_at", Date.from(latest.calculatedAt()))
                 .set("result_window_end", Date.from(latest.calculatedAt()))
-                .set("valid_until", Date.from(latest.validUntil()));
+                .set("valid_until", Date.from(latest.validUntil()))
+                .inc("version", 1L);
         return updateIfNewer(spotId, latest.calculatedAt(), update);
     }
 
     public boolean advanceCalculatedAt(Long spotId, Instant calculatedAt) {
-        return updateIfNewer(spotId, calculatedAt, new Update().set("calculated_at", Date.from(calculatedAt)));
+        return updateIfNewer(spotId, calculatedAt, new Update().set("calculated_at", Date.from(calculatedAt)).inc("version", 1L));
     }
 
     private boolean updateIfNewer(Long spotId, Instant calculatedAt, Update update) {
