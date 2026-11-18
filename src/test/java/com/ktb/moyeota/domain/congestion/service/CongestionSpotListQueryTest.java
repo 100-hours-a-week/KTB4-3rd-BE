@@ -121,7 +121,7 @@ class CongestionSpotListQueryTest {
     private static CachedSpot cached(Long id, String name, double lat, double lng, CongestionStatus status,
             Instant validUntil) {
         return new CachedSpot(id, SpotType.STATION, name, lat, lng, status, CongestionLevel.HIGH, List.of(),
-                "요약", 3, validUntil.minusSeconds(600), validUntil, null, validUntil.minusSeconds(600));
+                "요약", 3, validUntil.minusSeconds(600), validUntil, null, validUntil.minusSeconds(600), 1L);
     }
 
     private static Spot spot(Long id, String name, double lat, double lng, CongestionStatus status,

@@ -63,6 +63,9 @@ class CongestionResultServiceTest {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private SpotRepository spotRepository;
+
     @BeforeEach
     void setUp() throws Exception {
         mongoTemplate.dropCollection("spots");
@@ -227,6 +230,38 @@ class CongestionResultServiceTest {
             assertThat(cached.calculatedAt()).isEqualTo(at("07:10"));
         });
         assertThat(histories()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("다시 채우기가 결과 반영 전에 읽은 값은 그 뒤 반영된 결과를 캐시에서 덮지 않는다")
+    void reloadDoesNotOverwriteNewerResult() {
+        resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+        List<CachedSpot> readBeforeResult = spotRepository.findAllLatest().stream().map(CachedSpot::from).toList();
+        resultService.apply(success("07:20", CongestionLevel.MEDIUM, "여전히 혼잡"));
+
+        latestCache.reload(readBeforeResult);
+
+        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+            assertThat(cached.calculatedAt()).isEqualTo(at("07:20"));
+            assertThat(cached.summary()).isEqualTo("여전히 혼잡");
+        });
+    }
+
+    @Test
+    @DisplayName("분석 요청 쪽이 결과 반영 전에 읽은 분석 중 값은 그 뒤 반영된 결과를 캐시에서 덮지 않는다")
+    void analyzingDoesNotOverwriteNewerResult() {
+        spotRepository.markAnalyzing(PANGYO, at("07:10"));
+        List<CachedSpot> readBeforeResult = spotRepository.findAllById(List.of(PANGYO)).stream()
+                .map(CachedSpot::from).toList();
+        resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
+
+        latestCache.putAll(readBeforeResult);
+
+        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+            assertThat(cached.calculatedAt()).isEqualTo(at("07:10"));
+            assertThat(cached.pendingWindowEnd()).isEqualTo(at("07:10"));
+            assertThat(cached.summary()).isEqualTo("출근 인파로 혼잡");
+        });
     }
 
     private static CongestionAnalysisResultData success(String windowEnd, CongestionLevel level, String summary) {
