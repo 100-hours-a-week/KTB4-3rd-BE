@@ -8,12 +8,10 @@ import com.ktb.moyeota.domain.chat.dto.ReadMarkerRequest;
 import com.ktb.moyeota.domain.chat.dto.ReadMarkerResponse;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
-import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomListProjection;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
-import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 import com.ktb.moyeota.domain.companion.entity.CompanionStatus;
@@ -37,7 +35,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final CompanionParticipantRepository companionParticipantRepository;
-    private final MessageRepository messageRepository;
+    private final ReadMarkerStore readMarkerStore;
     private final ChatRoomCursorCodec chatRoomCursorCodec;
     private final ImageUrlResolver imageUrlResolver;
     private final SettlementRepository settlementRepository;
@@ -81,11 +79,11 @@ public class ChatRoomService {
         ChatRoom chatRoom = chatRoomRepository.findByIdWithCompanion(roomId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
-        Long lastReadMessageId = (participant.getMessage() != null) ? participant.getMessage().getId() : null;
+        ReadMarkerResponse readMarker = readMarkerStore.current(participant);
         SettlementStatus settlementStatus = resolveSettlementStatus(chatRoom.getCompanion());
         Boolean rated = resolveRated(userId, chatRoom.getCompanion(), participant, settlementStatus);
 
-        return ChatRoomDetailResponse.of(chatRoom, lastReadMessageId, settlementStatus, rated);
+        return ChatRoomDetailResponse.of(chatRoom, readMarker, settlementStatus, rated);
     }
 
     @Transactional
@@ -94,20 +92,7 @@ public class ChatRoomService {
                 .findActiveByChatRoomIdAndUserId(roomId, userId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
-        Long currentLastReadMessageId = (participant.getMessage() != null) ? participant.getMessage().getId() : null;
-        Long requestedLastReadMessageId = request.lastReadMessageId();
-
-        Long finalLastReadMessageId = currentLastReadMessageId;
-        if (requestedLastReadMessageId != null) {
-            Message messageRef = messageRepository.getReferenceById(requestedLastReadMessageId);
-            int updatedRows = companionParticipantRepository.updateLastReadMessageIfNewer(
-                    participant.getId(), messageRef, requestedLastReadMessageId);
-            if (updatedRows > 0) {
-                finalLastReadMessageId = requestedLastReadMessageId;
-            }
-        }
-
-        return new ReadMarkerResponse(finalLastReadMessageId);
+        return readMarkerStore.markRead(participant, roomId, request);
     }
 
     @Transactional

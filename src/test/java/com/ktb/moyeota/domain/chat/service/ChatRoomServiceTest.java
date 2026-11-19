@@ -66,7 +66,8 @@ class ChatRoomServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChatRoomService(chatRoomRepository, companionParticipantRepository, messageRepository,
+        service = new ChatRoomService(chatRoomRepository, companionParticipantRepository,
+                new MysqlReadMarkerStore(companionParticipantRepository, messageRepository),
                 new ChatRoomCursorCodec(), new ImageUrlResolver(new S3Properties(
                         "moyeota-test-images", "ap-northeast-2", Duration.ofMinutes(5), "https://cdn.moyeota.test")),
                 settlementRepository, companionRatingRepository);
