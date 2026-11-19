@@ -144,11 +144,11 @@ class KafkaCongestionAnalysisRequesterTest {
 
         requester.request(WINDOW, List.of(SEOHYEON, IMAE));
 
-        assertThat(latestCache.findAll().orElseThrow()).singleElement().satisfies(cached -> {
-            assertThat(cached.id()).isEqualTo(SEOHYEON);
+        assertThat(latestCache.get(SEOHYEON)).hasValueSatisfying(cached -> {
             assertThat(cached.name()).isEqualTo("서현역");
             assertThat(cached.pendingWindowEnd()).isEqualTo(WINDOW.end().toInstant());
         });
+        assertThat(latestCache.get(IMAE)).isEmpty();
     }
 
     private ConsumerRecord<String, String> nextRecordOf(Long spotId) throws InterruptedException {

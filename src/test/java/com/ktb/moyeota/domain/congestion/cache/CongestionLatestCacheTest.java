@@ -53,7 +53,7 @@ class CongestionLatestCacheTest {
 
         latestCache.put(pangyo);
 
-        assertThat(latestCache.findAll()).hasValueSatisfying(spots -> assertThat(spots).containsExactly(pangyo));
+        assertThat(latestCache.get(101L)).hasValue(pangyo);
     }
 
     @Test
@@ -63,20 +63,21 @@ class CongestionLatestCacheTest {
 
         latestCache.put(spot(101L, "판교역", CongestionStatus.ACCIDENT));
 
-        assertThat(latestCache.findAll()).hasValueSatisfying(spots -> assertThat(spots)
-                .singleElement().extracting(CachedSpot::status).isEqualTo(CongestionStatus.ACCIDENT));
+        assertThat(latestCache.get(101L)).hasValueSatisfying(cached ->
+                assertThat(cached.status()).isEqualTo(CongestionStatus.ACCIDENT));
     }
 
     @Test
-    @DisplayName("여러 스팟을 한 번에 넣고, 비어 있으면 빈 목록을 돌려준다")
+    @DisplayName("여러 스팟을 한 번에 넣고, 넣지 않은 스팟은 비어 있다")
     void putsAllAndReadsEmpty() {
-        assertThat(latestCache.findAll()).hasValueSatisfying(spots -> assertThat(spots).isEmpty());
+        assertThat(latestCache.get(101L)).isEmpty();
 
         latestCache.putAll(List.of(spot(101L, "판교역", CongestionStatus.CROWDED),
                 spot(201L, "강남역", CongestionStatus.SMOOTH)));
 
-        assertThat(latestCache.findAll()).hasValueSatisfying(spots -> assertThat(spots)
-                .extracting(CachedSpot::id).containsExactlyInAnyOrder(101L, 201L));
+        assertThat(latestCache.get(101L)).isPresent();
+        assertThat(latestCache.get(201L)).isPresent();
+        assertThat(latestCache.get(301L)).isEmpty();
     }
 
     @Test

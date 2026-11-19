@@ -164,7 +164,7 @@ class CongestionResultServiceTest {
                 PANGYO, time("07:20"), AnalysisStatus.FAILED, null, time("07:21")));
 
         assertThat(spot().getResultWindowEnd()).isEqualTo(at("07:10"));
-        assertThat(cachedSpots()).singleElement()
+        assertThat(cachedSpot())
                 .satisfies(cached -> assertThat(cached.resultWindowEnd()).isEqualTo(at("07:10")));
     }
 
@@ -198,7 +198,7 @@ class CongestionResultServiceTest {
     void refreshesCacheWhenApplied() {
         resultService.apply(success("07:10", CongestionLevel.MEDIUM, "출근 인파로 혼잡"));
 
-        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+        assertThat(cachedSpot()).satisfies(cached -> {
             assertThat(cached.id()).isEqualTo(PANGYO);
             assertThat(cached.status()).isEqualTo(CongestionStatus.CONGESTED);
             assertThat(cached.validUntil()).isEqualTo(at("07:30"));
@@ -213,7 +213,7 @@ class CongestionResultServiceTest {
 
         resultService.apply(success("07:10", CongestionLevel.HIGH, "늦게 온 결과"));
 
-        assertThat(cachedSpots()).isEmpty();
+        assertThat(latestCache.get(PANGYO)).isEmpty();
     }
 
     @Test
@@ -225,7 +225,7 @@ class CongestionResultServiceTest {
         ResultApplyOutcome outcome = resultService.apply(success("07:10", CongestionLevel.HIGH, "다시 온 결과"));
 
         assertThat(outcome).isEqualTo(ResultApplyOutcome.ALREADY_APPLIED);
-        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+        assertThat(cachedSpot()).satisfies(cached -> {
             assertThat(cached.status()).isEqualTo(CongestionStatus.CONGESTED);
             assertThat(cached.calculatedAt()).isEqualTo(at("07:10"));
         });
@@ -241,7 +241,7 @@ class CongestionResultServiceTest {
 
         latestCache.reload(readBeforeResult);
 
-        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+        assertThat(cachedSpot()).satisfies(cached -> {
             assertThat(cached.calculatedAt()).isEqualTo(at("07:20"));
             assertThat(cached.summary()).isEqualTo("여전히 혼잡");
         });
@@ -257,7 +257,7 @@ class CongestionResultServiceTest {
 
         latestCache.putAll(readBeforeResult);
 
-        assertThat(cachedSpots()).singleElement().satisfies(cached -> {
+        assertThat(cachedSpot()).satisfies(cached -> {
             assertThat(cached.calculatedAt()).isEqualTo(at("07:10"));
             assertThat(cached.pendingWindowEnd()).isEqualTo(at("07:10"));
             assertThat(cached.summary()).isEqualTo("출근 인파로 혼잡");
@@ -273,8 +273,8 @@ class CongestionResultServiceTest {
         return new CongestionAnalysis(level, 3, List.of(new CongestionCause(CauseCode.RUSH_HOUR, 3)), summary);
     }
 
-    private List<CachedSpot> cachedSpots() {
-        return latestCache.findAll().orElseThrow();
+    private CachedSpot cachedSpot() {
+        return latestCache.get(PANGYO).orElseThrow();
     }
 
     private void clearCache() {

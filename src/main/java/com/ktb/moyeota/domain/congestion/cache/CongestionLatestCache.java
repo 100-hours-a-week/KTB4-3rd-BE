@@ -202,26 +202,6 @@ public class CongestionLatestCache {
         return new BoundingBox(width, height, DistanceUnit.METERS);
     }
 
-    public Optional<List<CachedSpot>> findAll() {
-        Map<Object, Object> entries;
-        try {
-            entries = redisTemplate.opsForHash().entries(KEY);
-        } catch (DataAccessException e) {
-            log.warn("[CONGESTION_CACHE_READ_FAILED] Redis 에서 스팟 최신값을 읽지 못했습니다.", e);
-            return Optional.empty();
-        }
-        List<CachedSpot> spots = new ArrayList<>(entries.size());
-        for (Map.Entry<Object, Object> entry : entries.entrySet()) {
-            try {
-                spots.add(jsonMapper.readValue((String) entry.getValue(), CachedSpot.class));
-            } catch (JacksonException | IllegalArgumentException | ClassCastException e) {
-                log.warn("[CONGESTION_CACHE_READ_FAILED] 캐시 값을 읽지 못해 건너뜁니다. spot_id={}",
-                        entry.getKey(), e);
-            }
-        }
-        return Optional.of(spots);
-    }
-
     public Optional<CachedSpot> get(Long spotId) {
         String value;
         try {
