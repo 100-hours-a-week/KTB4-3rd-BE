@@ -69,7 +69,7 @@ public class ChatMessageRepository {
         return mongoTemplate.find(query, ChatMessage.class);
     }
 
-    private long lastSeq(Long roomId) {
+    public long lastSeq(Long roomId) {
         Query query = new Query(Criteria.where("room_id").is(roomId))
                 .with(Sort.by(Sort.Direction.DESC, "seq"))
                 .limit(1);
