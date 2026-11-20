@@ -23,7 +23,8 @@ public class CongestionResultConsumer {
 
     private final CongestionResultService resultService;
 
-    @KafkaListener(topics = CongestionMessages.RESULT_TOPIC, groupId = GROUP_ID)
+    @KafkaListener(topics = CongestionMessages.RESULT_TOPIC, groupId = GROUP_ID,
+            properties = "auto.offset.reset=earliest")
     public void consume(@Payload EventEnvelope<CongestionAnalysisResultData> envelope) {
         if (!CongestionMessages.ANALYSIS_COMPLETED.equals(envelope.eventType())) {
             log.debug("[CONGESTION_RESULT_SKIPPED] eventId={}, eventType={}", envelope.eventId(), envelope.eventType());
