@@ -112,6 +112,33 @@ class MongoChatMessageServiceTest {
     }
 
     @Test
+    @DisplayName("읽음 위치가 있으면 안 읽은 10개와 읽은 10개를 이어 주고, 더 새 메시지가 있으면 다음 커서를 준다")
+    void firstEntryStartsFromLastReadSeq() {
+        appendTexts(30);
+        markReadUpTo(5L);
+
+        MessageListResponse<ChatMessageItem> response = service.findMessages(me.getId(), chatRoom.getId(),
+                null, null, null);
+
+        assertThat(seqs(response)).containsExactlyElementsOf(range(15, 1));
+        assertThat(response.beforeCursor()).isNull();
+        assertThat(cursorCodec.decode(response.afterCursor())).isEqualTo(15L);
+    }
+
+    @Test
+    @DisplayName("읽음 위치 뒤로 새 메시지가 없으면 최근 20개부터 준다")
+    void firstEntryFallsBackToLatestWhenAllRead() {
+        appendTexts(25);
+        markReadUpTo(25L);
+
+        MessageListResponse<ChatMessageItem> response = service.findMessages(me.getId(), chatRoom.getId(),
+                null, null, null);
+
+        assertThat(seqs(response)).containsExactlyElementsOf(range(25, 6));
+        assertThat(response.afterCursor()).isNull();
+    }
+
+    @Test
     @DisplayName("메시지가 한 페이지 이하면 이전 커서를 주지 않는다")
     void noBeforeCursorWhenSinglePage() {
         appendTexts(3);
@@ -294,6 +321,15 @@ class MongoChatMessageServiceTest {
     private void appendTexts(int count) {
         IntStream.rangeClosed(1, count).forEach(i -> append(ChatMessage.text(chatRoom.getId(), me.getId(),
                 "c-" + i, "메시지 " + i, BASE.plusSeconds(i))));
+    }
+
+    private void markReadUpTo(long seq) {
+        entityManager.getEntityManager()
+                .createQuery("update CompanionParticipant p set p.lastReadSeq = :seq where p.user.id = :userId")
+                .setParameter("seq", seq)
+                .setParameter("userId", me.getId())
+                .executeUpdate();
+        entityManager.clear();
     }
 
     private void append(ChatMessage message) {

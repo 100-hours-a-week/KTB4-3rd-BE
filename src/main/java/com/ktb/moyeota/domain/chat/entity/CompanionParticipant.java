@@ -34,6 +34,9 @@ public class CompanionParticipant {
     @JoinColumn(name = "last_read_message_id")
     private Message message;
 
+    @Column(name = "last_read_seq")
+    private Long lastReadSeq;
+
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 

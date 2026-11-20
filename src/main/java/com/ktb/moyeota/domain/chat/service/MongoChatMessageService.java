@@ -32,10 +32,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * MongoDB {@code chat_messages} 에서 방별 번호(seq) 기준 v2 커서로 이전 · 새 메시지를 읽는다.
- * 보낸 사람 · 입장 · 퇴장한 사람은 한 페이지 것을 모아 {@code users} 를 한 번에 읽고, 정산 카드 값은 응답할 때 정산 행에서 붙인다.
- */
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "moyeota.chat", name = "message-store", havingValue = "mongo")
@@ -72,7 +68,7 @@ public class MongoChatMessageService implements ChatMessageReader {
             if (beforeCursor != null || afterCursor != null) {
                 throw new BusinessException(ChatErrorCode.INVALID_DIRECTION);
             }
-            return findFirstEntry(roomId, companion, lastReadSeqOf(participant));
+            return findFirstEntry(roomId, companion, participant.getLastReadSeq());
         }
         if (DIRECTION_BEFORE.equals(dir)) {
             long beforeSeq = cursorCodec.decode(beforeCursor);
@@ -89,13 +85,6 @@ public class MongoChatMessageService implements ChatMessageReader {
                     beforeCursor, newer.hasMore() ? cursorOf(newer.messages().get(0)) : null);
         }
         throw new BusinessException(ChatErrorCode.INVALID_DIRECTION);
-    }
-
-    /**
-     * 읽음 위치(seq)는 companion_participants.last_read_seq 로 바뀐 뒤 채운다. 그 전까지는 가장 최근 페이지부터 보여 준다.
-     */
-    private Long lastReadSeqOf(CompanionParticipant participant) {
-        return null;
     }
 
     private MessageListResponse<ChatMessageItem> findFirstEntry(Long roomId, Companion companion, Long lastReadSeq) {
