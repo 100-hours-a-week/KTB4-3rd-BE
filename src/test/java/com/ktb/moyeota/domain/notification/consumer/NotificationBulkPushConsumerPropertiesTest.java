@@ -34,6 +34,15 @@ class NotificationBulkPushConsumerPropertiesTest {
     }
 
     @Test
+    @DisplayName("Parallel Consumer 를 고를 수 있다")
+    void bindsParallelType() {
+        NotificationBulkPushConsumerProperties properties = bind(Map.of(
+                NotificationBulkPushConsumerProperties.PREFIX + ".type", "parallel"));
+
+        assertThat(properties.type()).isEqualTo(Type.PARALLEL);
+    }
+
+    @Test
     @DisplayName("없는 컨슈머 이름을 쓰면 기동하지 않는다")
     void rejectsUnknownType() {
         assertThatThrownBy(() -> bind(Map.of(NotificationBulkPushConsumerProperties.PREFIX + ".type", "mutli")))
