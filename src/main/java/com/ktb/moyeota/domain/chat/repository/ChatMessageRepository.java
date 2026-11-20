@@ -3,12 +3,18 @@ package com.ktb.moyeota.domain.chat.repository;
 import com.ktb.moyeota.domain.chat.document.ChatMessage;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.TypedAggregation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
@@ -67,6 +73,20 @@ public class ChatMessageRepository {
                 .with(Sort.by(Sort.Direction.ASC, "seq"))
                 .limit(limit);
         return mongoTemplate.find(query, ChatMessage.class);
+    }
+
+    public Map<Long, LastMessage> findLastMessages(Collection<Long> roomIds) {
+        if (roomIds.isEmpty()) {
+            return Map.of();
+        }
+        TypedAggregation<ChatMessage> aggregation = Aggregation.newAggregation(ChatMessage.class,
+                Aggregation.match(Criteria.where("roomId").in(roomIds)),
+                Aggregation.sort(Sort.by(Sort.Direction.DESC, "roomId", "seq")),
+                Aggregation.group("roomId")
+                        .first("seq").as("lastSeq")
+                        .first("createdAt").as("lastMessageAt"));
+        return mongoTemplate.aggregate(aggregation, LastMessage.class).getMappedResults().stream()
+                .collect(Collectors.toMap(LastMessage::roomId, Function.identity()));
     }
 
     public long lastSeq(Long roomId) {

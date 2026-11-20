@@ -8,6 +8,7 @@ import com.ktb.moyeota.global.config.MongoTestContainerConfig;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -138,6 +139,29 @@ class ChatMessageRepositoryTest {
 
         assertThat(gaps).isEmpty();
         assertThat(seqsOf(1L)).hasSize(20 * MESSAGES_PER_SENDER);
+    }
+
+    @Test
+    @DisplayName("방마다 가장 큰 번호의 메시지 번호와 시각을 한 번에 구하고, 메시지가 없는 방은 결과에 없다")
+    void findsLastMessagePerRoom() {
+        chatMessageRepository.append(ChatMessage.text(1L, 7L, "a", "a", NOW));
+        chatMessageRepository.append(ChatMessage.text(1L, 7L, "b", "b", NOW.plusSeconds(5)));
+        chatMessageRepository.append(ChatMessage.text(2L, 7L, "c", "c", NOW.plusSeconds(3)));
+        chatMessageRepository.append(ChatMessage.text(3L, 7L, "d", "d", NOW.plusSeconds(9)));
+
+        Map<Long, LastMessage> lastMessages = chatMessageRepository.findLastMessages(List.of(1L, 2L, 4L));
+
+        assertThat(lastMessages).containsOnlyKeys(1L, 2L);
+        assertThat(lastMessages.get(1L).lastSeq()).isEqualTo(2L);
+        assertThat(lastMessages.get(1L).lastMessageAt()).isEqualTo(NOW.plusSeconds(5));
+        assertThat(lastMessages.get(2L).lastSeq()).isEqualTo(1L);
+        assertThat(lastMessages.get(2L).lastMessageAt()).isEqualTo(NOW.plusSeconds(3));
+    }
+
+    @Test
+    @DisplayName("방 목록이 비어 있으면 조회하지 않고 빈 결과를 준다")
+    void emptyRoomIds() {
+        assertThat(chatMessageRepository.findLastMessages(List.of())).isEmpty();
     }
 
     private ChatMessage text(Long roomId, String content) {
