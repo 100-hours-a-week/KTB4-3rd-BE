@@ -8,6 +8,8 @@ spring:
     url: jdbc:h2:mem:moyeota-test;DB_CLOSE_DELAY=-1
     username: sa
     password:
+    hikari:
+      auto-commit: false
   jpa:
     open-in-view: false
     hibernate:
