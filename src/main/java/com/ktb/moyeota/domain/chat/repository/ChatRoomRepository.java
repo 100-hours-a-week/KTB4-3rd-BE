@@ -67,6 +67,27 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("cursorRoomId") Long cursorRoomId,
             @Param("n") int n);
 
+    @Query(nativeQuery = true, value = """
+            SELECT cr.id AS id,
+                   c.id AS companionId,
+                   c.kind AS kind,
+                   c.origin_name AS originName,
+                   c.departure_at AS departureAt,
+                   c.current_count AS currentCount,
+                   c.capacity AS capacity,
+                   u.profile_image_url AS hostProfileImageUrl,
+                   pp.last_read_seq AS lastReadSeq
+            FROM companion_participants pp
+            JOIN chat_rooms cr ON cr.companion_id = pp.companion_id
+            JOIN companions c ON c.id = cr.companion_id
+            JOIN users u ON u.id = c.host_id
+            WHERE pp.user_id = :userId
+              AND (pp.left_at IS NULL OR pp.outcome_status = 'COMPLETED')
+              AND cr.closed_at IS NULL
+              AND (:kind IS NULL OR c.kind = :kind)
+            """)
+    List<MyChatRoomProjection> findMyOpenChatRooms(@Param("userId") Long userId, @Param("kind") String kind);
+
     @Modifying
     @Query("""
             UPDATE Companion c
