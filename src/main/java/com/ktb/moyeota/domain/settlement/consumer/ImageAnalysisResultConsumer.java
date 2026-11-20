@@ -36,7 +36,8 @@ public class ImageAnalysisResultConsumer {
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
-    @KafkaListener(topics = ImageAnalysisMessages.RESULT_TOPIC, groupId = GROUP_ID)
+    @KafkaListener(topics = ImageAnalysisMessages.RESULT_TOPIC, groupId = GROUP_ID,
+            properties = "auto.offset.reset=earliest")
     public void consume(@Payload EventEnvelope<JsonNode> envelope) {
         switch (envelope.eventType()) {
             case ImageAnalysisMessages.METER_COMPLETED -> applyMeter(envelope);

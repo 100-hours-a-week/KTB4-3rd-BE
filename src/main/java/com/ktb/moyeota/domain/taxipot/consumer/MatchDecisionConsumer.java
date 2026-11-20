@@ -31,7 +31,7 @@ public class MatchDecisionConsumer {
             topics = MatchingMessages.DECISION_TOPIC,
             groupId = GROUP_ID,
             containerFactory = MatchDecisionConsumerConfig.CONTAINER_FACTORY,
-            properties = "isolation.level=read_committed")
+            properties = {"isolation.level=read_committed", "auto.offset.reset=earliest"})
     public void consume(
             @Payload EventEnvelope<MatchDecidedData> envelope,
             @Header(KafkaHeaders.RECEIVED_KEY) String cellKey) {

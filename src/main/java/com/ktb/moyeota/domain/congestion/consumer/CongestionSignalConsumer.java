@@ -27,7 +27,8 @@ public class CongestionSignalConsumer {
 
     private final CongestionSignalService signalService;
 
-    @KafkaListener(topics = PostChangedMessages.TOPIC, groupId = GROUP_ID)
+    @KafkaListener(topics = PostChangedMessages.TOPIC, groupId = GROUP_ID,
+            properties = "auto.offset.reset=earliest")
     public void consume(@Payload EventEnvelope<PostChangedData> envelope) {
         if (!SUPPORTED_EVENTS.contains(envelope.eventType())) {
             log.debug("[CONGESTION_SIGNAL_SKIPPED] eventId={}, eventType={}", envelope.eventId(), envelope.eventType());
