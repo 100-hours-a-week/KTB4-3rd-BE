@@ -66,12 +66,16 @@ public class NotificationPushService {
 
     public PushDeliveryOutcome deliver(Long jobId, int maxAttempts) {
         LocalDateTime now = now();
-        Integer claimed = transactionTemplate.execute(
-                status -> jobRepository.claimRequested(jobId, now, now.plus(properties.lease())));
-        if (claimed == null || claimed != 1) {
+        PushTarget target = transactionTemplate.execute(status -> {
+            if (jobRepository.claimRequested(jobId, now, now.plus(properties.lease())) != 1) {
+                return null;
+            }
+            return loadTarget(jobId);
+        });
+        if (target == null) {
             return PushDeliveryOutcome.NOT_CLAIMED;
         }
-        return send(jobId, maxAttempts);
+        return sendTo(jobId, target, maxAttempts);
     }
 
     public List<Long> claimDueJobs() {
@@ -99,7 +103,10 @@ public class NotificationPushService {
         if (target == null) {
             return PushDeliveryOutcome.NOT_CLAIMED;
         }
+        return sendTo(jobId, target, maxAttempts);
+    }
 
+    private PushDeliveryOutcome sendTo(Long jobId, PushTarget target, int maxAttempts) {
         PushSendResult result = target.tokens().isEmpty()
                 ? null
                 : pushSender.send(target.tokens(), target.message());
