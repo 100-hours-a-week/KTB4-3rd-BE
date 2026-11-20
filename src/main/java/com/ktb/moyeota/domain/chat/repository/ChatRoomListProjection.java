@@ -2,23 +2,7 @@ package com.ktb.moyeota.domain.chat.repository;
 
 import java.time.LocalDateTime;
 
-public interface ChatRoomListProjection {
-
-    Long getId();
-
-    Long getCompanionId();
-
-    String getKind();
-
-    String getOriginName();
-
-    LocalDateTime getDepartureAt();
-
-    Integer getCurrentCount();
-
-    Integer getCapacity();
-
-    String getHostProfileImageUrl();
+public interface ChatRoomListProjection extends ChatRoomSummary {
 
     Long getLastMessageId();
 

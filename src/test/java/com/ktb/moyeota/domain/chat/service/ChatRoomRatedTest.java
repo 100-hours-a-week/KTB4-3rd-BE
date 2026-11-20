@@ -32,7 +32,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest
-@Import({ChatRoomService.class, MysqlReadMarkerStore.class, ChatRoomCursorCodec.class, ChatRoomRatedTest.Config.class})
+@Import({ChatRoomService.class, MysqlReadMarkerStore.class, MysqlChatRoomListReader.class, ChatRoomCursorCodec.class,
+        ChatRoomRatedTest.Config.class})
 class ChatRoomRatedTest {
 
     @Autowired
