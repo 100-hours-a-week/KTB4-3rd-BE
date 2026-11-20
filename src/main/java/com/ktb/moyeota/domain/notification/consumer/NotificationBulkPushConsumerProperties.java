@@ -20,6 +20,7 @@ public record NotificationBulkPushConsumerProperties(
 
     public enum Type {
         RECORD,
-        BATCH
+        BATCH,
+        PARALLEL
     }
 }
