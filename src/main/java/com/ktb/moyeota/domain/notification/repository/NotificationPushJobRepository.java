@@ -77,6 +77,23 @@ public interface NotificationPushJobRepository extends JpaRepository<Notificatio
             @Param("now") LocalDateTime now,
             Pageable pageable);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT j
+            FROM NotificationPushJob j
+            WHERE j.id IN :ids
+            ORDER BY j.id
+            """)
+    List<NotificationPushJob> findAllByIdInForUpdate(@Param("ids") Collection<Long> ids);
+
+    @Query("""
+            SELECT j
+            FROM NotificationPushJob j
+            JOIN FETCH j.notification
+            WHERE j.id IN :ids
+            """)
+    List<NotificationPushJob> findAllWithNotificationByIdIn(@Param("ids") Collection<Long> ids);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             UPDATE NotificationPushJob j
