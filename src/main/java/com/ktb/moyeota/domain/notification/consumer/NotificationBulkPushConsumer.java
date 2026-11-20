@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @ConditionalOnServerRole({ServerRole.WORKER, ServerRole.ALL})
 @ConditionalOnProperty(prefix = "moyeota.notification.push", name = "mode", havingValue = "kafka")
+@ConditionalOnProperty(prefix = NotificationBulkPushConsumerProperties.PREFIX,
+        name = NotificationBulkPushConsumerProperties.TYPE, havingValue = "record", matchIfMissing = true)
 public class NotificationBulkPushConsumer {
 
     public static final String GROUP_ID = "notification-bulk-push-sender";
