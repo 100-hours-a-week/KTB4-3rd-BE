@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,6 +18,7 @@ class ScriptedPushSender implements PushSender {
 
     private final Map<String, Deque<TokenSendOutcome>> scripts = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> calls = new ConcurrentHashMap<>();
+    private final Set<Long> failOnce = ConcurrentHashMap.newKeySet();
     private volatile Duration delay = Duration.ZERO;
 
     void script(String token, TokenSendOutcome... outcomes) {
@@ -32,9 +34,19 @@ class ScriptedPushSender implements PushSender {
         return count == null ? 0 : count.get();
     }
 
+    void failNotificationOnce(Long notificationId) {
+        failOnce.add(notificationId);
+    }
+
     @Override
     public PushSendResult send(List<String> tokens, PushMessage message) {
         pause();
+        if (failOnce.remove(Long.parseLong(message.data().get("notification_id")))) {
+            return new PushSendResult(tokens.stream()
+                    .map(token -> TokenSendResult.failure(
+                            token, TokenSendOutcome.TRANSIENT_FAILURE, TokenSendOutcome.TRANSIENT_FAILURE.name()))
+                    .toList());
+        }
         return new PushSendResult(tokens.stream().map(this::sendOne).toList());
     }
 
