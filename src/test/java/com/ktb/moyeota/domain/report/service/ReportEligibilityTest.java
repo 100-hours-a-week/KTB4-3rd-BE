@@ -35,7 +35,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 @DataJpaTest
-@Import({ReportService.class, TestClockConfig.class})
+@Import({ReportService.class, MysqlReportedMessageResolver.class, TestClockConfig.class})
 class ReportEligibilityTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 2, 12, 0);

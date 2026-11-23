@@ -1,10 +1,8 @@
 package com.ktb.moyeota.domain.report.service;
 
 import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
-import com.ktb.moyeota.domain.chat.entity.Message;
 import com.ktb.moyeota.domain.chat.entity.MessageType;
 import com.ktb.moyeota.domain.chat.repository.CompanionParticipantRepository;
-import com.ktb.moyeota.domain.chat.repository.MessageRepository;
 import com.ktb.moyeota.domain.companion.entity.Companion;
 import com.ktb.moyeota.domain.report.dto.ReportCreateRequest;
 import com.ktb.moyeota.domain.report.dto.ReportCreateResponse;
@@ -36,7 +34,7 @@ public class ReportService {
     private final MessageReportRepository messageReportRepository;
     private final UserReportRepository userReportRepository;
     private final UserRepository userRepository;
-    private final MessageRepository messageRepository;
+    private final ReportedMessageResolver reportedMessageResolver;
     private final CompanionParticipantRepository companionParticipantRepository;
     private final EntityManager entityManager;
     private final Clock clock;
@@ -51,22 +49,20 @@ public class ReportService {
     }
 
     private ReportCreateResponse createMessageReport(Long reporterId, ReportCreateRequest request) {
-        Message reportedMessage = messageRepository.findById(request.reportedMessageId())
-                .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID));
+        ReportedMessage reportedMessage = reportedMessageResolver.resolve(request.reportedMessageId());
 
-        validateReporter(reportedMessage.getChatRoom().getCompanion().getId(), reporterId);
+        validateReporter(reportedMessage.companionId(), reporterId);
 
         User reporter = findUser(reporterId);
         User reportedUser = findReportedUser(request.reportedUserId());
         validateNotSelf(reporter, reportedUser);
-        if (reportedMessage.getMessageType() != MessageType.TEXT
-                || !reportedMessage.getSender().getId().equals(reportedUser.getId())) {
+        if (reportedMessage.type() != MessageType.TEXT || !reportedUser.getId().equals(reportedMessage.senderId())) {
             throw new BusinessException(ReportErrorCode.REPORT_TARGET_INVALID);
         }
 
         try {
-            MessageReport saved = messageReportRepository.save(MessageReport.create(
-                    reporter, reportedUser, reportedMessage, request.reason(), request.reasonText()));
+            MessageReport saved = messageReportRepository.save(
+                    reportedMessage.toReport(reporter, reportedUser, request.reason(), request.reasonText()));
             return new ReportCreateResponse(saved.getId(), saved.getCreatedAt());
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ReportErrorCode.DUPLICATE_MESSAGE_REPORT);
