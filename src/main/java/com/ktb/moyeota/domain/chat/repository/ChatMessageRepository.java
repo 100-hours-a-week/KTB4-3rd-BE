@@ -5,6 +5,7 @@ import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.global.exception.BusinessException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Sort;
@@ -40,6 +41,10 @@ public class ChatMessageRepository {
             }
         }
         throw new BusinessException(ChatErrorCode.MESSAGE_SEQ_CONFLICT);
+    }
+
+    public Optional<ChatMessage> findById(UUID id) {
+        return Optional.ofNullable(mongoTemplate.findById(id, ChatMessage.class));
     }
 
     public Optional<ChatMessage> findByClientMessageId(Long roomId, String clientMessageId) {
