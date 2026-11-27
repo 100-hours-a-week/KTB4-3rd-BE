@@ -56,6 +56,15 @@ public interface CompanionParticipantRepository extends JpaRepository<CompanionP
             @Param("message") Message message,
             @Param("newMessageId") Long newMessageId);
 
+    @Modifying
+    @Query("""
+            UPDATE CompanionParticipant p
+            SET p.lastReadSeq = :seq
+            WHERE p.id = :participantId
+              AND (p.lastReadSeq IS NULL OR p.lastReadSeq < :seq)
+            """)
+    int updateLastReadSeqIfNewer(@Param("participantId") Long participantId, @Param("seq") long seq);
+
 
     @Query("""
             SELECT p FROM CompanionParticipant p

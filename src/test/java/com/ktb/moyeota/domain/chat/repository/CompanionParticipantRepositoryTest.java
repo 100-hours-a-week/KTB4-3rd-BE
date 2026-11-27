@@ -239,6 +239,53 @@ class CompanionParticipantRepositoryTest {
     }
 
     @Nested
+    @DisplayName("updateLastReadSeqIfNewer")
+    class UpdateLastReadSeqIfNewer {
+
+        private CompanionParticipant participant;
+
+        @BeforeEach
+        void setUp() {
+            participant = persist(CompanionParticipant.join(companion, host));
+        }
+
+        @Test
+        @DisplayName("읽은 번호가 없으면(NULL) 갱신된다")
+        void updatesWhenNeverRead() {
+            int updated = companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 3L);
+
+            assertThat(updated).isEqualTo(1);
+            assertThat(refetchedLastReadSeq()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("더 큰 번호면 갱신된다")
+        void updatesWhenNewer() {
+            companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 3L);
+
+            int updated = companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 7L);
+
+            assertThat(updated).isEqualTo(1);
+            assertThat(refetchedLastReadSeq()).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("같거나 작은 번호면 갱신되지 않는다")
+        void doesNotRegress() {
+            companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 7L);
+
+            assertThat(companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 7L)).isZero();
+            assertThat(companionParticipantRepository.updateLastReadSeqIfNewer(participant.getId(), 3L)).isZero();
+            assertThat(refetchedLastReadSeq()).isEqualTo(7L);
+        }
+
+        private Long refetchedLastReadSeq() {
+            entityManager.clear();
+            return entityManager.find(CompanionParticipant.class, participant.getId()).getLastReadSeq();
+        }
+    }
+
+    @Nested
     @DisplayName("findActiveByCompanionIdAndUserId")
     class FindActiveByCompanionIdAndUserId {
 

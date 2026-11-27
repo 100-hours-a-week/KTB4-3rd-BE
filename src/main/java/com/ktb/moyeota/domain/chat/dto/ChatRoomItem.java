@@ -1,6 +1,6 @@
 package com.ktb.moyeota.domain.chat.dto;
 
-import com.ktb.moyeota.domain.chat.repository.ChatRoomListProjection;
+import com.ktb.moyeota.domain.chat.repository.ChatRoomSummary;
 import com.ktb.moyeota.domain.companion.entity.CompanionKind;
 
 
@@ -18,7 +18,7 @@ public record ChatRoomItem(
     public record Host(String profileImageUrl) {
     }
 
-    public static ChatRoomItem of(ChatRoomListProjection row, String hostProfileImageUrl, boolean hasUnread) {
+    public static ChatRoomItem of(ChatRoomSummary row, String hostProfileImageUrl, boolean hasUnread) {
         String title = row.getDepartureAt().getHour() + "시 " + row.getOriginName();
 
         return new ChatRoomItem(
