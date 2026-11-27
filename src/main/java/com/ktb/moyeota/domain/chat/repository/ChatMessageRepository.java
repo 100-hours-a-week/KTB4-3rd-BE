@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +47,10 @@ public class ChatMessageRepository {
             }
         }
         throw new BusinessException(ChatErrorCode.MESSAGE_SEQ_CONFLICT);
+    }
+
+    public Optional<ChatMessage> findById(UUID id) {
+        return Optional.ofNullable(mongoTemplate.findById(id, ChatMessage.class));
     }
 
     public Optional<ChatMessage> findByClientMessageId(Long roomId, String clientMessageId) {

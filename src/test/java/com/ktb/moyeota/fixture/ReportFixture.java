@@ -12,7 +12,7 @@ public final class ReportFixture {
     }
 
     public static ReportCreateRequest messageReport(User target, Message message) {
-        return new ReportCreateRequest(target.getId(), message.getId(), null, ReportReason.ABUSE, null);
+        return new ReportCreateRequest(target.getId(), String.valueOf(message.getId()), null, ReportReason.ABUSE, null);
     }
 
     public static ReportCreateRequest userReport(User target, Companion companion) {

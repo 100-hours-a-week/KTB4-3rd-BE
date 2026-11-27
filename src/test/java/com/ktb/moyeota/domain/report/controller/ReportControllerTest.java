@@ -1,6 +1,7 @@
 package com.ktb.moyeota.domain.report.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -87,6 +88,34 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.message").value("신고가 접수되었습니다"))
                 .andExpect(jsonPath("$.data.id").value(4))
                 .andExpect(jsonPath("$.data.created_at").exists());
+    }
+
+    @Test
+    @DisplayName("메시지 id 를 숫자로 보내도 문자열로 받아 서비스에 넘긴다")
+    void acceptsNumericMessageId() throws Exception {
+        given(reportService.create(eq(42L), argThat(request -> "1441".equals(request.reportedMessageId()))))
+                .willReturn(responseWithId(4L));
+
+        mockMvc.perform(post("/api/reports").with(member())
+                        .contentType("application/json")
+                        .content("{\"reported_user_id\":7,\"reported_message_id\":1441,\"reason\":\"ABUSE\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(4));
+    }
+
+    @Test
+    @DisplayName("메시지 id 를 UUID 문자열로 보내면 그대로 서비스에 넘긴다")
+    void acceptsUuidMessageId() throws Exception {
+        String uuid = "0193a4f2-7c1e-7b3a-9d2f-1a2b3c4d5e6f";
+        given(reportService.create(eq(42L), argThat(request -> uuid.equals(request.reportedMessageId()))))
+                .willReturn(responseWithId(4L));
+
+        mockMvc.perform(post("/api/reports").with(member())
+                        .contentType("application/json")
+                        .content("{\"reported_user_id\":7,\"reported_message_id\":\"" + uuid
+                                + "\",\"reason\":\"ABUSE\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(4));
     }
 
     @Test

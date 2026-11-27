@@ -33,7 +33,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -66,7 +65,6 @@ class ReportServiceTest {
     @Mock
     private EntityManager entityManager;
 
-    @InjectMocks
     private ReportService service;
 
     private User reporter;
@@ -90,10 +88,13 @@ class ReportServiceTest {
         ReflectionTestUtils.setField(reportedMessage, "id", MESSAGE_ID);
 
         participant = CompanionParticipant.join(companion, reporter);
+        service = new ReportService(messageReportRepository, userReportRepository, userRepository,
+                new MysqlReportedMessageResolver(messageRepository), companionParticipantRepository, entityManager,
+                null);
     }
 
     private ReportCreateRequest messageReportRequest(ReportReason reason, String reasonText) {
-        return new ReportCreateRequest(REPORTED_USER_ID, MESSAGE_ID, null, reason, reasonText);
+        return new ReportCreateRequest(REPORTED_USER_ID, String.valueOf(MESSAGE_ID), null, reason, reasonText);
     }
 
     private ReportCreateRequest userReportRequest(ReportReason reason, String reasonText) {

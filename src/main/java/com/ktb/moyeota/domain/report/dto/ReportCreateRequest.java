@@ -8,7 +8,7 @@ public record ReportCreateRequest(
         @NotNull
         Long reportedUserId,
 
-        Long reportedMessageId,
+        String reportedMessageId,
 
         Long companionId,
 
