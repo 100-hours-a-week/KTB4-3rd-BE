@@ -6,6 +6,7 @@ import com.ktb.moyeota.domain.chat.dto.ChatMessageSendRequest;
 import com.ktb.moyeota.domain.chat.dto.MessageItem;
 import com.ktb.moyeota.domain.chat.dto.MessageItem.Sender;
 import com.ktb.moyeota.domain.chat.entity.ChatRoom;
+import com.ktb.moyeota.domain.chat.entity.CompanionParticipant;
 import com.ktb.moyeota.domain.chat.exception.ChatErrorCode;
 import com.ktb.moyeota.domain.chat.repository.ChatMessageRepository;
 import com.ktb.moyeota.domain.chat.repository.ChatRoomRepository;
@@ -37,24 +38,32 @@ public class MongoChatMessageSendService implements ChatMessageWriter {
 
     @Override
     public Optional<ChatMessageItem> send(Long userId, Long roomId, ChatMessageSendRequest request) {
-        Optional<Sender> sender = transactionTemplate.execute(status -> senderOf(userId, roomId));
-        if (sender.isEmpty()) {
+        Optional<Sending> sending = transactionTemplate.execute(status -> sendingOf(userId, roomId));
+        if (sending.isEmpty()) {
             return Optional.empty();
         }
         ChatMessage saved = chatMessageRepository.append(
                 ChatMessage.text(roomId, userId, request.clientMessageId(), request.content(), clock.instant()));
-        return Optional.of(ChatMessageItem.text(saved, sender.get(), clock.getZone()));
+        transactionTemplate.executeWithoutResult(status -> companionParticipantRepository
+                .updateLastReadSeqIfNewer(sending.get().participantId(), saved.getSeq()));
+        return Optional.of(ChatMessageItem.text(saved, sending.get().sender(), clock.getZone()));
     }
 
-    private Optional<Sender> senderOf(Long userId, Long roomId) {
-        if (companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, userId).isEmpty()) {
+    private Optional<Sending> sendingOf(Long userId, Long roomId) {
+        Optional<CompanionParticipant> participant =
+                companionParticipantRepository.findActiveByChatRoomIdAndUserId(roomId, userId);
+        if (participant.isEmpty()) {
             return Optional.empty();
         }
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new BusinessException(ChatErrorCode.COMPANION_CHATROOM_NOT_FOUND));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED));
-        return Optional.of(MessageItem.senderOf(
-                user, chatRoom.getCompanion().getKind(), imageUrlResolver.toUrl(user.getProfileImageUrl())));
+        Sender sender = MessageItem.senderOf(
+                user, chatRoom.getCompanion().getKind(), imageUrlResolver.toUrl(user.getProfileImageUrl()));
+        return Optional.of(new Sending(participant.get().getId(), sender));
+    }
+
+    private record Sending(Long participantId, Sender sender) {
     }
 }

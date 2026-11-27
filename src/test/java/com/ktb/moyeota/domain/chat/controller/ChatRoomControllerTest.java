@@ -118,7 +118,7 @@ class ChatRoomControllerTest {
         ChatRoomDetailResponse response = new ChatRoomDetailResponse(
                 30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
-                2, 4, CompanionStatus.RECRUITING, null, null, null, 99L);
+                2, 4, CompanionStatus.RECRUITING, null, null, null, 99L, null);
         given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
 
         mockMvc.perform(get("/api/chat-rooms/30").with(member()))
@@ -136,7 +136,7 @@ class ChatRoomControllerTest {
         ChatRoomDetailResponse response = new ChatRoomDetailResponse(
                 30L, 10L, CompanionKind.TAXI_POT, "8시 판교역", 7L,
                 "판교역", "강남역", LocalDateTime.of(2026, 9, 5, 8, 30),
-                2, 4, CompanionStatus.COMPLETED, SettlementStatus.COMPLETED, false, null, 99L);
+                2, 4, CompanionStatus.COMPLETED, SettlementStatus.COMPLETED, false, null, 99L, null);
         given(chatRoomService.findDetail(42L, 30L)).willReturn(response);
 
         mockMvc.perform(get("/api/chat-rooms/30").with(member()))
@@ -160,7 +160,7 @@ class ChatRoomControllerTest {
     @Test
     @DisplayName("읽음 처리에 성공하면 200과 마지막으로 읽은 메시지 id를 내린다")
     void markRead() throws Exception {
-        given(chatRoomService.markRead(eq(42L), eq(30L), any())).willReturn(new ReadMarkerResponse(55L));
+        given(chatRoomService.markRead(eq(42L), eq(30L), any())).willReturn(new ReadMarkerResponse(55L, null));
 
         mockMvc.perform(put("/api/chat-rooms/30/read-marker")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -174,7 +174,7 @@ class ChatRoomControllerTest {
     @Test
     @DisplayName("읽음 처리 요청 값이 없으면(null) 그대로 서비스에 전달한다")
     void markReadWithoutBody() throws Exception {
-        given(chatRoomService.markRead(eq(42L), eq(30L), any())).willReturn(new ReadMarkerResponse(null));
+        given(chatRoomService.markRead(eq(42L), eq(30L), any())).willReturn(new ReadMarkerResponse(null, null));
 
         mockMvc.perform(put("/api/chat-rooms/30/read-marker")
                         .contentType(MediaType.APPLICATION_JSON)

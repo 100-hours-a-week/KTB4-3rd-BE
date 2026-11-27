@@ -23,11 +23,12 @@ public record ChatRoomDetailResponse(
         SettlementStatus settlementStatus,
         @JsonInclude(JsonInclude.Include.NON_NULL) Boolean rated,
         LocalDateTime closedAt,
-        Long lastReadMessageId
+        Long lastReadMessageId,
+        Long lastReadSeq
 ) {
 
     public static ChatRoomDetailResponse of(
-            ChatRoom chatRoom, Long lastReadMessageId, SettlementStatus settlementStatus, Boolean rated) {
+            ChatRoom chatRoom, ReadMarkerResponse readMarker, SettlementStatus settlementStatus, Boolean rated) {
         Companion companion = chatRoom.getCompanion();
         String title = companion.getDepartureAt().getHour() + "시 " + companion.getOriginName();
 
@@ -46,7 +47,8 @@ public record ChatRoomDetailResponse(
                 settlementStatus,
                 rated,
                 chatRoom.getClosedAt(),
-                lastReadMessageId
+                readMarker.lastReadMessageId(),
+                readMarker.lastReadSeq()
         );
     }
 }

@@ -115,6 +115,19 @@ class MongoChatMessageSendServiceTest {
     }
 
     @Test
+    @DisplayName("보낸 사람의 읽음 위치를 방금 보낸 메시지 번호로 올린다")
+    void advancesSenderLastReadSeq() {
+        User sender = entityManager.persist(user("읽음"));
+        ChatRoom chatRoom = chatRoomWith(companionPost(sender), sender);
+
+        service.send(sender.getId(), chatRoom.getId(), new ChatMessageSendRequest("r-1", "하나"));
+        ChatMessageItem second = service.send(sender.getId(), chatRoom.getId(),
+                new ChatMessageSendRequest("r-2", "둘")).orElseThrow();
+
+        assertThat(lastReadSeqOf(sender)).isEqualTo(second.seq());
+    }
+
+    @Test
     @DisplayName("참여 중이 아닌 사람이 보내면 저장하지 않는다")
     void ignoresNonParticipant() {
         User host = entityManager.persist(user("방장"));
@@ -133,6 +146,14 @@ class MongoChatMessageSendServiceTest {
         ChatRoom chatRoom = entityManager.persist(ChatRoom.create(companion));
         entityManager.persistAndFlush(CompanionParticipant.join(companion, participant));
         return chatRoom;
+    }
+
+    private Long lastReadSeqOf(User user) {
+        entityManager.clear();
+        return entityManager.getEntityManager()
+                .createQuery("select p.lastReadSeq from CompanionParticipant p where p.user.id = :userId", Long.class)
+                .setParameter("userId", user.getId())
+                .getSingleResult();
     }
 
     private List<ChatMessage> messagesOf(ChatRoom chatRoom) {
